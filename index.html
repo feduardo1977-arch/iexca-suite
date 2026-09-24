@@ -1378,14 +1378,14 @@
     <!-- MÓDULO 5: AUDITORÍA Y MONITOREO DE SUMINISTROS (CSV MPS / FLEET) & STOCK EN SITIO -->
     <div id="monitoreoViewModule" class="hidden space-y-6">
       <!-- Encabezado del Módulo y Botones Principales -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div class="flex items-center gap-2.5">
-            <span class="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+            <span class="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex-shrink-0">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </span>
             <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
                 <span>Auditoría y Monitoreo de Suministros (Fleet Manager / CSV)</span>
                 <span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-semibold">TNR • UDI • KMT</span>
               </h2>
@@ -1394,17 +1394,17 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2.5 flex-wrap">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
           <input type="file" id="monitoringFileInput" multiple accept=".csv" class="hidden" onchange="handleMonitoringFileInput(event)">
-          <button type="button" onclick="document.getElementById('monitoringFileInput').click()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
+          <button type="button" onclick="document.getElementById('monitoringFileInput').click()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             <span>📥 Cargar Archivos CSV</span>
           </button>
-          <button type="button" onclick="exportMonitoringAuditToExcel()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Exportar reporte de auditoría completo a Excel">
+          <button type="button" onclick="exportMonitoringAuditToExcel()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Exportar reporte de auditoría completo a Excel">
             <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             <span>Exportar Auditoría (.xlsx)</span>
           </button>
-          <button type="button" onclick="resetMonitoringToDefault()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition" title="Restaurar datos predeterminados de Walmart y BAC">
+          <button type="button" onclick="resetMonitoringToDefault()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition" title="Restaurar datos predeterminados de Walmart y BAC">
             <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             <span>Recargar Predeterminados</span>
           </button>
@@ -1412,19 +1412,19 @@
       </div>
 
       <!-- Gestor Multi-Cliente y Zona de Carga Drag & Drop -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Clientes Monitoreados:</span>
-            <div id="monitoringClientsPills" class="flex items-center gap-2 flex-wrap">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex-shrink-0">Clientes Monitoreados:</span>
+            <div id="monitoringClientsPills" class="flex items-center gap-1.5 flex-wrap">
               <!-- Renderizado dinámicamente con chips de clientes y botón eliminar -->
             </div>
           </div>
 
           <!-- Selector de Snapshot / Fecha para Histórico Semanal -->
-          <div class="flex items-center gap-2">
-            <label for="monitoringSnapshotSelect" class="text-xs font-semibold text-slate-600 dark:text-slate-300">Monitoreo / Fecha:</label>
-            <select id="monitoringSnapshotSelect" onchange="onMonitoringSnapshotChange()" class="text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200 font-medium">
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <label for="monitoringSnapshotSelect" class="text-xs font-semibold text-slate-600 dark:text-slate-300 flex-shrink-0">Monitoreo / Fecha:</label>
+            <select id="monitoringSnapshotSelect" onchange="onMonitoringSnapshotChange()" class="w-full md:w-auto text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200 font-medium">
               <option value="LATEST">Última Lectura Vigente (vs. Anterior)</option>
             </select>
           </div>
@@ -1438,109 +1438,122 @@
         </div>
       </div>
 
-      <!-- Tarjetas Resumen KPIs de Auditoría (Slides Interactivos de Filtrado) -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
-        <div id="slideMonTotal" onclick="filterMonitoringBySlide('ALL')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 shadow-xs ring-offset-2 hover:border-slate-400 group" title="Clic para ver todos los equipos">
-          <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
-          <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
-          <p class="text-[10px] text-slate-400 mt-0.5 truncate" id="kpiMonClienteLabel">Parque monitoreado</p>
+      <!-- Tarjetas Resumen KPIs de Auditoría (Slides Interactivos de Filtrado y Navegación Táctil) -->
+      <div class="flex overflow-x-auto no-scrollbar pb-2 pt-1 gap-2.5 snap-x snap-mandatory lg:grid lg:grid-cols-5 lg:gap-3.5 lg:overflow-visible">
+        <div id="slideMonTotal" onclick="filterMonitoringBySlide('ALL')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 shadow-xs flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para ver todos los equipos">
+          <div>
+            <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
+            <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1 truncate" id="kpiMonClienteLabel">Parque monitoreado</p>
         </div>
 
-        <div id="slideMonDespacho" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden hover:border-rose-500 group" title="Clic para filtrar solo Alertas Urgentes / Despacho Requerido (≤ 15%)">
+        <div id="slideMonDespacho" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden hover:border-rose-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar solo Alertas Urgentes / Despacho Requerido (≤ 15%)">
           <div class="absolute right-2 top-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Requerido</p>
-          <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
-          <p class="text-[10px] text-rose-500/80 mt-0.5 truncate">&le; 15% y sin stock en sitio</p>
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Req.</p>
+            <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
+          </div>
+          <p class="text-[10px] text-rose-500/80 mt-1 truncate">&le; 15% sin stock</p>
         </div>
 
-        <div id="slideMonReponer" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-amber-200 dark:border-amber-900/50 shadow-xs hover:border-amber-500 group" title="Clic para filtrar equipos que ya cambiaron cartucho y requieren reposición">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
-          <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
-          <p class="text-[10px] text-amber-500/80 mt-0.5 truncate">Cartucho cambiado en sitio</p>
+        <div id="slideMonReponer" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-amber-200 dark:border-amber-900/50 shadow-xs hover:border-amber-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos que ya cambiaron cartucho y requieren reposición">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
+            <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
+          </div>
+          <p class="text-[10px] text-amber-500/80 mt-1 truncate">Cambiado en sitio</p>
         </div>
 
-        <div id="slideMonStockSitio" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-blue-200 dark:border-blue-900/50 shadow-xs hover:border-blue-500 group" title="Clic para filtrar equipos protegidos con stock de respaldo">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
-          <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
-          <p class="text-[10px] text-blue-500/80 mt-0.5 truncate">Protegido con respaldo</p>
+        <div id="slideMonStockSitio" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-blue-200 dark:border-blue-900/50 shadow-xs hover:border-blue-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos protegidos con stock de respaldo">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
+            <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
+          </div>
+          <p class="text-[10px] text-blue-500/80 mt-1 truncate">Con respaldo</p>
         </div>
 
-        <div id="slideMonOptimos" onclick="filterMonitoringBySlide('OPTIMO')" class="col-span-2 sm:col-span-1 lg:col-span-1 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-emerald-200 dark:border-emerald-900/50 shadow-xs hover:border-emerald-500 group" title="Clic para filtrar equipos con niveles óptimos (> 15%)">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
-          <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
-          <p class="text-[10px] text-emerald-500/80 mt-0.5 truncate">Equipos con suministros &gt; 15%</p>
+        <div id="slideMonOptimos" onclick="filterMonitoringBySlide('OPTIMO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-emerald-200 dark:border-emerald-900/50 shadow-xs hover:border-emerald-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos con niveles óptimos (> 15%)">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
+            <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
+          </div>
+          <p class="text-[10px] text-emerald-500/80 mt-1 truncate">Suministros &gt; 15%</p>
         </div>
       </div>
 
       <!-- Barra Rápida de Filtrado Táctil de Alertas (Píldoras Deslizables) -->
-      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Filtrar Alertas:</span>
-        <button type="button" onclick="filterMonitoringBySlide('ALL')" id="pillMonFilterAll" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex-shrink-0 shadow-xs">
+      <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1 w-full max-w-full">
+        <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Filtrar:</span>
+        <button type="button" onclick="filterMonitoringBySlide('ALL')" id="pillMonFilterAll" class="px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex-shrink-0 shadow-xs">
           <span>🌐 Todos</span>
         </button>
-        <button type="button" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" id="pillMonFilterDespacho" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex-shrink-0">
+        <button type="button" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" id="pillMonFilterDespacho" class="px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex-shrink-0">
           <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-          <span>🚨 Despacho Urgente (&le; 15%)</span>
+          <span>🚨 Despacho (&le; 15%)</span>
         </button>
-        <button type="button" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" id="pillMonFilterReponer" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex-shrink-0">
-          <span>🔄 Reponer Stock Sitio</span>
+        <button type="button" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" id="pillMonFilterReponer" class="px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex-shrink-0">
+          <span>🔄 Reponer Stock</span>
         </button>
-        <button type="button" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" id="pillMonFilterStockSitio" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800 flex-shrink-0">
-          <span>🛡️ En Stock en Sitio</span>
+        <button type="button" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" id="pillMonFilterStockSitio" class="px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800 flex-shrink-0">
+          <span>🛡️ En Stock</span>
         </button>
-        <button type="button" onclick="filterMonitoringBySlide('EN_TRANSITO')" id="pillMonFilterTransito" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 flex-shrink-0">
+        <button type="button" onclick="filterMonitoringBySlide('EN_TRANSITO')" id="pillMonFilterTransito" class="px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 flex-shrink-0">
           <span>🚚 En Tránsito</span>
         </button>
-        <button type="button" onclick="filterMonitoringBySlide('OPTIMO')" id="pillMonFilterOptimos" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex-shrink-0">
+        <button type="button" onclick="filterMonitoringBySlide('OPTIMO')" id="pillMonFilterOptimos" class="px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex-shrink-0">
           <span>🟢 Óptimos (&gt; 15%)</span>
         </button>
       </div>
 
       <!-- Filtros y Tabla / Tarjetas de Monitoreo -->
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
-        <!-- Barra de Búsqueda y Filtros -->
-        <div class="p-3.5 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-800/80">
-          <div class="flex items-center gap-2 flex-1 min-w-[260px] max-w-md">
+        <!-- Barra de Búsqueda y Filtros Adaptativa -->
+        <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 bg-slate-50/70 dark:bg-slate-800/80">
+          <div class="w-full md:flex-1 md:max-w-md">
             <div class="relative w-full">
               <input type="text" id="searchMonitoringInput" oninput="filterMonitoringTable()" placeholder="Buscar serie, modelo, tienda, cliente..." class="w-full text-xs pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500">
               <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
           </div>
 
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
             <!-- Alternador de Vista (Tarjetas Móviles vs Tabla Completa) -->
-            <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700">
-              <button type="button" id="btnMonitoringViewCards" onclick="setMonitoringViewMode('cards')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-xs">
+            <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700 w-full sm:w-auto justify-center">
+              <button type="button" id="btnMonitoringViewCards" onclick="setMonitoringViewMode('cards')" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-xs">
                 <span>📱 Tarjetas</span>
               </button>
-              <button type="button" id="btnMonitoringViewTable" onclick="setMonitoringViewMode('table')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+              <button type="button" id="btnMonitoringViewTable" onclick="setMonitoringViewMode('table')" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                 <span>💻 Tabla</span>
               </button>
             </div>
 
-            <!-- Filtro Diagnóstico de Stock -->
-            <select id="filterMonitoringStatusSelect" onchange="filterMonitoringTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
-              <option value="ALL">Todos los Estados</option>
-              <option value="DESPACHO_REQUERIDO">🚨 Solo Despacho Requerido</option>
-              <option value="REPOSICION_STOCK">🔄 Solo Reponer Stock de Sitio</option>
-              <option value="STOCK_EN_SITIO">🛡️ Protegidos con Stock</option>
-              <option value="EN_TRANSITO">🚚 En Tránsito</option>
-              <option value="OPTIMO">🟢 Niveles Óptimos (&gt; 15%)</option>
-            </select>
+            <!-- Filtros en Grid Móvil de 2 columnas o apilados -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:w-auto">
+              <!-- Filtro Diagnóstico de Stock -->
+              <select id="filterMonitoringStatusSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
+                <option value="ALL">Todos los Estados</option>
+                <option value="DESPACHO_REQUERIDO">🚨 Solo Despacho Requerido</option>
+                <option value="REPOSICION_STOCK">🔄 Solo Reponer Stock</option>
+                <option value="STOCK_EN_SITIO">🛡️ Protegidos con Stock</option>
+                <option value="EN_TRANSITO">🚚 En Tránsito</option>
+                <option value="OPTIMO">🟢 Niveles Óptimos (&gt; 15%)</option>
+              </select>
 
-            <!-- Filtro Suministro en Alerta -->
-            <select id="filterMonitoringSupplySelect" onchange="filterMonitoringTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
-              <option value="ALL">Todos los Suministros</option>
-              <option value="TNR">Alertas Tóner (TNR)</option>
-              <option value="UDI">Alertas Imagen (UDI)</option>
-              <option value="KMT">Alertas Mantto (KMT)</option>
-            </select>
+              <!-- Filtro Suministro en Alerta -->
+              <select id="filterMonitoringSupplySelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
+                <option value="ALL">Todos los Suministros</option>
+                <option value="TNR">Alertas Tóner (TNR)</option>
+                <option value="UDI">Alertas Imagen (UDI)</option>
+                <option value="KMT">Alertas Mantto (KMT)</option>
+              </select>
+            </div>
           </div>
         </div>
 
         <!-- Barra de Paginación Superior -->
-        <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
-          <div class="flex items-center gap-3">
+        <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2.5">
+          <div class="flex items-center justify-between w-full sm:w-auto gap-3">
             <div id="monitoringPaginationSummaryTop">Cargando monitoreo...</div>
             <div class="flex items-center gap-1 text-slate-500 dark:text-slate-400">
               <span>Filas:</span>
@@ -1552,7 +1565,7 @@
               </select>
             </div>
           </div>
-          <div class="flex items-center space-x-1.5">
+          <div class="flex items-center justify-center space-x-1.5 w-full sm:w-auto">
             <button type="button" onclick="monitoringFirstPage()" title="Primera Página" class="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold hover:bg-slate-100 dark:hover:bg-slate-600 transition">«</button>
             <button type="button" onclick="monitoringPrevPage()" class="px-3 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-medium hover:bg-slate-100 dark:hover:bg-slate-600 transition">Anterior</button>
             <span id="monitoringPageIndicatorTop" class="px-2.5 font-semibold text-slate-700 dark:text-slate-200">1 / 1</span>
@@ -1591,9 +1604,9 @@
         </div>
 
         <!-- Barra de Paginación Inferior -->
-        <div class="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
-          <div id="monitoringPaginationSummary">Cargando monitoreo...</div>
-          <div class="flex items-center space-x-1.5">
+        <div class="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2.5">
+          <div id="monitoringPaginationSummary" class="text-center sm:text-left w-full sm:w-auto">Cargando monitoreo...</div>
+          <div class="flex items-center justify-center space-x-1.5 w-full sm:w-auto">
             <button type="button" onclick="monitoringFirstPage()" title="Primera Página" class="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold hover:bg-slate-100 dark:hover:bg-slate-600 transition">«</button>
             <button type="button" onclick="monitoringPrevPage()" class="px-3 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-medium hover:bg-slate-100 dark:hover:bg-slate-600 transition">Anterior</button>
             <span id="monitoringPageIndicator" class="px-2.5 font-semibold text-slate-700 dark:text-slate-200">1 / 1</span>
@@ -1739,8 +1752,8 @@
     </div>
   </div>
 
-  <!-- MODAL: REGISTRAR / EDITAR SALIDA EN FOLIOS -->
-  <div id="modalSalidaFolios" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+  <!-- MODAL: REGISTRAR / EDITAR SALIDA EN FOLIOS (SUPERPUESTO EN Z-[70]) -->
+  <div id="modalSalidaFolios" class="hidden fixed inset-0 z-[70] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
       <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
         <div class="flex items-center gap-2.5">
@@ -1749,7 +1762,7 @@
           </div>
           <div>
             <h3 id="modalSalidaTitle" class="text-base font-bold text-slate-900 dark:text-white">Registrar Salida de Suministro (FOLIOS)</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Ingreso de movimiento de tóner, pieza o suministro</p>
+            <p id="modalSalidaSubtitle" class="text-xs text-slate-500 dark:text-slate-400">Ingreso de movimiento de tóner, pieza o suministro</p>
           </div>
         </div>
         <button type="button" onclick="closeSalidaModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -6515,6 +6528,14 @@
       // Sincronizar reactivamente el análisis de monitoreo y stock en sitio
       if (typeof refreshMonitoringAnalysis === 'function') {
         refreshMonitoringAnalysis();
+      }
+
+      // Si la ficha técnica e historial de equipo está abierta, refrescarla in situ
+      const modalHist = document.getElementById('modalEquipmentHistory');
+      if (modalHist && !modalHist.classList.contains('hidden') && serieEq) {
+        if (typeof openEquipmentHistoryModal === 'function') {
+          openEquipmentHistoryModal(serieEq);
+        }
       }
     }
 

@@ -960,6 +960,12 @@ function updateActiveSlideUI(activeStatus) {
     if (!el) return;
     if (key === status) {
       el.classList.add('ring-4', 'ring-rose-500/50', 'dark:ring-rose-400/50', 'border-rose-500', 'shadow-md', 'scale-[1.02]');
+      // En móvil, hacer scroll suave del slide activo en el contenedor horizontal
+      if (window.innerWidth < 1024 && el.scrollIntoView) {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        } catch (e) {}
+      }
     } else {
       el.classList.remove('ring-4', 'ring-rose-500/50', 'dark:ring-rose-400/50', 'border-rose-500', 'shadow-md', 'scale-[1.02]');
     }
@@ -1000,17 +1006,10 @@ function updateActiveSlideUI(activeStatus) {
   });
 }
 
-// Redirección directa al Folio amarrado a la serie para consultar o modificar estatus
+// Consulta / Modificación interactiva de Folio en ventana emergente (SIN SALIR DE MONITOREO)
 function goToFolioDetail(folioNum, serie) {
-  // 1. Cerrar modal de historial de equipo si estuviera abierto
-  closeEquipmentHistoryModal();
+  // Nota: NO se ejecuta switchSuiteTab('salidas') para mantener al usuario 100% en Monitoreo & Stock
 
-  // 2. Alternar a la pestaña de Salidas
-  if (typeof switchSuiteTab === 'function') {
-    switchSuiteTab('salidas');
-  }
-
-  // 3. Buscar registro en sheetStore['FOLIOS']
   const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
   let targetIdx = -1;
 
@@ -1022,9 +1021,9 @@ function goToFolioDetail(folioNum, serie) {
     });
   }
 
+  // Si no se encontró por número de folio exacto, buscar la salida más reciente de esta serie
   if (targetIdx === -1 && serie) {
     const sClean = serie.toString().trim().toUpperCase();
-    // Buscar la salida más reciente de esta serie
     for (let i = allFolios.length - 1; i >= 0; i--) {
       const fs = (allFolios[i]['SERIE'] || '').toString().trim().toUpperCase();
       if (fs === sClean) {
@@ -1034,26 +1033,50 @@ function goToFolioDetail(folioNum, serie) {
     }
   }
 
-  // 4. Filtrar la tabla de Salidas para que se vea el registro
-  const searchInput = document.getElementById('searchSalidasInput');
-  if (searchInput) {
-    searchInput.value = fClean && fClean !== 'S/N' && fClean !== '-' ? fClean : (serie || '');
-    if (typeof filterSalidasTable === 'function') {
-      filterSalidasTable();
+  // Si aún no se encuentra, buscar por referencia de lastFolio en la lista analizada
+  if (targetIdx === -1 && typeof monitoringProcessedList !== 'undefined') {
+    const item = monitoringProcessedList.find(r => r.serie === serie);
+    if (item && item.lastFolio) {
+      targetIdx = allFolios.indexOf(item.lastFolio);
+      if (targetIdx === -1) {
+        allFolios.push(item.lastFolio);
+        targetIdx = allFolios.length - 1;
+      }
     }
   }
 
-  // 5. Abrir inmediatamente el modal de edición de la salida si encontramos el registro
+  // Abrir ventana emergente in situ
   if (targetIdx !== -1 && typeof editSalida === 'function') {
-    setTimeout(() => {
-      editSalida(targetIdx);
-      if (typeof showToast === 'function') {
-        showToast(`Folio #${fClean || allFolios[targetIdx]['FOLIO'] || ''} abierto. Puedes cambiar el ESTADO SUM a ENTREGADO y guardar.`);
-      }
-    }, 100);
-  } else {
+    editSalida(targetIdx);
+
+    const mTitle = document.getElementById('modalSalidaTitle');
+    if (mTitle) {
+      const folVal = allFolios[targetIdx]['FOLIO'] || allFolios[targetIdx]['FOLIO '] || fClean;
+      mTitle.textContent = `Detalle de Folio #${folVal} (Monitoreo & Stock)`;
+    }
+    const subTitle = document.getElementById('modalSalidaSubtitle');
+    if (subTitle) {
+      subTitle.textContent = 'Consulta los datos del folio o modifica el Estado de Suministro para sincronizar el stock.';
+    }
+
     if (typeof showToast === 'function') {
-      showToast(`Mostrando salidas asociadas a la serie ${serie || fClean}.`);
+      showToast(`Folio #${fClean || (allFolios[targetIdx] && allFolios[targetIdx]['FOLIO']) || ''} abierto en ventana emergente.`);
+    }
+  } else {
+    // Si no existe folio previo, abrir formulario para registrar nuevo movimiento precargando los datos
+    if (typeof showToast === 'function') {
+      showToast(`No se encontró folio previo para la serie ${serie || fClean}. Abriendo registro nuevo...`);
+    }
+    if (typeof openNewSalidaModal === 'function') {
+      const item = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === serie) : null;
+      openNewSalidaModal({
+        serie: serie || '',
+        modelo: item ? item.modelo : '',
+        cliente: item ? item.cliente : '',
+        destino: item ? item.ubicacion : '',
+        det: item ? item.det : '',
+        tipoSum: (item && item.alertSupplyType) ? item.alertSupplyType : 'TNR'
+      });
     }
   }
 }
@@ -1394,12 +1417,12 @@ function renderMonitoringTable() {
         </div>
 
         <!-- Última Salida y Acciones -->
-        <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
           <div class="text-xs">
             ${r.lastFolio 
               ? `<div class="leading-tight">
                   <div class="flex items-center gap-1">
-                    <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Ir a Salidas y modificar este folio">
+                    <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Consultar o modificar folio en ventana emergente">
                       <span>Folio #${r.lastFolio['FOLIO'] || ''}</span>
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                     </button>
@@ -1410,16 +1433,16 @@ function renderMonitoringTable() {
               : '<span class="text-[11px] text-slate-400 italic">Sin salidas en FOLIOS</span>'
             }
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
             ${r.lastFolio ? `
-              <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus de entrega">
-                <span>✏️ Folio</span>
+              <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus del folio">
+                <span>👁️ Ver Folio</span>
               </button>
             ` : ''}
-            <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
+            <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
               <span>📦 Despachar</span>
             </button>
-            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 transition" title="Ver Historial Completo y Folios">
+            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 transition flex-shrink-0" title="Ver Historial Completo y Folios">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
             </button>
           </div>
@@ -1532,14 +1555,14 @@ function openEquipmentHistoryModal(serie) {
             `}
           </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
           ${matchProcessed && matchProcessed.lastFolio ? `
-            <button type="button" onclick="closeEquipmentHistoryModal(); goToFolioDetail('${matchProcessed.lastFolio['FOLIO'] || ''}', '${serieUpper}');" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition">
+            <button type="button" onclick="goToFolioDetail('${matchProcessed.lastFolio['FOLIO'] || matchProcessed.lastFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-              <span>Consultar / Modificar Estatus en FOLIOS ↗</span>
+              <span>Consultar / Modificar Folio ✏️</span>
             </button>
           ` : `
-            <button type="button" onclick="closeEquipmentHistoryModal(); dispatchSalidaFromAlert('${serieUpper}', '${matchProcessed ? matchProcessed.alertSupplyType || 'TNR' : 'TNR'}', 10);" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
+            <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', '${matchProcessed ? matchProcessed.alertSupplyType || 'TNR' : 'TNR'}', 10);" class="w-full sm:w-auto inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
               <span>📦 Despachar y Vincular Folio</span>
             </button>
           `}
