@@ -232,60 +232,60 @@
     </div>
 
     <!-- NAVEGACIÓN PRINCIPAL DE LA SUITE IEXCA -->
-    <nav id="suiteNavigation" class="hidden bg-white dark:bg-slate-800 rounded-2xl p-2 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <button type="button" id="tabNavDashboard" onclick="switchSuiteTab('dashboard')" class="suite-tab-btn active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-brand-600 text-white shadow-xs">
+    <nav id="suiteNavigation" class="bg-white dark:bg-slate-800 rounded-2xl p-2 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full xl:w-auto pb-1 xl:pb-0 scroll-smooth flex-nowrap sm:flex-wrap">
+        <button type="button" id="tabNavDashboard" onclick="switchSuiteTab('dashboard')" class="suite-tab-btn active px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-brand-600 text-white shadow-xs whitespace-nowrap flex-shrink-0">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
           <span>📊 Dashboard Analítico</span>
         </button>
-        <button type="button" id="tabNavSalidas" onclick="switchSuiteTab('salidas')" class="suite-tab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2">
+        <button type="button" id="tabNavSalidas" onclick="switchSuiteTab('salidas')" class="suite-tab-btn px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2 whitespace-nowrap flex-shrink-0">
           <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-          <span>📦 Control de Salidas (FOLIOS)</span>
+          <span>📦 Salidas (FOLIOS)</span>
           <span id="badgeFoliosCount" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">0</span>
         </button>
-        <button type="button" id="tabNavTickets" onclick="switchSuiteTab('tickets')" class="suite-tab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2">
+        <button type="button" id="tabNavTickets" onclick="switchSuiteTab('tickets')" class="suite-tab-btn px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2 whitespace-nowrap flex-shrink-0">
           <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
-          <span>🎫 Órdenes de Servicio (ODS)</span>
+          <span>🎫 Tickets (ODS)</span>
           <span id="badgeOdsCount" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">0</span>
         </button>
-        <button type="button" id="tabNavBoleta" onclick="switchSuiteTab('boleta')" class="suite-tab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2">
+        <button type="button" id="tabNavBoleta" onclick="switchSuiteTab('boleta')" class="suite-tab-btn px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2 whitespace-nowrap flex-shrink-0">
           <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-          <span>🖨️ Boleta ODS Imprimible</span>
+          <span>🖨️ Boleta ODS</span>
         </button>
-        <button type="button" id="tabNavRdi" onclick="switchSuiteTab('rdi')" class="suite-tab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2">
+        <button type="button" id="tabNavRdi" onclick="switchSuiteTab('rdi')" class="suite-tab-btn px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2 whitespace-nowrap flex-shrink-0">
           <svg class="w-4 h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-          <span>🖨️ Parque de Equipos (RDI)</span>
+          <span>🖨️ RDI (752 Eq.)</span>
           <span id="badgeRdiCount" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">0</span>
         </button>
-        <button type="button" id="tabNavMonitoreo" onclick="switchSuiteTab('monitoreo')" class="suite-tab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2">
+        <button type="button" id="tabNavMonitoreo" onclick="switchSuiteTab('monitoreo')" class="suite-tab-btn px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition flex items-center gap-2 whitespace-nowrap flex-shrink-0">
           <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          <span>📡 Monitoreo & Stock en Sitio</span>
+          <span>📡 Monitoreo &amp; Stock</span>
           <span id="badgeMonitoreoAlertsCount" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">0 alertas</span>
         </button>
       </div>
-      <div class="flex items-center gap-2 flex-wrap">
+      <div class="hidden sm:flex items-center gap-2 flex-wrap">
         <!-- Badge de Base Local Permanente -->
         <span id="badgeStorageStatus" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Tus cambios se guardan permanentemente en la base de datos de tu navegador y no se pierden al cerrar">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="storageStatusText">Base Local Permanente</span>
+          <span id="storageStatusText">Base Local</span>
         </span>
 
         <!-- Botón Vincular Archivo en Disco (Google Chrome File System API) -->
         <button type="button" id="btnLinkDiskFile" onclick="linkDiskFile()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 shadow-xs transition" title="Selecciona tu archivo SUITE.xlsm o .xlsx en tu disco duro para guardar directo en él">
           <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-          <span id="labelLinkDiskFile">📂 Vincular Archivo en Disco</span>
+          <span id="labelLinkDiskFile">📂 Vincular Disco</span>
         </button>
 
         <!-- Botón Guardar Directo en Archivo de Disco -->
         <button type="button" id="btnSaveDirectDisk" onclick="saveDirectToDisk()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition" title="Guarda y actualiza directamente el archivo en tu disco duro sin generar descargas">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-          <span id="labelSaveDirectDisk">💾 Guardar en Archivo</span>
+          <span id="labelSaveDirectDisk">💾 Guardar</span>
         </button>
 
         <!-- Botón Descargar Copia Excel -->
         <button type="button" onclick="exportUpdatedExcel()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition" title="Descargar copia del libro Excel actualizado (.xlsx)">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-          <span>Descargar Copia (.xlsx)</span>
+          <span>Descargar Copia</span>
         </button>
 
         <!-- Botón Limpiar / Reiniciar Base Local -->
@@ -1437,67 +1437,77 @@
       </div>
 
       <!-- Tarjetas Resumen KPIs de Auditoría -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs">
-          <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Total Equipos</p>
-          <p id="kpiMonTotalEquipos" class="text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
-          <p class="text-[11px] text-slate-400 mt-1" id="kpiMonClienteLabel">Parque monitoreado</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <p class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Total Equipos</p>
+          <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
+          <p class="text-[10px] text-slate-400 mt-0.5 truncate" id="kpiMonClienteLabel">Parque monitoreado</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden">
           <div class="absolute right-2 top-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
-          <p class="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">🚨 Despacho Requerido</p>
-          <p id="kpiMonDespachoRequerido" class="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
-          <p class="text-[11px] text-rose-500/80 mt-1">Suministro bajo y SIN stock en sitio</p>
+          <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">🚨 Despacho Requerido</p>
+          <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
+          <p class="text-[10px] text-rose-500/80 mt-0.5 truncate">Bajo y sin stock en sitio</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-amber-200 dark:border-amber-900/50 shadow-xs">
-          <p class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">🔄 Reponer Stock Sitio</p>
-          <p id="kpiMonStockConsumido" class="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
-          <p class="text-[11px] text-amber-500/80 mt-1">Cartucho cambiado en la semana</p>
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-amber-200 dark:border-amber-900/50 shadow-xs">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">🔄 Reponer Stock</p>
+          <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
+          <p class="text-[10px] text-amber-500/80 mt-0.5 truncate">Cartucho cambiado en sitio</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-blue-200 dark:border-blue-900/50 shadow-xs">
-          <p class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">🛡️ Stock en Sitio</p>
-          <p id="kpiMonStockEnSitio" class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
-          <p class="text-[11px] text-blue-500/80 mt-1">Suministro bajo pero ya protegido</p>
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-blue-200 dark:border-blue-900/50 shadow-xs">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">🛡️ Stock en Sitio</p>
+          <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
+          <p class="text-[10px] text-blue-500/80 mt-0.5 truncate">Protegido con respaldo</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-900/50 shadow-xs">
-          <p class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">🟢 Niveles Óptimos</p>
-          <p id="kpiMonOptimos" class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
-          <p class="text-[11px] text-emerald-500/80 mt-1">Equipos con suministros &gt; 20%</p>
+        <div class="col-span-2 sm:col-span-1 lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-emerald-200 dark:border-emerald-900/50 shadow-xs">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">🟢 Niveles Óptimos</p>
+          <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
+          <p class="text-[10px] text-emerald-500/80 mt-0.5 truncate">Equipos con suministros &gt; 20%</p>
         </div>
       </div>
 
-      <!-- Filtros y Tabla de Monitoreo -->
+      <!-- Filtros y Tabla / Tarjetas de Monitoreo -->
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         <!-- Barra de Búsqueda y Filtros -->
-        <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-800/80">
-          <div class="flex items-center gap-2 flex-1 max-w-md">
+        <div class="p-3.5 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-800/80">
+          <div class="flex items-center gap-2 flex-1 min-w-[260px] max-w-md">
             <div class="relative w-full">
-              <input type="text" id="searchMonitoringInput" oninput="filterMonitoringTable()" placeholder="Buscar por serie de equipo, cliente, tienda/palabra clave, modelo, IP..." class="w-full text-xs pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500">
+              <input type="text" id="searchMonitoringInput" oninput="filterMonitoringTable()" placeholder="Buscar serie, modelo, tienda, cliente..." class="w-full text-xs pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500">
               <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
           </div>
 
           <div class="flex items-center gap-2 flex-wrap">
+            <!-- Alternador de Vista (Tarjetas Móviles vs Tabla Completa) -->
+            <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700">
+              <button type="button" id="btnMonitoringViewCards" onclick="setMonitoringViewMode('cards')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-xs">
+                <span>📱 Tarjetas</span>
+              </button>
+              <button type="button" id="btnMonitoringViewTable" onclick="setMonitoringViewMode('table')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                <span>💻 Tabla</span>
+              </button>
+            </div>
+
             <!-- Filtro Diagnóstico de Stock -->
             <select id="filterMonitoringStatusSelect" onchange="filterMonitoringTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
               <option value="ALL">Todos los Estados</option>
-              <option value="DESPACHO_REQUERIDO">🚨 Solo Despacho Requerido (Sin Stock)</option>
+              <option value="DESPACHO_REQUERIDO">🚨 Solo Despacho Requerido</option>
               <option value="REPOSICION_STOCK">🔄 Solo Reponer Stock de Sitio</option>
-              <option value="STOCK_EN_SITIO">🛡️ Solo Protegidos con Stock en Sitio</option>
-              <option value="EN_TRANSITO">🚚 Solo En Tránsito / Pendientes</option>
-              <option value="OPTIMO">🟢 Solo Niveles Óptimos (&gt; 20%)</option>
+              <option value="STOCK_EN_SITIO">🛡️ Protegidos con Stock</option>
+              <option value="EN_TRANSITO">🚚 En Tránsito</option>
+              <option value="OPTIMO">🟢 Niveles Óptimos (&gt; 20%)</option>
             </select>
 
             <!-- Filtro Suministro en Alerta -->
             <select id="filterMonitoringSupplySelect" onchange="filterMonitoringTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
               <option value="ALL">Todos los Suministros</option>
-              <option value="TNR">Solo Alertas TNR (Tóner Negro)</option>
-              <option value="UDI">Solo Alertas UDI (Unidad de Imagen)</option>
-              <option value="KMT">Solo Alertas KMT (Kit de Mantenimiento)</option>
+              <option value="TNR">Alertas Tóner (TNR)</option>
+              <option value="UDI">Alertas Imagen (UDI)</option>
+              <option value="KMT">Alertas Mantto (KMT)</option>
             </select>
           </div>
         </div>
@@ -1525,8 +1535,13 @@
           </div>
         </div>
 
-        <!-- Tabla con Scroll Horizontal Responsivo -->
-        <div class="overflow-x-auto custom-scrollbar">
+        <!-- VISTA 1: TARJETAS RESPONSIVAS (MÓVILES) -->
+        <div id="monitoringMobileCardsContainer" class="p-3 space-y-2.5 bg-slate-50/50 dark:bg-slate-900/30">
+          <!-- Renderizado dinámicamente con tarjetas móviles -->
+        </div>
+
+        <!-- VISTA 2: TABLA EXTENDIDA CON SCROLL HORIZONTAL (ESCRITORIO / TABLET) -->
+        <div id="monitoringTableContainer" class="hidden overflow-x-auto custom-scrollbar">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-100/80 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
@@ -5924,6 +5939,27 @@
         'monitoreo': document.getElementById('tabNavMonitoreo')
       };
 
+      // Ocultar sección de subida de archivo grande y barra de hojas si no estamos en el dashboard principal
+      const uploadSec = document.getElementById('uploadSection');
+      const fileInfo = document.getElementById('fileInfoBar');
+      const sheetsTabBar = document.getElementById('sheetsTabBarContainer');
+
+      if (tabId === 'dashboard') {
+        if (uploadSec && (!currentWorkbook || currentWorkbook.SheetNames.length === 0)) {
+          uploadSec.classList.remove('hidden');
+        }
+        if (fileInfo && currentWorkbook) {
+          fileInfo.classList.remove('hidden');
+        }
+        if (sheetsTabBar && currentWorkbook) {
+          sheetsTabBar.classList.remove('hidden');
+        }
+      } else {
+        if (uploadSec) uploadSec.classList.add('hidden');
+        if (fileInfo) fileInfo.classList.add('hidden');
+        if (sheetsTabBar) sheetsTabBar.classList.add('hidden');
+      }
+
       Object.keys(views).forEach(key => {
         if (views[key]) views[key].classList.add('hidden');
       });
@@ -5941,6 +5977,9 @@
         buttons[tabId].classList.add('bg-brand-600', 'text-white', 'shadow-xs');
       }
 
+      // Desplazamiento suave al tope en móvil para que el contenido sea inmediatamente visible
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
       if (tabId === 'salidas') {
         updateSalidasKPIs();
         filterSalidasTable();
@@ -5953,7 +5992,9 @@
       } else if (tabId === 'boleta') {
         renderBoletaModule();
       } else if (tabId === 'monitoreo') {
-        if (typeof refreshMonitoringAnalysis === 'function') {
+        if (typeof initMonitoringModule === 'function') {
+          initMonitoringModule();
+        } else if (typeof refreshMonitoringAnalysis === 'function') {
           refreshMonitoringAnalysis();
         }
       }

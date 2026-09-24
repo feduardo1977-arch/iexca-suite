@@ -2,6 +2,13 @@
 // Este archivo contiene la lógica completa del motor de diagnóstico y gestión de snapshots.
 
 let monitoringData = {}; // { 'WALMART': [ snapshot1, snapshot2 ], 'BAC': [ ... ] }
+// Precargar datos síncronamente si DEFAULT_MONITORING_DATA ya está definido en el navegador
+if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
+  try {
+    monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
+  } catch (e) {}
+}
+
 let activeMonitoringClient = 'ALL';
 let activeMonitoringSnapshot = 'LATEST';
 let monitoringSearchQuery = '';
@@ -11,6 +18,39 @@ let monitoringCurrentPage = 1;
 let monitoringPageSize = 50;
 let monitoringProcessedList = [];
 let monitoringFilteredList = [];
+let monitoringViewMode = 'auto'; // 'auto' (cards en móvil <768px, tabla en desktop), 'cards', 'table'
+
+function setMonitoringViewMode(mode) {
+  monitoringViewMode = mode;
+  const btnCards = document.getElementById('btnMonitoringViewCards');
+  const btnTable = document.getElementById('btnMonitoringViewTable');
+  const cardsCont = document.getElementById('monitoringMobileCardsContainer');
+  const tableCont = document.getElementById('monitoringTableContainer');
+  const swipeBanner = document.getElementById('monitoringMobileSwipeBanner');
+
+  if (mode === 'cards') {
+    if (btnCards) {
+      btnCards.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-2xs transition';
+    }
+    if (btnTable) {
+      btnTable.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition';
+    }
+    if (cardsCont) cardsCont.classList.remove('hidden');
+    if (tableCont) tableCont.classList.add('hidden');
+    if (swipeBanner) swipeBanner.classList.add('hidden');
+  } else {
+    // mode === 'table'
+    if (btnCards) {
+      btnCards.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition';
+    }
+    if (btnTable) {
+      btnTable.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-2xs transition';
+    }
+    if (cardsCont) cardsCont.classList.add('hidden');
+    if (tableCont) tableCont.classList.remove('hidden');
+    if (swipeBanner) swipeBanner.classList.remove('hidden');
+  }
+}
 
 // Formateador seguro de fecha corta
 function formatDateShort(val) {
@@ -357,6 +397,20 @@ function tryLoadFromLocalStorage(callback) {
 
 // Inicialización del módulo
 function initMonitoringModule() {
+  // Inicialización síncrona inmediata si aún no hay datos en memoria
+  if ((!monitoringData || Object.keys(monitoringData).length === 0) && typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
+    monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
+  }
+
+  // Detectar automáticamente modo de vista si está en 'auto'
+  if (typeof window !== 'undefined' && monitoringViewMode === 'auto') {
+    const isMobile = window.innerWidth < 768;
+    setMonitoringViewMode(isMobile ? 'cards' : 'table');
+  }
+
+  refreshMonitoringAnalysis();
+
+  // Carga asíncrona desde IndexedDB
   loadMonitoringFromIndexedDB((loaded) => {
     if (!loaded) {
       if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
@@ -907,11 +961,12 @@ function monitoringLastPage() {
   }
 }
 
-// Renderizado de Filas de la Tabla
+// Renderizado de Filas de la Tabla y Tarjetas Móviles
 function renderMonitoringTable() {
   const tbody = document.getElementById('monitoringTableBody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+  const cardsContainer = document.getElementById('monitoringMobileCardsContainer');
+  if (tbody) tbody.innerHTML = '';
+  if (cardsContainer) cardsContainer.innerHTML = '';
 
   const totalRecords = monitoringFilteredList.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / monitoringPageSize));
@@ -938,23 +993,21 @@ function renderMonitoringTable() {
   if (indBottom) indBottom.textContent = textInd;
 
   if (pageRows.length === 0) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="11" class="py-8 text-center text-slate-400">No hay registros que coincidan con los filtros aplicados.</td>`;
-    tbody.appendChild(tr);
+    if (tbody) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="11" class="py-8 text-center text-slate-400">No hay registros que coincidan con los filtros aplicados.</td>`;
+      tbody.appendChild(tr);
+    }
+    if (cardsContainer) {
+      cardsContainer.innerHTML = `<div class="p-8 text-center text-slate-400">No hay registros que coincidan con los filtros aplicados.</div>`;
+    }
     return;
   }
 
   const fragment = document.createDocumentFragment();
+  const cardsFragment = document.createDocumentFragment();
 
   pageRows.forEach((r, idx) => {
-    const tr = document.createElement('tr');
-    tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/40 transition border-b border-slate-100 dark:border-slate-800 cursor-pointer';
-    tr.onclick = (e) => {
-      // Evitar abrir modal si el usuario dio clic en un botón interno
-      if (e.target.closest('button')) return;
-      openEquipmentHistoryModal(r.serie);
-    };
-
     // Barra de Tóner
     let tnrBarColor = 'bg-emerald-500';
     if (r.tnrNivel === null) tnrBarColor = 'bg-slate-300 dark:bg-slate-600';
@@ -1047,81 +1100,176 @@ function renderMonitoringTable() {
       `;
     }
 
-    tr.innerHTML = `
-      <td class="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">${startIdx + idx + 1}</td>
-      <td class="py-2.5 px-3">
-        <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${
-          r.cliente.includes('WALMART')
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-            : (r.cliente.includes('BAC') ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300' : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300')
-        }">${r.cliente}</span>
-      </td>
-      <td class="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-white">
-        <div class="flex items-center gap-1">
-          <span>${r.serie}</span>
-          <button type="button" onclick="navigator.clipboard.writeText('${r.serie}'); showToast('Serie copiada: ${r.serie}');" title="Copiar Serie" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          </button>
+    // 1. RENDERIZADO EN TABLA (Escritorio / Tablet)
+    if (tbody) {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/40 transition border-b border-slate-100 dark:border-slate-800 cursor-pointer';
+      tr.onclick = (e) => {
+        if (e.target.closest('button')) return;
+        openEquipmentHistoryModal(r.serie);
+      };
+
+      tr.innerHTML = `
+        <td class="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">${startIdx + idx + 1}</td>
+        <td class="py-2.5 px-3">
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${
+            r.cliente.includes('WALMART')
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+              : (r.cliente.includes('BAC') ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300' : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300')
+          }">${r.cliente}</span>
+        </td>
+        <td class="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-white">
+          <div class="flex items-center gap-1">
+            <span>${r.serie}</span>
+            <button type="button" onclick="navigator.clipboard.writeText('${r.serie}'); showToast('Serie copiada: ${r.serie}');" title="Copiar Serie" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            </button>
+          </div>
+        </td>
+        <td class="py-2.5 px-3">
+          <p class="font-medium text-slate-800 dark:text-slate-200">${r.modelo}</p>
+          <span class="text-[10px] font-mono text-slate-400">${r.ip || 'Sin IP'}</span>
+        </td>
+        <td class="py-2.5 px-3">
+          <p class="font-medium text-slate-700 dark:text-slate-300">${r.ubicacion}</p>
+          ${r.det ? `<span class="text-[10px] text-slate-400 font-mono">DET: ${r.det}</span>` : ''}
+        </td>
+        <td class="py-2.5 px-3">
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="font-bold text-slate-800 dark:text-slate-200">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+            ${deltaTnrBadge}
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+            <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+          </div>
+          <p class="text-[10px] font-mono text-slate-400 mt-1 truncate" title="Serie TNR instalada: ${r.tnrSerie}">S: ${r.tnrSerie || 'N/D'}</p>
+        </td>
+        <td class="py-2.5 px-3">
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="font-bold text-slate-800 dark:text-slate-200">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+            ${deltaUdiBadge}
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+            <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
+          </div>
+          <p class="text-[10px] font-mono text-slate-400 mt-1 truncate" title="Serie UDI instalada: ${r.udiSerie}">S: ${r.udiSerie || 'N/D'}</p>
+        </td>
+        <td class="py-2.5 px-3">
+          <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+            <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
+          </div>
+        </td>
+        <td class="py-2.5 px-3">
+          ${diagBadge}
+        </td>
+        <td class="py-2.5 px-3">
+          ${lastFolioHtml}
+        </td>
+        <td class="py-2.5 px-3 text-center">
+          <div class="flex items-center justify-center gap-1.5 flex-wrap">
+            <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" title="Generar Salida en FOLIOS precargando datos" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-600 dark:hover:text-white border border-rose-200 dark:border-rose-900/50 transition">
+              <span>📦 Despachar</span>
+            </button>
+            <button type="button" onclick="dispatchTicketFromAlert('${r.serie}', '${r.modelo}', '${r.cliente}', '${r.ubicacion}')" title="Crear Ticket ODS" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition">
+              <span>🎫 Ticket</span>
+            </button>
+            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" title="Ver Historial Completo del Equipo" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+          </div>
+        </td>
+      `;
+      fragment.appendChild(tr);
+    }
+
+    // 2. RENDERIZADO EN TARJETAS MÓVILES (Smartphone Friendly)
+    if (cardsContainer) {
+      const card = document.createElement('div');
+      card.className = 'bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3';
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                r.cliente.includes('WALMART')
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                  : (r.cliente.includes('BAC') ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300' : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300')
+              }">${r.cliente}</span>
+              <span class="font-mono font-bold text-sm text-slate-900 dark:text-white">${r.serie}</span>
+              <button type="button" onclick="navigator.clipboard.writeText('${r.serie}'); showToast('Serie copiada: ${r.serie}');" title="Copiar Serie" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </button>
+            </div>
+            <p class="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">${r.modelo} • <span class="text-slate-500 dark:text-slate-400 font-normal">${r.ubicacion}</span></p>
+            ${r.det ? `<p class="text-[10px] font-mono text-slate-400">DET: ${r.det} ${r.ip ? '• IP: ' + r.ip : ''}</p>` : (r.ip ? `<p class="text-[10px] font-mono text-slate-400">IP: ${r.ip}</p>` : '')}
+          </div>
+          <div class="text-right flex-shrink-0">
+            ${diagBadge}
+          </div>
         </div>
-      </td>
-      <td class="py-2.5 px-3">
-        <p class="font-medium text-slate-800 dark:text-slate-200">${r.modelo}</p>
-        <span class="text-[10px] font-mono text-slate-400">${r.ip || 'Sin IP'}</span>
-      </td>
-      <td class="py-2.5 px-3">
-        <p class="font-medium text-slate-700 dark:text-slate-300">${r.ubicacion}</p>
-        ${r.det ? `<span class="text-[10px] text-slate-400 font-mono">DET: ${r.det}</span>` : ''}
-      </td>
-      <td class="py-2.5 px-3">
-        <div class="flex items-center justify-between gap-1 mb-1">
-          <span class="font-bold text-slate-800 dark:text-slate-200">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
-          ${deltaTnrBadge}
+
+        <!-- Suministros (TNR, UDI, KMT) -->
+        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+              <span>Tóner (TNR)</span>
+              <span class="${r.tnrNivel !== null && r.tnrNivel <= 10 ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-200'}">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+            </div>
+            <div class="mt-1">${deltaTnrBadge}</div>
+            <p class="text-[9px] font-mono text-slate-400 mt-0.5 truncate" title="Serie: ${r.tnrSerie}">S: ${r.tnrSerie || 'N/D'}</p>
+          </div>
+
+          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+              <span>Imagen (UDI)</span>
+              <span class="${r.udiNivel !== null && r.udiNivel <= 10 ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-200'}">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
+            </div>
+            <div class="mt-1">${deltaUdiBadge}</div>
+            <p class="text-[9px] font-mono text-slate-400 mt-0.5 truncate" title="Serie: ${r.udiSerie}">S: ${r.udiSerie || 'N/D'}</p>
+          </div>
+
+          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+              <span>Mantto (KMT)</span>
+              <span class="text-slate-700 dark:text-slate-200">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+              <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
+            </div>
+          </div>
         </div>
-        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-          <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+
+        <!-- Última Salida y Acciones -->
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+          <div class="text-xs">
+            ${r.lastFolio 
+              ? `<div class="leading-tight"><span class="font-bold text-slate-700 dark:text-slate-200">Folio #${r.lastFolio['FOLIO'] || ''}</span> <span class="text-[10px] text-slate-400">(${r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : ''})</span><p class="text-[10px] text-slate-500">${r.lastFolio['TIPO SUM'] || 'SUM'}: <span class="font-semibold text-emerald-600">${r.lastFolio['ESTADO SUM'] || 'ENTREGADO'}</span></p></div>`
+              : '<span class="text-[11px] text-slate-400 italic">Sin salidas en FOLIOS</span>'
+            }
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
+              <span>📦 Despachar</span>
+            </button>
+            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 transition" title="Ver Historial Completo">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            </button>
+          </div>
         </div>
-        <p class="text-[10px] font-mono text-slate-400 mt-1 truncate" title="Serie TNR instalada: ${r.tnrSerie}">S: ${r.tnrSerie || 'N/D'}</p>
-      </td>
-      <td class="py-2.5 px-3">
-        <div class="flex items-center justify-between gap-1 mb-1">
-          <span class="font-bold text-slate-800 dark:text-slate-200">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
-          ${deltaUdiBadge}
-        </div>
-        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-          <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
-        </div>
-        <p class="text-[10px] font-mono text-slate-400 mt-1 truncate" title="Serie UDI instalada: ${r.udiSerie}">S: ${r.udiSerie || 'N/D'}</p>
-      </td>
-      <td class="py-2.5 px-3">
-        <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
-        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-          <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
-        </div>
-      </td>
-      <td class="py-2.5 px-3">
-        ${diagBadge}
-      </td>
-      <td class="py-2.5 px-3">
-        ${lastFolioHtml}
-      </td>
-      <td class="py-2.5 px-3 text-center">
-        <div class="flex items-center justify-center gap-1.5 flex-wrap">
-          <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" title="Generar Salida en FOLIOS precargando datos" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-600 dark:hover:text-white border border-rose-200 dark:border-rose-900/50 transition">
-            <span>📦 Despachar</span>
-          </button>
-          <button type="button" onclick="dispatchTicketFromAlert('${r.serie}', '${r.modelo}', '${r.cliente}', '${r.ubicacion}')" title="Crear Ticket ODS" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition">
-            <span>🎫 Ticket</span>
-          </button>
-          <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" title="Ver Historial Completo del Equipo" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-700 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-          </button>
-        </div>
-      </td>
-    `;
-    fragment.appendChild(tr);
+      `;
+      cardsFragment.appendChild(card);
+    }
   });
 
-  tbody.appendChild(fragment);
+  if (tbody) tbody.appendChild(fragment);
+  if (cardsContainer) cardsContainer.appendChild(cardsFragment);
 }
 
 // Acción Rápida: Despachar Salida Precargada en FOLIOS
@@ -1472,12 +1620,25 @@ if (typeof window !== 'undefined') {
   window.handleMonitoringDragOver = handleMonitoringDragOver;
   window.handleMonitoringDragLeave = handleMonitoringDragLeave;
   window.handleMonitoringDrop = handleMonitoringDrop;
+  window.setMonitoringViewMode = setMonitoringViewMode;
   window.deleteMonitoringClient = deleteMonitoringClient;
   window.resetMonitoringToDefault = resetMonitoringToDefault;
   window.exportMonitoringAuditToExcel = exportMonitoringAuditToExcel;
   window.parseLexmarkFleetCsv = parseLexmarkFleetCsv;
   window.detectClientFromCsvRows = detectClientFromCsvRows;
   window.addMonitoringSnapshot = addMonitoringSnapshot;
+
+  // Auto-inicialización inmediata al cargar el DOM
+  const autoInitMonitoringModule = () => {
+    const navSuite = document.getElementById('suiteNavigation');
+    if (navSuite) navSuite.classList.remove('hidden');
+    initMonitoringModule();
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInitMonitoringModule);
+  } else {
+    autoInitMonitoringModule();
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
