@@ -14,6 +14,7 @@ let activeMonitoringSnapshot = 'LATEST';
 let monitoringSearchQuery = '';
 let monitoringFilterStatus = 'ALL';
 let monitoringFilterSupply = 'ALL';
+let monitoringFilterPercent = 'ALL';
 let monitoringCurrentPage = 1;
 let monitoringPageSize = 50;
 let monitoringProcessedList = [];
@@ -574,7 +575,7 @@ function refreshMonitoringAnalysis() {
           deltaUdi = prevRow.udiNivel - row.udiNivel;
         }
         if ((prevRow.udiSerie && row.udiSerie && prevRow.udiSerie !== row.udiSerie) ||
-            (prevRow.udiNivel !== null && prevRow.udiNivel <= 15 && row.udiNivel !== null && row.udiNivel >= 80)) {
+            (prevRow.udiNivel !== null && prevRow.udiNivel <= 5 && row.udiNivel !== null && row.udiNivel >= 80)) {
           udiReplaced = true;
         }
       }
@@ -584,12 +585,12 @@ function refreshMonitoringAnalysis() {
         deltaKmt = prevRow.kmtNivel - row.kmtNivel;
       }
 
-      // Alertas de Nivel Bajo (Regla operativa IEXCA: 15% o menos)
+      // Alertas de Nivel Bajo (Reglas operativas actualizadas: TNR <= 15%, UDI <= 5%, KMT <= 3%)
       const isTnrLow = (row.tnrNivel !== null && row.tnrNivel <= 15) || 
                        (row.estadoSuministro === 'Advertencia' && (row.tnrNivel === null || row.tnrNivel <= 15));
-      const isUdiLow = (row.udiNivel !== null && row.udiNivel <= 15) || 
-                       (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 15);
-      const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 15);
+      const isUdiLow = (row.udiNivel !== null && row.udiNivel <= 5) || 
+                       (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 5);
+      const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 3);
 
       // Salidas registradas en FOLIOS para este equipo ordenadas cronológicamente (más recientes al inicio)
       const equipFolios = foliosBySerie.get(serieUpper) || [];
@@ -730,7 +731,7 @@ function refreshMonitoringAnalysis() {
 
       // DIAGNÓSTICO GENERAL DEL EQUIPO (Por prioridad de criticidad)
       let overallDiag = 'OPTIMO';
-      let primaryReason = 'Niveles de suministros en rango seguro (> 15%).';
+      let primaryReason = 'Niveles de suministros en rango seguro (TNR > 15%, UDI > 5%, KMT > 3%).';
       let alertSupplyType = null;
       let alertLevel = null;
       let relevantFolio = sortedFolios[0] || null;
@@ -739,8 +740,8 @@ function refreshMonitoringAnalysis() {
       if (diagTnr === 'DESPACHO_REQUERIDO' && diagUdi === 'DESPACHO_REQUERIDO') {
         overallDiag = 'DESPACHO_REQUERIDO';
         primaryReason = `🚨 Despacho requerido: Tóner (${row.tnrNivel}%) y UDI (${row.udiNivel}%) críticos sin stock en sitio.`;
-        alertSupplyType = ((row.tnrNivel !== null ? row.tnrNivel : 15) <= (row.udiNivel !== null ? row.udiNivel : 15) ? 'TNR' : 'UDI');
-        alertLevel = Math.min(row.tnrNivel !== null ? row.tnrNivel : 15, row.udiNivel !== null ? row.udiNivel : 15);
+        alertSupplyType = ((row.tnrNivel !== null ? row.tnrNivel : 15) <= (row.udiNivel !== null ? row.udiNivel : 5) ? 'TNR' : 'UDI');
+        alertLevel = Math.min(row.tnrNivel !== null ? row.tnrNivel : 15, row.udiNivel !== null ? row.udiNivel : 5);
         relevantFolio = (alertSupplyType === 'TNR' ? lastTnrFolio : lastUdiFolio) || sortedFolios[0];
       } else if (diagTnr === 'DESPACHO_REQUERIDO') {
         overallDiag = 'DESPACHO_REQUERIDO';
@@ -1011,10 +1012,12 @@ function filterMonitoringTable() {
   const searchInput = document.getElementById('searchMonitoringInput');
   const statusSelect = document.getElementById('filterMonitoringStatusSelect');
   const supplySelect = document.getElementById('filterMonitoringSupplySelect');
+  const percentSelect = document.getElementById('filterMonitoringPercentSelect');
 
   monitoringSearchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
   monitoringFilterStatus = statusSelect ? statusSelect.value : 'ALL';
   monitoringFilterSupply = supplySelect ? supplySelect.value : 'ALL';
+  monitoringFilterPercent = percentSelect ? percentSelect.value : 'ALL';
 
   monitoringFilteredList = monitoringProcessedList.filter(row => {
     // 1. Filtro Diagnóstico
@@ -1033,7 +1036,45 @@ function filterMonitoringTable() {
       }
     }
 
-    // 3. Búsqueda de Texto
+    // 3. Filtro por Porcentajes
+    if (monitoringFilterPercent !== 'ALL') {
+      const levels = [];
+      if (monitoringFilterSupply === 'TNR') {
+        if (row.tnrNivel !== null) levels.push({ type: 'TNR', val: row.tnrNivel, isCritical: row.isTnrLow });
+      } else if (monitoringFilterSupply === 'UDI') {
+        if (row.udiNivel !== null) levels.push({ type: 'UDI', val: row.udiNivel, isCritical: row.isUdiLow });
+      } else if (monitoringFilterSupply === 'KMT') {
+        if (row.kmtNivel !== null) levels.push({ type: 'KMT', val: row.kmtNivel, isCritical: row.isKmtLow });
+      } else {
+        if (row.tnrNivel !== null) levels.push({ type: 'TNR', val: row.tnrNivel, isCritical: row.isTnrLow });
+        if (row.udiNivel !== null) levels.push({ type: 'UDI', val: row.udiNivel, isCritical: row.isUdiLow });
+        if (row.kmtNivel !== null) levels.push({ type: 'KMT', val: row.kmtNivel, isCritical: row.isKmtLow });
+      }
+
+      if (levels.length === 0) return false;
+
+      if (monitoringFilterPercent === 'CRITICAL') {
+        if (!levels.some(l => l.isCritical)) return false;
+      } else if (monitoringFilterPercent === 'LE_3') {
+        if (!levels.some(l => l.val <= 3)) return false;
+      } else if (monitoringFilterPercent === 'LE_5') {
+        if (!levels.some(l => l.val <= 5)) return false;
+      } else if (monitoringFilterPercent === 'LE_10') {
+        if (!levels.some(l => l.val <= 10)) return false;
+      } else if (monitoringFilterPercent === 'LE_15') {
+        if (!levels.some(l => l.val <= 15)) return false;
+      } else if (monitoringFilterPercent === 'LE_20') {
+        if (!levels.some(l => l.val <= 20)) return false;
+      } else if (monitoringFilterPercent === 'LE_30') {
+        if (!levels.some(l => l.val <= 30)) return false;
+      } else if (monitoringFilterPercent === 'RANGE_16_30') {
+        if (!levels.some(l => l.val > 15 && l.val <= 30)) return false;
+      } else if (monitoringFilterPercent === 'GT_30') {
+        if (!levels.some(l => l.val > 30)) return false;
+      }
+    }
+
+    // 4. Búsqueda de Texto
     if (monitoringSearchQuery) {
       const text = `${row.serie} ${row.cliente} ${row.ubicacion} ${row.det} ${row.modelo} ${row.ip} ${row.tnrSerie} ${row.udiSerie}`.toLowerCase();
       if (!text.includes(monitoringSearchQuery)) return false;
@@ -1354,7 +1395,8 @@ function renderMonitoringTable() {
     // Barra de KMT
     let kmtBarColor = 'bg-emerald-500';
     if (r.kmtNivel === null) kmtBarColor = 'bg-slate-300 dark:bg-slate-600';
-    else if (r.kmtNivel <= 15) kmtBarColor = 'bg-amber-500';
+    else if (r.kmtNivel <= 3) kmtBarColor = 'bg-rose-600';
+    else if (r.kmtNivel <= 10) kmtBarColor = 'bg-amber-500';
 
     // Badge Diagnóstico
     let diagBadge = '';
@@ -1389,7 +1431,7 @@ function renderMonitoringTable() {
     } else {
       diagBadge = `
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          <span>🟢 ÓPTIMO (&gt; 15%)</span>
+          <span>🟢 ÓPTIMO</span>
         </span>
       `;
     }
@@ -1562,7 +1604,7 @@ function renderMonitoringTable() {
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
             <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
               <span>Mantto (KMT)</span>
-              <span class="${r.kmtNivel !== null && r.kmtNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200'}">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+              <span class="${r.kmtNivel !== null && r.kmtNivel <= 3 ? 'text-rose-600 font-bold' : (r.kmtNivel !== null && r.kmtNivel <= 10 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
             </div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
               <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
@@ -1911,12 +1953,44 @@ function openEquipmentHistoryModal(serie) {
     }
   }
 
-  modal.classList.remove('hidden');
+  if (typeof pushModalToHistory === 'function') {
+    pushModalToHistory('modalEquipmentHistory');
+  } else {
+    modal.classList.remove('hidden');
+  }
 }
 
 function closeEquipmentHistoryModal() {
+  if (typeof popModalFromHistory === 'function' && typeof modalStack !== 'undefined') {
+    const top = modalStack[modalStack.length - 1];
+    if (top && top.id === 'modalEquipmentHistory') {
+      window.history.back();
+      return;
+    }
+  }
   const modal = document.getElementById('modalEquipmentHistory');
   if (modal) modal.classList.add('hidden');
+}
+
+// Consultar o Modificar Detalle de Folio en Ventana Emergente (Sin salir de Monitoreo)
+function goToFolioDetail(folNum, serieUpper) {
+  if (typeof sheetStore === 'undefined' || !sheetStore['FOLIOS']) {
+    alert("Base de datos de FOLIOS no disponible.");
+    return;
+  }
+  
+  const folClean = String(folNum).replace(/\D/g, '');
+  const folios = sheetStore['FOLIOS'];
+  const index = folios.findIndex(f => {
+    const fId = String(f['FOLIO'] || f['FOLIO '] || '').replace(/\D/g, '');
+    return fId === folClean;
+  });
+
+  if (index !== -1 && typeof editSalida === 'function') {
+    editSalida(index);
+  } else {
+    alert(`No se encontró el Folio #${folNum} en la base de datos de FOLIOS.`);
+  }
 }
 
 // Manejadores de Drag & Drop y Selección de Archivos CSV
