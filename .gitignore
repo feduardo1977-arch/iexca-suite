@@ -1,0 +1,11 @@
+# Archivos temporales de pruebas y depuración
+test_*.js
+test_*.html
+analyze_csv.js
+build_monitoring_bundle.js
+edge_out.html
+sample_ventas.csv
+
+# Sistema operativo
+Thumbs.db
+.DS_Store
