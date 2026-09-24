@@ -447,6 +447,43 @@ function initMonitoringModule() {
   });
 }
 
+// EVALUACIÓN DE STOCK EN SITIO POR FOLIO Y SERIE DE SUMINISTRO
+function evaluateFolioStockStatus(folio, currentInstalledSerie) {
+  if (!folio) return { inStock: false, inTransit: false, consumed: false, status: 'NONE' };
+
+  const est = (folio['ESTADO SUM'] || folio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+  const folSerie = (folio['SERIE SUM'] || folio['SERIE'] || '').toString().trim().toUpperCase();
+  const folNum = folio['FOLIO'] || folio['FOLIO '] || 'S/N';
+
+  // 1. Estados explícitos de STOCK disponible en sitio (Reserva no consumida en tienda)
+  if (est === 'EN STOCK' || est === 'STOCK' || est === 'EN SITIO' || est === 'EN_STOCK' || 
+      est === 'STOCK EN SITIO' || est === 'DISPONIBLE' || est === 'RESERVA' || est === 'NUEVO') {
+    return { inStock: true, inTransit: false, consumed: false, status: 'STOCK', folio, folNum, folSerie, est };
+  }
+
+  // 2. Estados en tránsito / camino
+  if (est === 'EN TRANSITO' || est === 'EN TRÁNSITO' || est === 'ENVIADO' || est === 'EN RUTA' || 
+      est === 'PENDIENTE' || est === 'POR ENTREGAR' || est === 'DESPACHADO') {
+    return { inStock: false, inTransit: true, consumed: false, status: 'TRANSIT', folio, folNum, folSerie, est };
+  }
+
+  // 3. Estados consumidos o ya instalados en el equipo (reserva agotada)
+  if (est === 'INSTALADO' || est === 'CONSUMIDO' || est === 'COLOCADO' || est === 'AGOTADO' || 
+      est === 'USADO' || est === 'PUESTO' || est === 'AGOTADA') {
+    return { inStock: false, inTransit: false, consumed: true, status: 'CONSUMED', folio, folNum, folSerie, est };
+  }
+
+  // 4. ENTREGADO / RECIBIDO:
+  // Si la serie del cartucho despachado coincide con la serie del cartucho actualmente instalado en el impresor,
+  // significa que ya fue colocado y se encuentra en uso (y si el nivel está bajo <= 15%, está agotándose).
+  if (folSerie && currentInstalledSerie && folSerie === currentInstalledSerie) {
+    return { inStock: false, inTransit: false, consumed: true, status: 'INSTALLED_MATCH', folio, folNum, folSerie, est };
+  }
+
+  // Si no coincide con la serie instalada o no tiene serie, se asume que está entregado en sitio como reserva disponible.
+  return { inStock: true, inTransit: false, consumed: false, status: 'DELIVERED_SPARE', folio, folNum, folSerie, est };
+}
+
 // MOTOR DE DIAGNÓSTICO INTELIGENTE & CRUCE CON FOLIOS Y RDI
 function refreshMonitoringAnalysis() {
   // 1. Indexar Folios por Serie de Equipo
@@ -554,29 +591,80 @@ function refreshMonitoringAnalysis() {
                        (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 15);
       const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 15);
 
-      // Salidas registradas en FOLIOS para este equipo
+      // Salidas registradas en FOLIOS para este equipo ordenadas cronológicamente (más recientes al inicio)
       const equipFolios = foliosBySerie.get(serieUpper) || [];
-      // Ordenar por fecha o folio descendente
-      const sortedFolios = [...equipFolios].reverse();
-
-      // Último despacho de TNR, UDI, KMT
-      const lastTnrFolio = sortedFolios.find(f => {
-        const t = (f['TIPO SUM'] || '').toUpperCase();
-        const d = (f['DESCRIPCION'] || '').toUpperCase();
-        return t.includes('TNR') || d.includes('TONER') || d.includes('TNR');
+      const sortedFolios = [...equipFolios].sort((a, b) => {
+        const tsA = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(a) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(a['FECHA'])?.getTime() : 0) || (a['FECHA'] ? new Date(a['FECHA']).getTime() : 0) || 0);
+        const tsB = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(b) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(b['FECHA'])?.getTime() : 0) || (b['FECHA'] ? new Date(b['FECHA']).getTime() : 0) || 0);
+        if (tsB !== tsA) return tsB - tsA;
+        const numA = parseInt(String(a['FOLIO'] || a['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt(String(b['FOLIO'] || b['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
+        if (numB !== numA) return numB - numA;
+        return 0;
       });
 
-      const lastUdiFolio = sortedFolios.find(f => {
-        const t = (f['TIPO SUM'] || '').toUpperCase();
-        const d = (f['DESCRIPCION'] || '').toUpperCase();
-        return t.includes('UDI') || d.includes('IMAGEN') || d.includes('DRUM') || d.includes('UDI');
+      // Filtrar folios exclusivos por tipo de suministro (TNR vs UDI vs KMT)
+      const tnrFolios = sortedFolios.filter(f => {
+        const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
+        const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
+        return t === 'TNR' || t.includes('TONER') || t.includes('TNR') || d.includes('TONER') || d.includes('TNR');
       });
 
-      const lastKmtFolio = sortedFolios.find(f => {
-        const t = (f['TIPO SUM'] || '').toUpperCase();
-        const d = (f['DESCRIPCION'] || '').toUpperCase();
-        return t.includes('KMT') || t.includes('REP') || d.includes('MANTENIMIENTO') || d.includes('FUSOR') || d.includes('KMT');
+      const udiFolios = sortedFolios.filter(f => {
+        const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
+        const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
+        return t === 'UDI' || t.includes('IMAGEN') || t.includes('DRUM') || t.includes('UDI') || d.includes('IMAGEN') || d.includes('DRUM') || d.includes('UDI');
       });
+
+      const kmtFolios = sortedFolios.filter(f => {
+        const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
+        const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
+        return t === 'KMT' || t.includes('MANT') || t.includes('FUSOR') || t.includes('KMT') || d.includes('MANTENIMIENTO') || d.includes('FUSOR') || d.includes('KMT');
+      });
+
+      const lastTnrFolio = tnrFolios[0] || null;
+      const lastUdiFolio = udiFolios[0] || null;
+      const lastKmtFolio = kmtFolios[0] || null;
+
+      // Evaluar stock disponible por tipo
+      // 1. TNR: Buscar si tiene algún folio con stock disponible para TNR
+      let stockTnrEvaluation = null;
+      for (const f of tnrFolios) {
+        const ev = evaluateFolioStockStatus(f, row.tnrSerie);
+        if (ev.inStock || ev.inTransit) {
+          stockTnrEvaluation = ev;
+          break;
+        }
+      }
+      if (!stockTnrEvaluation && lastTnrFolio) {
+        stockTnrEvaluation = evaluateFolioStockStatus(lastTnrFolio, row.tnrSerie);
+      }
+
+      // 2. UDI: Buscar si tiene algún folio con stock disponible para UDI
+      let stockUdiEvaluation = null;
+      for (const f of udiFolios) {
+        const ev = evaluateFolioStockStatus(f, row.udiSerie);
+        if (ev.inStock || ev.inTransit) {
+          stockUdiEvaluation = ev;
+          break;
+        }
+      }
+      if (!stockUdiEvaluation && lastUdiFolio) {
+        stockUdiEvaluation = evaluateFolioStockStatus(lastUdiFolio, row.udiSerie);
+      }
+
+      // 3. KMT: Buscar si tiene algún folio con stock disponible para KMT
+      let stockKmtEvaluation = null;
+      for (const f of kmtFolios) {
+        const ev = evaluateFolioStockStatus(f, null);
+        if (ev.inStock || ev.inTransit) {
+          stockKmtEvaluation = ev;
+          break;
+        }
+      }
+      if (!stockKmtEvaluation && lastKmtFolio) {
+        stockKmtEvaluation = evaluateFolioStockStatus(lastKmtFolio, null);
+      }
 
       // DIAGNÓSTICO TNR
       let diagTnr = 'OPTIMO';
@@ -585,26 +673,19 @@ function refreshMonitoringAnalysis() {
         diagTnr = 'REPOSICION_STOCK';
         reasonTnr = '🔄 Tóner cambiado en sitio. Reserva consumida, stock en tienda quedó en 0.';
       } else if (isTnrLow) {
-        if (!lastTnrFolio) {
+        if (!stockTnrEvaluation || (!stockTnrEvaluation.inStock && !stockTnrEvaluation.inTransit)) {
           diagTnr = 'DESPACHO_REQUERIDO';
-          reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Sin registro de salida en FOLIOS.`;
-        } else {
-          const est = (lastTnrFolio['ESTADO SUM'] || 'ENTREGADO').toString().toUpperCase();
-          const folSerie = (lastTnrFolio['SERIE SUM'] || '').toString().trim().toUpperCase();
-          const folNum = lastTnrFolio['FOLIO'] || lastTnrFolio['FOLIO '] || 'S/N';
-          if (est === 'PENDIENTE' || est === 'EN RUTA' || est === 'ENVIADO') {
-            diagTnr = 'EN_TRANSITO';
-            reasonTnr = `🚚 Despacho en camino (Folio #${folNum})`;
+          if (stockTnrEvaluation && stockTnrEvaluation.consumed) {
+            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/agotado. Requiere nuevo despacho.`;
           } else {
-            // Entregado en sitio
-            if (folSerie && row.tnrSerie && folSerie === row.tnrSerie) {
-              diagTnr = 'DESPACHO_REQUERIDO';
-              reasonTnr = `🚨 Tóner de Folio #${folNum} ya está puesto en el equipo. Sin repuesto adicional en sitio.`;
-            } else {
-              diagTnr = 'STOCK_EN_SITIO';
-              reasonTnr = `🛡️ Tienda tiene tóner en sitio (Folio #${folNum}${folSerie ? ' - Serie: ' + folSerie : ''})`;
-            }
+            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Sin registro de tóner en stock en FOLIOS.`;
           }
+        } else if (stockTnrEvaluation.inTransit) {
+          diagTnr = 'EN_TRANSITO';
+          reasonTnr = `🚚 Despacho de tóner en camino (Folio #${stockTnrEvaluation.folNum} - ${stockTnrEvaluation.est})`;
+        } else if (stockTnrEvaluation.inStock) {
+          diagTnr = 'STOCK_EN_SITIO';
+          reasonTnr = `🛡️ Tienda tiene tóner (TNR) en STOCK en sitio (Folio #${stockTnrEvaluation.folNum}${stockTnrEvaluation.folSerie ? ' - Serie: ' + stockTnrEvaluation.folSerie : ''}). Envío descartado.`;
         }
       }
 
@@ -615,25 +696,19 @@ function refreshMonitoringAnalysis() {
         diagUdi = 'REPOSICION_STOCK';
         reasonUdi = '🔄 Unidad de imagen cambiada en sitio. Reserva consumida, stock en 0.';
       } else if (isUdiLow) {
-        if (!lastUdiFolio) {
+        if (!stockUdiEvaluation || (!stockUdiEvaluation.inStock && !stockUdiEvaluation.inTransit)) {
           diagUdi = 'DESPACHO_REQUERIDO';
-          reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. Sin registro de salida en FOLIOS.`;
-        } else {
-          const est = (lastUdiFolio['ESTADO SUM'] || 'ENTREGADO').toString().toUpperCase();
-          const folSerie = (lastUdiFolio['SERIE SUM'] || '').toString().trim().toUpperCase();
-          const folNum = lastUdiFolio['FOLIO'] || lastUdiFolio['FOLIO '] || 'S/N';
-          if (est === 'PENDIENTE' || est === 'EN RUTA' || est === 'ENVIADO') {
-            diagUdi = 'EN_TRANSITO';
-            reasonUdi = `🚚 Despacho UDI en camino (Folio #${folNum})`;
+          if (stockUdiEvaluation && stockUdiEvaluation.consumed) {
+            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. UDI de Folio #${stockUdiEvaluation.folNum} ya fue instalada/agotada. Requiere nuevo despacho.`;
           } else {
-            if (folSerie && row.udiSerie && folSerie === row.udiSerie) {
-              diagUdi = 'DESPACHO_REQUERIDO';
-              reasonUdi = `🚨 UDI de Folio #${folNum} ya está colocada. Sin repuesto adicional en sitio.`;
-            } else {
-              diagUdi = 'STOCK_EN_SITIO';
-              reasonUdi = `🛡️ Tienda tiene UDI en sitio (Folio #${folNum}${folSerie ? ' - Serie: ' + folSerie : ''})`;
-            }
+            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. Sin registro de UDI en stock en FOLIOS.`;
           }
+        } else if (stockUdiEvaluation.inTransit) {
+          diagUdi = 'EN_TRANSITO';
+          reasonUdi = `🚚 Despacho de UDI en camino (Folio #${stockUdiEvaluation.folNum} - ${stockUdiEvaluation.est})`;
+        } else if (stockUdiEvaluation.inStock) {
+          diagUdi = 'STOCK_EN_SITIO';
+          reasonUdi = `🛡️ Tienda tiene Unidad de Imagen (UDI) en STOCK en sitio (Folio #${stockUdiEvaluation.folNum}${stockUdiEvaluation.folSerie ? ' - Serie: ' + stockUdiEvaluation.folSerie : ''}). Envío descartado.`;
         }
       }
 
@@ -641,13 +716,15 @@ function refreshMonitoringAnalysis() {
       let diagKmt = 'OPTIMO';
       let reasonKmt = '';
       if (isKmtLow) {
-        if (!lastKmtFolio) {
+        if (!stockKmtEvaluation || (!stockKmtEvaluation.inStock && !stockKmtEvaluation.inTransit)) {
           diagKmt = 'DESPACHO_REQUERIDO';
-          reasonKmt = `🚨 Kit de Mantenimiento en ${row.kmtNivel}%. Sin salidas registradas.`;
+          reasonKmt = `🚨 Kit de Mantenimiento en ${row.kmtNivel}%. Sin salidas registradas en FOLIOS.`;
+        } else if (stockKmtEvaluation.inTransit) {
+          diagKmt = 'EN_TRANSITO';
+          reasonKmt = `🚚 Kit de Mantenimiento en camino (Folio #${stockKmtEvaluation.folNum})`;
         } else {
-          const folNum = lastKmtFolio['FOLIO'] || lastKmtFolio['FOLIO '] || 'S/N';
           diagKmt = 'STOCK_EN_SITIO';
-          reasonKmt = `🛡️ Kit despachado en Folio #${folNum}`;
+          reasonKmt = `🛡️ Kit de Mantenimiento en STOCK en sitio (Folio #${stockKmtEvaluation.folNum}). Envío descartado.`;
         }
       }
 
@@ -656,42 +733,79 @@ function refreshMonitoringAnalysis() {
       let primaryReason = 'Niveles de suministros en rango seguro (> 15%).';
       let alertSupplyType = null;
       let alertLevel = null;
+      let relevantFolio = sortedFolios[0] || null;
 
-      if (diagTnr === 'DESPACHO_REQUERIDO') {
+      // 1. DESPACHO REQUERIDO (Alerta Urgente)
+      if (diagTnr === 'DESPACHO_REQUERIDO' && diagUdi === 'DESPACHO_REQUERIDO') {
         overallDiag = 'DESPACHO_REQUERIDO';
-        primaryReason = reasonTnr;
+        primaryReason = `🚨 Despacho requerido: Tóner (${row.tnrNivel}%) y UDI (${row.udiNivel}%) críticos sin stock en sitio.`;
+        alertSupplyType = ((row.tnrNivel !== null ? row.tnrNivel : 15) <= (row.udiNivel !== null ? row.udiNivel : 15) ? 'TNR' : 'UDI');
+        alertLevel = Math.min(row.tnrNivel !== null ? row.tnrNivel : 15, row.udiNivel !== null ? row.udiNivel : 15);
+        relevantFolio = (alertSupplyType === 'TNR' ? lastTnrFolio : lastUdiFolio) || sortedFolios[0];
+      } else if (diagTnr === 'DESPACHO_REQUERIDO') {
+        overallDiag = 'DESPACHO_REQUERIDO';
+        primaryReason = reasonTnr + (diagUdi === 'STOCK_EN_SITIO' ? ` (UDI cuenta con stock en tienda: Folio #${stockUdiEvaluation.folNum})` : '');
         alertSupplyType = 'TNR';
         alertLevel = row.tnrNivel;
+        relevantFolio = lastTnrFolio || sortedFolios[0];
       } else if (diagUdi === 'DESPACHO_REQUERIDO') {
         overallDiag = 'DESPACHO_REQUERIDO';
-        primaryReason = reasonUdi;
+        primaryReason = reasonUdi + (diagTnr === 'STOCK_EN_SITIO' ? ` (Tóner cuenta con stock en tienda: Folio #${stockTnrEvaluation.folNum})` : '');
         alertSupplyType = 'UDI';
         alertLevel = row.udiNivel;
+        relevantFolio = lastUdiFolio || sortedFolios[0];
       } else if (diagKmt === 'DESPACHO_REQUERIDO') {
         overallDiag = 'DESPACHO_REQUERIDO';
         primaryReason = reasonKmt;
         alertSupplyType = 'KMT';
         alertLevel = row.kmtNivel;
-      } else if (diagTnr === 'REPOSICION_STOCK') {
+        relevantFolio = lastKmtFolio || sortedFolios[0];
+      } 
+      // 2. REPOSICIÓN DE STOCK (Consumido recientemente en sitio)
+      else if (diagTnr === 'REPOSICION_STOCK') {
         overallDiag = 'REPOSICION_STOCK';
         primaryReason = reasonTnr;
         alertSupplyType = 'TNR';
         alertLevel = row.tnrNivel;
+        relevantFolio = lastTnrFolio || sortedFolios[0];
       } else if (diagUdi === 'REPOSICION_STOCK') {
         overallDiag = 'REPOSICION_STOCK';
         primaryReason = reasonUdi;
         alertSupplyType = 'UDI';
         alertLevel = row.udiNivel;
-      } else if (diagTnr === 'EN_TRANSITO' || diagUdi === 'EN_TRANSITO') {
+        relevantFolio = lastUdiFolio || sortedFolios[0];
+      } 
+      // 3. EN TRÁNSITO
+      else if (diagTnr === 'EN_TRANSITO' || diagUdi === 'EN_TRANSITO' || diagKmt === 'EN_TRANSITO') {
         overallDiag = 'EN_TRANSITO';
-        primaryReason = (diagTnr === 'EN_TRANSITO' ? reasonTnr : reasonUdi);
-        alertSupplyType = (diagTnr === 'EN_TRANSITO' ? 'TNR' : 'UDI');
-        alertLevel = (diagTnr === 'EN_TRANSITO' ? row.tnrNivel : row.udiNivel);
-      } else if (diagTnr === 'STOCK_EN_SITIO' || diagUdi === 'STOCK_EN_SITIO' || diagKmt === 'STOCK_EN_SITIO') {
+        if (diagTnr === 'EN_TRANSITO') {
+          primaryReason = reasonTnr;
+          alertSupplyType = 'TNR';
+          alertLevel = row.tnrNivel;
+          relevantFolio = lastTnrFolio;
+        } else if (diagUdi === 'EN_TRANSITO') {
+          primaryReason = reasonUdi;
+          alertSupplyType = 'UDI';
+          alertLevel = row.udiNivel;
+          relevantFolio = lastUdiFolio;
+        } else {
+          primaryReason = reasonKmt;
+          alertSupplyType = 'KMT';
+          alertLevel = row.kmtNivel;
+          relevantFolio = lastKmtFolio;
+        }
+      } 
+      // 4. STOCK EN SITIO (Envío descartado porque la tienda posee el suministro)
+      else if (diagTnr === 'STOCK_EN_SITIO' || diagUdi === 'STOCK_EN_SITIO' || diagKmt === 'STOCK_EN_SITIO') {
         overallDiag = 'STOCK_EN_SITIO';
-        primaryReason = (diagTnr === 'STOCK_EN_SITIO' ? reasonTnr : (diagUdi === 'STOCK_EN_SITIO' ? reasonUdi : reasonKmt));
+        const parts = [];
+        if (diagTnr === 'STOCK_EN_SITIO' && stockTnrEvaluation) parts.push(`Tóner: Folio #${stockTnrEvaluation.folNum}`);
+        if (diagUdi === 'STOCK_EN_SITIO' && stockUdiEvaluation) parts.push(`UDI: Folio #${stockUdiEvaluation.folNum}`);
+        if (diagKmt === 'STOCK_EN_SITIO' && stockKmtEvaluation) parts.push(`KMT: Folio #${stockKmtEvaluation.folNum}`);
+        primaryReason = `🛡️ Tienda con repuesto en STOCK en sitio (${parts.join(', ')}). Envío descartado.`;
         alertSupplyType = (diagTnr === 'STOCK_EN_SITIO' ? 'TNR' : (diagUdi === 'STOCK_EN_SITIO' ? 'UDI' : 'KMT'));
         alertLevel = (diagTnr === 'STOCK_EN_SITIO' ? row.tnrNivel : (diagUdi === 'STOCK_EN_SITIO' ? row.udiNivel : row.kmtNivel));
+        relevantFolio = (diagTnr === 'STOCK_EN_SITIO' ? (stockTnrEvaluation?.folio || lastTnrFolio) : (stockUdiEvaluation?.folio || lastUdiFolio)) || sortedFolios[0];
       }
 
       // Contadores
@@ -733,7 +847,13 @@ function refreshMonitoringAnalysis() {
         primaryReason,
         alertSupplyType,
         alertLevel,
-        lastFolio: lastTnrFolio || lastUdiFolio || lastKmtFolio || null,
+        lastFolio: relevantFolio || sortedFolios[0] || null,
+        lastTnrFolio: lastTnrFolio,
+        lastUdiFolio: lastUdiFolio,
+        lastKmtFolio: lastKmtFolio,
+        stockTnrFolio: stockTnrEvaluation ? stockTnrEvaluation.folio : null,
+        stockUdiFolio: stockUdiEvaluation ? stockUdiEvaluation.folio : null,
+        equipFolios: sortedFolios,
         prevSnapDate: prevSnap ? prevSnap.uploadDate : null,
         targetSnapDate: targetSnap ? targetSnap.uploadDate : null,
         prevRowTnr: (prevRow && prevRow.tnrNivel !== null) ? prevRow.tnrNivel : null,
@@ -1078,6 +1198,40 @@ function goToFolioDetail(folioNum, serie) {
         tipoSum: (item && item.alertSupplyType) ? item.alertSupplyType : 'TNR'
       });
     }
+  }
+}
+
+// Despacho directo desde alertas de monitoreo precargando datos
+function dispatchSalidaFromAlert(serie, supplyType = 'TNR', level = 10) {
+  const item = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === serie) : null;
+  if (typeof openNewSalidaModal === 'function') {
+    openNewSalidaModal({
+      serie: serie || '',
+      modelo: item ? item.modelo : '',
+      cliente: item ? item.cliente : '',
+      destino: item ? item.ubicacion : '',
+      det: item ? item.det : '',
+      tipoSum: supplyType || (item && item.alertSupplyType ? item.alertSupplyType : 'TNR')
+    });
+    if (typeof showToast === 'function') {
+      showToast(`⚡ Iniciando despacho de ${supplyType} para serie ${serie}...`);
+    }
+  } else {
+    alert(`Iniciando despacho de ${supplyType} para equipo con serie: ${serie}`);
+  }
+}
+
+// Creación de ticket desde alerta de monitoreo
+function dispatchTicketFromAlert(serie, modelo, cliente, ubicacion) {
+  if (typeof openNewOdsModal === 'function') {
+    openNewOdsModal({ serie, modelo, cliente, ubicacion });
+  } else if (typeof switchSuiteTab === 'function') {
+    switchSuiteTab('ods');
+    if (typeof showToast === 'function') {
+      showToast(`Creando Ticket ODS para equipo ${serie}...`);
+    }
+  } else {
+    alert(`Ticket ODS solicitado para equipo: ${serie} (${modelo}) - ${ubicacion}`);
   }
 }
 
@@ -1536,36 +1690,87 @@ function openEquipmentHistoryModal(serie) {
         <p class="font-bold text-slate-700 dark:text-slate-300 mt-0.5">${rdiInfo ? rdiInfo.PROPIEDAD : 'IEXCA'}</p>
       </div>
 
-      <!-- Bloque de Folio Amarrado y Redirección Directa -->
-      <div class="col-span-2 sm:col-span-4 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 flex flex-wrap items-center justify-between gap-3 mt-1">
-        <div>
-          <p class="text-amber-800 dark:text-amber-300 text-[10px] uppercase font-bold tracking-wider">Folio Amarrado a esta Serie</p>
-          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-            ${matchProcessed && matchProcessed.lastFolio ? `
-              <span class="font-mono font-bold text-sm text-slate-900 dark:text-white">Folio #${matchProcessed.lastFolio['FOLIO'] || matchProcessed.lastFolio['FOLIO '] || ''}</span>
-              <span class="text-xs text-slate-500">(${matchProcessed.lastFolio['FECHA'] ? formatDateShort(matchProcessed.lastFolio['FECHA']) : ''})</span>
-              <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${
-                (matchProcessed.lastFolio['ESTADO SUM'] || 'ENTREGADO') === 'ENTREGADO' 
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-              }">${matchProcessed.lastFolio['ESTADO SUM'] || 'ENTREGADO'}</span>
-              <span class="text-xs text-slate-600 dark:text-slate-300">${matchProcessed.lastFolio['TIPO SUM'] || 'SUM'}: ${matchProcessed.lastFolio['DESCRIPCION'] || ''}</span>
-            ` : `
-              <span class="text-xs text-slate-500 italic">No hay folio amarrado a esta serie en la hoja FOLIOS.</span>
-            `}
-          </div>
+      <!-- Bloque de Folios Amarrados por Tipo de Suministro (TNR y UDI) -->
+      <div class="col-span-2 sm:col-span-4 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2 mt-1">
+        <div class="flex items-center justify-between flex-wrap gap-1">
+          <p class="text-amber-800 dark:text-amber-300 text-[10px] uppercase font-bold tracking-wider">
+            📦 Control de Stock en Sitio & Folios por Suministro (TNR / UDI)
+          </p>
+          <span class="text-[10px] font-semibold text-slate-500">Salidas más recientes al inicio</span>
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-          ${matchProcessed && matchProcessed.lastFolio ? `
-            <button type="button" onclick="goToFolioDetail('${matchProcessed.lastFolio['FOLIO'] || matchProcessed.lastFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-              <span>Consultar / Modificar Folio ✏️</span>
-            </button>
-          ` : `
-            <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', '${matchProcessed ? matchProcessed.alertSupplyType || 'TNR' : 'TNR'}', 10);" class="w-full sm:w-auto inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
-              <span>📦 Despachar y Vincular Folio</span>
-            </button>
-          `}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+          <!-- Tarjeta TNR (Tóner) -->
+          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">🖨️ Tóner (TNR):</span>
+                <span class="font-bold text-xs ${matchProcessed && matchProcessed.isTnrLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${matchProcessed && matchProcessed.tnrNivel !== null ? matchProcessed.tnrNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed && matchProcessed.lastTnrFolio ? `
+                  <span class="font-mono font-bold text-xs text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrFolio['FOLIO'] || matchProcessed.lastTnrFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrFolio['FECHA']) : ''})</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                    (matchProcessed.lastTnrFolio['ESTADO SUM'] || '').includes('STOCK') 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                      : ((matchProcessed.lastTnrFolio['ESTADO SUM'] || '') === 'ENTREGADO'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300')
+                  }">${matchProcessed.lastTnrFolio['ESTADO SUM'] || 'ENTREGADO'}</span>
+                ` : `
+                  <span class="text-[11px] text-slate-400 italic">Sin folio de TNR registrado</span>
+                `}
+              </div>
+            </div>
+            <div>
+              ${matchProcessed && matchProcessed.lastTnrFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrFolio['FOLIO'] || matchProcessed.lastTnrFolio['FOLIO '] || ''}', '${serieUpper}');" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition whitespace-nowrap">
+                  ✏️ Folio TNR
+                </button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNR', ${matchProcessed ? matchProcessed.tnrNivel : 10});" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition whitespace-nowrap">
+                  📦 Salida TNR
+                </button>
+              `}
+            </div>
+          </div>
+
+          <!-- Tarjeta UDI (Unidad de Imagen) -->
+          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-slate-800 dark:text-slate-100">⚙️ UDI (Imagen):</span>
+                <span class="font-bold text-xs ${matchProcessed && matchProcessed.isUdiLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${matchProcessed && matchProcessed.udiNivel !== null ? matchProcessed.udiNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed && matchProcessed.lastUdiFolio ? `
+                  <span class="font-mono font-bold text-xs text-slate-900 dark:text-white">Folio #${matchProcessed.lastUdiFolio['FOLIO'] || matchProcessed.lastUdiFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastUdiFolio['FECHA'] ? formatDateShort(matchProcessed.lastUdiFolio['FECHA']) : ''})</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                    (matchProcessed.lastUdiFolio['ESTADO SUM'] || '').includes('STOCK') 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                      : ((matchProcessed.lastUdiFolio['ESTADO SUM'] || '') === 'ENTREGADO'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300')
+                  }">${matchProcessed.lastUdiFolio['ESTADO SUM'] || 'ENTREGADO'}</span>
+                ` : `
+                  <span class="text-[11px] text-slate-400 italic">Sin folio de UDI registrado</span>
+                `}
+              </div>
+            </div>
+            <div>
+              ${matchProcessed && matchProcessed.lastUdiFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastUdiFolio['FOLIO'] || matchProcessed.lastUdiFolio['FOLIO '] || ''}', '${serieUpper}');" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition whitespace-nowrap">
+                  ✏️ Folio UDI
+                </button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'UDI', ${matchProcessed ? matchProcessed.udiNivel : 10});" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition whitespace-nowrap">
+                  📦 Salida UDI
+                </button>
+              `}
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -1633,12 +1838,23 @@ function openEquipmentHistoryModal(serie) {
     }
   }
 
-  // 4. Salidas Registradas en FOLIOS para este equipo
+  // 4. Salidas Registradas en FOLIOS para este equipo (Más recientes al inicio)
   const foliosBody = document.getElementById('modalEquipFoliosBody');
   if (foliosBody) {
     foliosBody.innerHTML = '';
     const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
-    const equipFolios = allFolios.filter(f => (f['SERIE'] || '').toString().trim().toUpperCase() === serieUpper).reverse();
+    const equipFolios = allFolios.filter(f => (f['SERIE'] || '').toString().trim().toUpperCase() === serieUpper);
+    
+    // Ordenamiento riguroso cronológico descendente (más recientes al inicio)
+    equipFolios.sort((a, b) => {
+      const tsA = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(a) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(a['FECHA'])?.getTime() : 0) || (a['FECHA'] ? new Date(a['FECHA']).getTime() : 0) || 0);
+      const tsB = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(b) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(b['FECHA'])?.getTime() : 0) || (b['FECHA'] ? new Date(b['FECHA']).getTime() : 0) || 0);
+      if (tsB !== tsA) return tsB - tsA;
+      const numA = parseInt(String(a['FOLIO'] || a['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(String(b['FOLIO'] || b['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
+      if (numB !== numA) return numB - numA;
+      return 0;
+    });
 
     if (equipFolios.length === 0) {
       foliosBody.innerHTML = `<tr><td colspan="8" class="py-4 text-center text-slate-400">Sin salidas registradas en la hoja FOLIOS para esta serie.</td></tr>`;
@@ -1650,7 +1866,26 @@ function openEquipmentHistoryModal(serie) {
         const fDesc = f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '';
         const fSerie = f['SERIE SUM'] || 'Sin serie';
         const fCant = f['CANT'] || 1;
-        const fEst = f['ESTADO SUM'] || 'ENTREGADO';
+        const fEst = (f['ESTADO SUM'] || 'ENTREGADO').toString().trim().toUpperCase();
+
+        let badgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+        let badgeIcon = '';
+        if (fEst.includes('STOCK') || fEst === 'NUEVO') {
+          badgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold';
+          badgeIcon = '📦 ';
+        } else if (fEst === 'ENTREGADO') {
+          badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-semibold';
+          badgeIcon = '✅ ';
+        } else if (fEst.includes('TRANSIT') || fEst.includes('TRÁNSIT') || fEst.includes('ENVIADO') || fEst.includes('RUTA')) {
+          badgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-semibold';
+          badgeIcon = '🚚 ';
+        } else if (fEst.includes('INSTALAD') || fEst.includes('CONSUMID') || fEst.includes('AGOTAD')) {
+          badgeClass = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 font-medium';
+          badgeIcon = '🔧 ';
+        } else if (fEst.includes('PENDIENT')) {
+          badgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold';
+          badgeIcon = '⏳ ';
+        }
 
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-100 dark:border-slate-800 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40';
@@ -1662,14 +1897,10 @@ function openEquipmentHistoryModal(serie) {
           <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-100">${fSerie}</td>
           <td class="py-2 px-3 text-center font-bold text-slate-800 dark:text-slate-200">${fCant}</td>
           <td class="py-2 px-3">
-            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
-              fEst === 'ENTREGADO' 
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-            }">${fEst}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${badgeIcon}${fEst}</span>
           </td>
           <td class="py-2 px-3 text-center">
-            <button type="button" onclick="closeEquipmentHistoryModal(); goToFolioDetail('${folNum}', '${serieUpper}');" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition" title="Redireccionar a FOLIOS para consultar o modificar estatus">
+            <button type="button" onclick="goToFolioDetail('${folNum}', '${serieUpper}');" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition" title="Consultar o modificar folio in situ">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
               <span>✏️ Modificar</span>
             </button>

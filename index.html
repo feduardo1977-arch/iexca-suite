@@ -1851,12 +1851,14 @@
               <input type="text" id="salidaDet" placeholder="DET" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
             </div>
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Estado Movimiento:</label>
-              <select id="salidaEstadoSum" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
-                <option value="ENTREGADO">ENTREGADO</option>
-                <option value="ENVIADO">ENVIADO</option>
-                <option value="INSTALADO">INSTALADO</option>
-                <option value="NUEVO">NUEVO</option>
+              <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Estado Movimiento / Suministro:</label>
+              <select id="salidaEstadoSum" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
+                <option value="EN STOCK">📦 EN STOCK (En sitio / Disponible)</option>
+                <option value="ENTREGADO">✅ ENTREGADO (En tienda)</option>
+                <option value="EN TRANSITO">🚚 EN TRÁNSITO / ENVIADO</option>
+                <option value="INSTALADO">🔧 INSTALADO EN EQUIPO</option>
+                <option value="CONSUMIDO">🪫 CONSUMIDO / AGOTADO</option>
+                <option value="PENDIENTE">⏳ PENDIENTE DE ENVÍO</option>
               </select>
             </div>
           </div>
@@ -6443,7 +6445,23 @@
       document.getElementById('salidaCliente').value = row['CLIENTE'] || '';
       document.getElementById('salidaDestino').value = row['DESTINO'] || '';
       document.getElementById('salidaDet').value = row['DET'] || '';
-      document.getElementById('salidaEstadoSum').value = row['ESTADO SUM'] || 'ENTREGADO';
+      const rawEst = (row['ESTADO SUM'] || 'ENTREGADO').toString().trim().toUpperCase();
+      const selEstado = document.getElementById('salidaEstadoSum');
+      if (selEstado) {
+        if (rawEst.includes('STOCK') || rawEst === 'EN STOCK' || rawEst === 'NUEVO') {
+          selEstado.value = 'EN STOCK';
+        } else if (rawEst.includes('TRANSIT') || rawEst.includes('TRÁNSIT') || rawEst === 'ENVIADO' || rawEst === 'EN RUTA') {
+          selEstado.value = 'EN TRANSITO';
+        } else if (rawEst.includes('INSTALAD') || rawEst === 'COLOCADO') {
+          selEstado.value = 'INSTALADO';
+        } else if (rawEst.includes('CONSUMID') || rawEst === 'AGOTADO') {
+          selEstado.value = 'CONSUMIDO';
+        } else if (rawEst.includes('PENDIENT')) {
+          selEstado.value = 'PENDIENTE';
+        } else {
+          selEstado.value = 'ENTREGADO';
+        }
+      }
 
       document.getElementById('modalSalidaFolios').classList.remove('hidden');
     }
