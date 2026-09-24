@@ -82,6 +82,16 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
       background: rgba(148, 163, 184, 0.75);
     }
+    /* Estabilidad móvil y prevención estricta de desbordamiento horizontal */
+    html, body {
+      max-width: 100vw;
+      overflow-x: hidden !important;
+    }
+    .modal-box-safe {
+      max-width: calc(100vw - 1rem) !important;
+      box-sizing: border-box !important;
+      min-width: 0 !important;
+    }
     @media print {
       body * { visibility: hidden !important; }
       #printableODSBoleta, #printableODSBoleta * { visibility: visible !important; }
@@ -102,29 +112,31 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
 
-  <!-- BARRA DE NAVEGACIÓN SUPERIOR -->
-  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR (RESPONSIVA MÓVIL Y DESKTOP) -->
+  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-xs w-full max-w-full overflow-hidden">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-0 sm:h-16 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full min-w-0">
+      <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
         </div>
-        <div>
-          <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            Excel Analytics Dashboard
-            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Compatibilidad Total</span>
-          </h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Compatible con .xlsx, .xlsm (macros), .xlsb, .xls y .csv</p>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <h1 class="text-sm sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white truncate">
+              Excel Analytics Dashboard
+            </h1>
+            <span class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 shrink-0">Compatibilidad Total</span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 break-words leading-tight mt-0.5">Compatible con .xlsx, .xlsm (macros), .xlsb, .xls y .csv</p>
         </div>
       </div>
 
-      <div class="flex items-center space-x-2 sm:space-x-3">
+      <div class="flex items-center justify-between sm:justify-end space-x-1.5 sm:space-x-3 w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700/60 shrink-0">
         <!-- Insignia de Protección Anti-Salida -->
         <div id="safetyGuardBadge" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" title="Protección activa: se te solicitará confirmación antes de salir o recargar la página para evitar perder tus filtros y configuraciones">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Protección anti-salida activa</span>
+          <span>Protección activa</span>
         </div>
 
         <!-- Selector rápido de datos demo -->
@@ -134,100 +146,106 @@
           <button onclick="loadSampleData('inventario')" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition font-medium">Inventario</button>
         </div>
 
-        <!-- Botón Recargar Datos Frescos / Limpiar Caché -->
-        <button type="button" onclick="forceReloadFreshData()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900 border border-amber-200 dark:border-amber-800 text-xs font-bold shadow-2xs transition" title="Recargar SUITE.xlsm limpio o reiniciar memoria de la base local">
-          <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-          <span class="hidden sm:inline">Recargar Datos</span>
-          <span class="sm:hidden">Recargar</span>
-        </button>
+        <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+          <!-- Botón Recargar Datos Frescos / Limpiar Caché -->
+          <button type="button" onclick="forceReloadFreshData()" class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900 border border-amber-200 dark:border-amber-800 text-xs font-bold shadow-2xs transition" title="Recargar SUITE.xlsm limpio o reiniciar memoria de la base local">
+            <svg class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <span class="hidden sm:inline">Recargar Datos</span>
+            <span class="sm:hidden">Recargar</span>
+          </button>
 
-        <!-- Botón Cargar Archivo (soporta .xlsx, .xlsm con macros, .xlsb, .xls, .csv) -->
-        <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-sm transition hover:shadow">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-          </svg>
-          <span>Abrir Archivo</span>
-        </label>
-        <input type="file" id="excelFileInput" accept=".xlsx, .xls, .xlsm, .xlsb, .csv, .tsv, .txt, *" class="hidden">
+          <!-- Botón Cargar Archivo (soporta .xlsx, .xlsm con macros, .xlsb, .xls, .csv) -->
+          <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold shadow-sm transition hover:shadow">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+            <span>Abrir Archivo</span>
+          </label>
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls, .xlsm, .xlsb, .csv, .tsv, .txt, *" class="hidden">
 
-        <!-- Botón Modo Oscuro -->
-        <button id="themeToggleBtn" onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition" title="Cambiar tema">
-          <svg id="themeIconSun" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-          </svg>
-          <svg id="themeIconMoon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-          </svg>
-        </button>
+          <!-- Botón Modo Oscuro -->
+          <button id="themeToggleBtn" onclick="toggleTheme()" class="p-1.5 sm:p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition" title="Cambiar tema">
+            <svg id="themeIconSun" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+            <svg id="themeIconMoon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 w-full max-w-full overflow-x-hidden min-w-0 space-y-4 sm:space-y-6">
 
     <!-- ZONA DRAG & DROP / SUBIDA DE ARCHIVO -->
-    <section id="uploadSection" class="relative group">
-      <div id="dropzone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 sm:p-8 text-center bg-white dark:bg-slate-800/60 hover:border-brand-500 dark:hover:border-brand-400 transition cursor-pointer">
+    <section id="uploadSection" class="relative group w-full min-w-0 max-w-full">
+      <div id="dropzone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-4 sm:p-8 text-center bg-white dark:bg-slate-800/60 hover:border-brand-500 dark:hover:border-brand-400 transition cursor-pointer w-full min-w-0">
         <input type="file" id="dropFileInput" accept=".xlsx, .xls, .xlsm, .xlsb, .csv, .tsv, .txt, *" class="hidden">
-        <div class="flex flex-col items-center justify-center space-y-3">
-          <div class="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-slate-700/80 text-brand-600 dark:text-brand-400 flex items-center justify-center shadow-xs">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-col items-center justify-center space-y-2.5 sm:space-y-3 min-w-0 w-full">
+          <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand-50 dark:bg-slate-700/80 text-brand-600 dark:text-brand-400 flex items-center justify-center shadow-xs shrink-0">
+            <svg class="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
           </div>
-          <div>
-            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          <div class="min-w-0 px-1">
+            <p class="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
               Arrastra y suelta tu archivo aquí, o <span class="text-brand-600 dark:text-brand-400 underline font-bold">haz clic para examinar</span>
             </p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
               Compatible con <span class="font-bold text-slate-700 dark:text-slate-200">.xlsx, .xlsm (con macros), .xlsb (binario), .xls y .csv</span>.
             </p>
           </div>
-          <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
-            <button type="button" onclick="linkDiskFile()" class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-xs flex items-center gap-1.5">
+          <div class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-1 w-full min-w-0">
+            <button type="button" onclick="linkDiskFile()" class="w-full sm:w-auto text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-xs flex items-center justify-center gap-1.5">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
               <span>📂 Abrir y Vincular Archivo en Disco</span>
             </button>
-            <span class="text-xs text-slate-400">o datos base:</span>
-            <button type="button" onclick="loadSuiteIEXCADemo()" class="text-xs px-2.5 py-1 rounded bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 font-bold hover:bg-amber-100 transition border border-amber-200 dark:border-amber-800 shadow-2xs">⚡ Recargar Base IEXCA</button>
-            <button type="button" onclick="loadSampleData('ventas')" class="text-xs px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-medium hover:bg-emerald-100 transition">Ventas 2025 vs 2026</button>
-            <button type="button" onclick="loadSampleData('sla')" class="text-xs px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-medium hover:bg-indigo-100 transition">⏱️ SLA y Tiempos</button>
+            <div class="flex flex-wrap items-center justify-center gap-1.5 w-full sm:w-auto">
+              <span class="text-[11px] sm:text-xs text-slate-400">o datos base:</span>
+              <button type="button" onclick="loadSuiteIEXCADemo()" class="text-xs px-2.5 py-1 rounded bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 font-bold hover:bg-amber-100 transition border border-amber-200 dark:border-amber-800 shadow-2xs">⚡ Base IEXCA</button>
+              <button type="button" onclick="loadSampleData('ventas')" class="text-xs px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-medium hover:bg-emerald-100 transition">Ventas</button>
+              <button type="button" onclick="loadSampleData('sla')" class="text-xs px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-medium hover:bg-indigo-100 transition">⏱️ SLA</button>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
     <!-- ESTADO / METADATOS DEL ARCHIVO CARGADO -->
-    <div id="fileInfoBar" class="hidden bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4 shadow-xs">
-      <div class="flex items-center space-x-3">
-        <div id="fileTypeBadge" class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs uppercase">
+    <div id="fileInfoBar" class="hidden bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs w-full min-w-0 max-w-full overflow-hidden">
+      <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+        <div id="fileTypeBadge" class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs uppercase shrink-0">
           XLS
         </div>
-        <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <span id="activeFileName" class="text-sm font-bold text-slate-900 dark:text-white">archivo.xlsx</span>
-            <span id="activeFileSize" class="text-xs text-slate-400">12 KB</span>
-            <span id="diskLinkedIndicator" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span id="activeFileName" class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">archivo.xlsx</span>
+            <span id="activeFileSize" class="text-[11px] sm:text-xs text-slate-400 shrink-0">12 KB</span>
+            <span id="diskLinkedIndicator" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1 shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
-              <span>Vinculado a Disco (Guardado Directo)</span>
+              <span>Vinculado</span>
             </span>
           </div>
-          <p id="activeSheetInfo" class="text-xs text-slate-500 dark:text-slate-400">Hoja activa: Hoja1</p>
+          <p id="activeSheetInfo" class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Hoja activa: Hoja1</p>
         </div>
       </div>
 
-      <!-- Selector de Hojas de Excel (si hay varias pestañas) -->
-      <div id="sheetSelectorContainer" class="hidden flex items-center space-x-2">
-        <label for="sheetSelect" class="text-xs font-medium text-slate-600 dark:text-slate-400">Pestaña / Hoja:</label>
-        <select id="sheetSelect" onchange="onSheetChange(this.value)" class="text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-lg px-2.5 py-1.5 font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500">
-        </select>
-      </div>
+      <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <!-- Selector de Hojas de Excel (si hay varias pestañas) -->
+        <div id="sheetSelectorContainer" class="hidden flex items-center space-x-1.5 flex-1 sm:flex-initial min-w-0">
+          <label for="sheetSelect" class="text-xs font-medium text-slate-600 dark:text-slate-400 shrink-0">Pestaña:</label>
+          <select id="sheetSelect" onchange="onSheetChange(this.value)" class="text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-lg px-2 py-1 font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 w-full sm:w-auto">
+          </select>
+        </div>
 
-      <!-- Selector de Métrica Principal para KPIs -->
-      <div class="flex items-center space-x-2">
-        <label for="kpiMetricSelect" class="text-xs font-medium text-slate-600 dark:text-slate-400">Métrica clave:</label>
-        <select id="kpiMetricSelect" onchange="updateKPIs()" class="text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-lg px-2.5 py-1.5 font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500">
-        </select>
+        <!-- Selector de Métrica Principal para KPIs -->
+        <div class="flex items-center space-x-1.5 flex-1 sm:flex-initial min-w-0">
+          <label for="kpiMetricSelect" class="text-xs font-medium text-slate-600 dark:text-slate-400 shrink-0">Métrica:</label>
+          <select id="kpiMetricSelect" onchange="updateKPIs()" class="text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-lg px-2 py-1 font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 w-full sm:w-auto">
+          </select>
+        </div>
       </div>
     </div>
 
@@ -263,35 +281,35 @@
           <span id="badgeMonitoreoAlertsCount" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">0 alertas</span>
         </button>
       </div>
-      <div class="flex items-center gap-2 flex-wrap w-full xl:w-auto justify-between sm:justify-end pt-2 xl:pt-0 border-t xl:border-t-0 border-slate-100 dark:border-slate-700">
+      <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 w-full xl:w-auto justify-stretch sm:justify-end pt-2 xl:pt-0 border-t xl:border-t-0 border-slate-100 dark:border-slate-700 min-w-0">
         <!-- Badge de Base Local Permanente -->
-        <span id="badgeStorageStatus" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Tus cambios se guardan permanentemente en la base de datos de tu navegador y no se pierden al cerrar">
+        <span id="badgeStorageStatus" class="col-span-2 sm:col-span-auto inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Tus cambios se guardan permanentemente en la base de datos de tu navegador y no se pierden al cerrar">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span id="storageStatusText">Base Local</span>
         </span>
 
         <!-- Botón Vincular Archivo en Disco (Google Chrome File System API) -->
-        <button type="button" id="btnLinkDiskFile" onclick="linkDiskFile()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 shadow-xs transition" title="Selecciona tu archivo SUITE.xlsm o .xlsx en tu disco duro para guardar directo en él">
-          <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-          <span id="labelLinkDiskFile">📂 Vincular Disco</span>
+        <button type="button" id="btnLinkDiskFile" onclick="linkDiskFile()" class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 shadow-xs transition" title="Selecciona tu archivo SUITE.xlsm o .xlsx en tu disco duro para guardar directo en él">
+          <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+          <span id="labelLinkDiskFile" class="truncate">📂 Vincular Disco</span>
         </button>
 
         <!-- Botón Guardar Directo en Archivo de Disco -->
-        <button type="button" id="btnSaveDirectDisk" onclick="saveDirectToDisk()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition" title="Guarda y actualiza directamente el archivo en tu disco duro sin generar descargas">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+        <button type="button" id="btnSaveDirectDisk" onclick="saveDirectToDisk()" class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition" title="Guarda y actualiza directamente el archivo en tu disco duro sin generar descargas">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
           <span id="labelSaveDirectDisk">💾 Guardar</span>
         </button>
 
         <!-- Botón Descargar Copia Excel -->
-        <button type="button" onclick="exportUpdatedExcel()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition" title="Descargar copia del libro Excel actualizado (.xlsx)">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-          <span>Descargar Copia</span>
+        <button type="button" onclick="exportUpdatedExcel()" class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition" title="Descargar copia del libro Excel actualizado (.xlsx)">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          <span class="truncate">Descargar</span>
         </button>
 
         <!-- Botón Limpiar / Reiniciar Base Local -->
-        <button type="button" onclick="forceReloadFreshData()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition border border-transparent hover:border-red-200" title="Restablecer o limpiar datos guardados en la memoria local y recargar archivo limpio">
-          <svg class="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-          <span class="hidden sm:inline">Limpiar Caché</span>
+        <button type="button" onclick="forceReloadFreshData()" class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 transition border border-transparent hover:border-red-200" title="Restablecer o limpiar datos guardados en la memoria local y recargar archivo limpio">
+          <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+          <span class="truncate">Limpiar</span>
         </button>
       </div>
     </nav>
@@ -300,25 +318,25 @@
     <div id="dashboardViewModule" class="space-y-6">
 
     <!-- BARRA DE PESTAÑAS DE HOJAS INDEPENDIENTES (TABS CON MEMORIA TOTAL DE FILTROS) -->
-    <div id="sheetsTabBarContainer" class="hidden bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col gap-2.5">
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-2.5">
-        <div class="flex items-center gap-2">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-brand-50 text-brand-700 dark:bg-brand-950/70 dark:text-brand-300">
+    <div id="sheetsTabBarContainer" class="hidden bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col gap-2.5 min-w-0 w-full max-w-full overflow-hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 dark:border-slate-700/60 pb-2.5 min-w-0 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 min-w-0">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-brand-50 text-brand-700 dark:bg-brand-950/70 dark:text-brand-300 shrink-0 w-fit">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
             </svg>
             Hojas del Libro
           </span>
-          <span class="text-xs text-slate-500 dark:text-slate-400">
-            Cada pestaña es un espacio independiente. <strong>Al cambiar de hoja se conservan automáticamente todos los filtros y configuraciones.</strong>
+          <span class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 break-words leading-tight">
+            Cada pestaña es un espacio independiente. Al cambiar de hoja se conservan automáticamente todos los filtros y configuraciones.
           </span>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" onclick="openCompareSheetsModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800/60 transition shadow-2xs">
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="openCompareSheetsModal()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800/60 transition shadow-2xs">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
-            Comparar 2 Hojas en Paralelo
+            <span>Comparar 2 Hojas</span>
           </button>
         </div>
       </div>
@@ -1376,20 +1394,20 @@
     </div>
 
     <!-- MÓDULO 5: AUDITORÍA Y MONITOREO DE SUMINISTROS (CSV MPS / FLEET) & STOCK EN SITIO -->
-    <div id="monitoreoViewModule" class="hidden space-y-6">
+    <div id="monitoreoViewModule" class="hidden space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
       <!-- Encabezado del Módulo y Botones Principales -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-        <div>
-          <div class="flex items-center gap-2.5">
-            <span class="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex-shrink-0">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 w-full min-w-0 max-w-full overflow-hidden">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start sm:items-center gap-2.5 min-w-0">
+            <span class="p-2 sm:p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 shrink-0">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </span>
-            <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
-                <span>Auditoría y Monitoreo de Suministros (Fleet Manager / CSV)</span>
-                <span class="text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-semibold">TNR • UDI • KMT</span>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span>Auditoría y Monitoreo de Suministros</span>
+                <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-semibold shrink-0">TNR • UDI • KMT</span>
               </h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Control de desgaste semanal, detección de cartuchos reemplazados y validación inteligente de Stock en Sitio cruzando con FOLIOS</p>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 break-words leading-tight mt-0.5">Control de desgaste semanal, detección de cartuchos reemplazados y validación inteligente de Stock en Sitio cruzando con FOLIOS</p>
             </div>
           </div>
         </div>
@@ -1634,9 +1652,9 @@
   </main>
 
   <!-- MODAL: HISTORIAL TÉCNICO Y EVOLUCIÓN DEL EQUIPO -->
-  <div id="modalEquipmentHistory" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-1.5 sm:p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-full sm:max-w-4xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh]">
-      <div class="p-3 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10">
+  <div id="modalEquipmentHistory" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-4xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
+      <div class="p-3 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
         <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <button type="button" onclick="closeEquipmentHistoryModal()" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shrink-0" title="Volver al monitoreo">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -1655,19 +1673,19 @@
         </button>
       </div>
 
-      <div class="p-3 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 flex-1">
+      <div class="p-3 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 sm:space-y-6 flex-1 min-w-0 w-full">
         <!-- Ficha Resumen RDI -->
-        <div id="modalEquipSummaryCard" class="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs">
+        <div id="modalEquipSummaryCard" class="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs min-w-0 w-full">
           <!-- Renderizado dinámicamente -->
         </div>
 
         <!-- Tabla Histórica de Lecturas CSV Semanales -->
-        <div class="space-y-2">
+        <div class="space-y-2 min-w-0 w-full">
           <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
             <span>📅 Lecturas Semanales de Monitoreo (Evolución y Caída %)</span>
           </h4>
-          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full">
-            <table class="w-full min-w-[580px] text-left text-xs border-collapse">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full max-w-full min-w-0">
+            <table class="w-full min-w-[500px] sm:min-w-[580px] text-left text-xs border-collapse">
               <thead>
                 <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                   <th class="py-2 px-3">Fecha Captura</th>
@@ -1687,12 +1705,12 @@
         </div>
 
         <!-- Tabla de Salidas Registradas en FOLIOS -->
-        <div class="space-y-2">
+        <div class="space-y-2 min-w-0 w-full">
           <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
             <span>📦 Salidas y Despachos Registrados en FOLIOS</span>
           </h4>
-          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full">
-            <table class="w-full min-w-[620px] text-left text-xs border-collapse">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full max-w-full min-w-0">
+            <table class="w-full min-w-[540px] sm:min-w-[620px] text-left text-xs border-collapse">
               <thead>
                 <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                   <th class="py-2 px-3">Folio #</th>
@@ -1726,26 +1744,26 @@
   </div>
 
   <!-- MODAL PARA COMPARAR 2 HOJAS EN PARALELO -->
-  <div id="compareSheetsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-      <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-400">
+  <div id="compareSheetsModal" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-4xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[90vh] box-border my-auto modal-box-safe">
+      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 min-w-0 w-full">
+        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div class="p-2 rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-950/60 dark:text-brand-400 shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
           </div>
-          <div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">Comparativa de 2 Hojas en Paralelo</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Compara registros, métricas y totales entre dos pestañas del libro</p>
+          <div class="min-w-0">
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Comparativa de 2 Hojas en Paralelo</h3>
+            <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Compara registros, métricas y totales entre dos pestañas del libro</p>
           </div>
         </div>
-        <button type="button" onclick="closeCompareSheetsModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+        <button type="button" onclick="closeCompareSheetsModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
       </div>
 
-      <div class="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
+      <div class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 sm:space-y-6 flex-1 min-w-0 w-full">
         <!-- Selectores de las 2 Hojas -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="p-4 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40">
@@ -1775,9 +1793,9 @@
   </div>
 
   <!-- MODAL: REGISTRAR / EDITAR SALIDA EN FOLIOS (SUPERPUESTO EN Z-[70]) -->
-  <div id="modalSalidaFolios" class="hidden fixed inset-0 z-[70] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-1.5 sm:p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-full sm:max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh]">
-      <div class="p-3 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10">
+  <div id="modalSalidaFolios" class="hidden fixed inset-0 z-[70] overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-2xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
+      <div class="p-3 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
         <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <button type="button" onclick="closeSalidaModal()" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shrink-0" title="Volver al detalle anterior">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -1796,7 +1814,7 @@
         </button>
       </div>
 
-      <form id="formSalidaFolios" onsubmit="saveSalidaFolios(event)" class="p-3 sm:p-6 overflow-y-auto space-y-4 flex-1">
+      <form id="formSalidaFolios" onsubmit="saveSalidaFolios(event)" class="p-3 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-w-0 w-full">
         <input type="hidden" id="salidaEditIndex" value="-1">
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -1913,24 +1931,24 @@
   </div>
 
   <!-- MODAL: NUEVA / EDITAR ORDEN DE SERVICIO (ODS) -->
-  <div id="modalTicketODS" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-      <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+  <div id="modalTicketODS" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-3xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
+      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
+        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div class="p-2 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
           </div>
-          <div>
-            <h3 id="modalTicketTitle" class="text-base font-bold text-slate-900 dark:text-white">Nueva Orden de Servicio (ODS)</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Registro de ticket con correlativo automático y autollenado de parque RDI</p>
+          <div class="min-w-0">
+            <h3 id="modalTicketTitle" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Nueva Orden de Servicio (ODS)</h3>
+            <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Registro de ticket con correlativo automático y autollenado de parque RDI</p>
           </div>
         </div>
-        <button type="button" onclick="closeTicketModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+        <button type="button" onclick="closeTicketModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
       </div>
 
-      <form id="formTicketODS" onsubmit="saveTicketODS(event)" class="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+      <form id="formTicketODS" onsubmit="saveTicketODS(event)" class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-w-0 w-full">
         <input type="hidden" id="ticketEditIndex" value="-1">
 
         <!-- CABECERA DEL TICKET -->
@@ -2103,24 +2121,24 @@
   </div>
 
   <!-- MODAL: REGISTRAR / EDITAR EQUIPO EN CATÁLOGO RDI (MULTI-PAÍS) -->
-  <div id="modalNewRdi" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-      <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-xl bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-400">
+  <div id="modalNewRdi" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-2xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
+      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
+        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div class="p-2 rounded-xl bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-400 shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
           </div>
-          <div>
-            <h3 id="modalRdiTitle" class="text-base font-bold text-slate-900 dark:text-white">Registrar Nuevo Equipo en Catálogo (RDI)</h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400">Alta y homologación de series, clientes, sucursales y códigos DET multi-país</p>
+          <div class="min-w-0">
+            <h3 id="modalRdiTitle" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Registrar Nuevo Equipo en Catálogo (RDI)</h3>
+            <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Alta y homologación de series, clientes, sucursales y códigos DET multi-país</p>
           </div>
         </div>
-        <button type="button" onclick="closeRdiModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+        <button type="button" onclick="closeRdiModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
       </div>
 
-      <form id="formRdiEquipment" onsubmit="saveRdiEquipment(event)" class="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+      <form id="formRdiEquipment" onsubmit="saveRdiEquipment(event)" class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-w-0 w-full">
         <input type="hidden" id="rdiEditIndex" value="-1">
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -2940,12 +2958,12 @@
         selectB.appendChild(optB);
       });
 
-      document.getElementById('compareSheetsModal').classList.remove('hidden');
+      pushModalToHistory('compareSheetsModal');
       runSheetsComparison();
     }
 
-    function closeCompareSheetsModal() {
-      document.getElementById('compareSheetsModal').classList.add('hidden');
+    function closeCompareSheetsModal(force = false) {
+      triggerModalClose('compareSheetsModal', force);
     }
 
     function getSheetRows(sheetName) {
@@ -6411,13 +6429,26 @@
     // ==========================================
     let modalStack = [];
     let isSalidaFormDirty = false;
+    let isTicketFormDirty = false;
+    let isRdiFormDirty = false;
+    let isPoppingModalProgrammatically = false;
 
-    // Detectar si el usuario modificó algún campo en el formulario de salida
+    // Detectar si el usuario modificó algún campo en los formularios de los modales
     document.addEventListener('DOMContentLoaded', () => {
       const formSalida = document.getElementById('formSalidaFolios');
       if (formSalida) {
         formSalida.addEventListener('input', () => { isSalidaFormDirty = true; });
         formSalida.addEventListener('change', () => { isSalidaFormDirty = true; });
+      }
+      const formTicket = document.getElementById('formTicketODS');
+      if (formTicket) {
+        formTicket.addEventListener('input', () => { isTicketFormDirty = true; });
+        formTicket.addEventListener('change', () => { isTicketFormDirty = true; });
+      }
+      const formRdi = document.getElementById('formRdiEquipment');
+      if (formRdi) {
+        formRdi.addEventListener('input', () => { isRdiFormDirty = true; });
+        formRdi.addEventListener('change', () => { isRdiFormDirty = true; });
       }
     });
 
@@ -6450,17 +6481,29 @@
         return true;
       }
 
-      // Si es el modal de salida y tiene cambios sin guardar, solicitar confirmación
-      if (top.id === 'modalSalidaFolios' && isSalidaFormDirty && !force) {
-        const confirmar = window.confirm(
-          "⚠️ ATENCIÓN: Tienes datos modificados en la salida sin guardar.\n\n" +
-          "¿Estás seguro de que deseas retroceder y descartar los cambios?"
-        );
-        if (!confirmar) {
-          try {
-            window.history.pushState({ modalId: 'modalSalidaFolios', stackDepth: modalStack.length }, '');
-          } catch (e) {}
-          return false;
+      // Advertencias de retroceso pausado
+      if (!force) {
+        let msg = null;
+        if (top.id === 'modalSalidaFolios' && isSalidaFormDirty) {
+          msg = "⚠️ ATENCIÓN: Tienes datos modificados en la salida de FOLIOS sin guardar.\n\n¿Estás seguro de que deseas retroceder y descartar los cambios?";
+        } else if (top.id === 'modalTicketODS' && isTicketFormDirty) {
+          msg = "⚠️ ATENCIÓN: Tienes datos de la orden de servicio (ODS) sin guardar.\n\n¿Estás seguro de que deseas retroceder y descartar los cambios?";
+        } else if (top.id === 'modalNewRdi' && isRdiFormDirty) {
+          msg = "⚠️ ATENCIÓN: Tienes datos del equipo en catálogo (RDI) sin guardar.\n\n¿Estás seguro de que deseas retroceder y descartar los cambios?";
+        } else if (top.id === 'modalEquipmentHistory') {
+          msg = "📋 ¿Deseas cerrar la Ficha Técnica e Historial y volver al Monitoreo?";
+        } else if (top.id === 'compareSheetsModal') {
+          msg = "📊 ¿Deseas cerrar la Comparativa de Hojas?";
+        }
+
+        if (msg) {
+          const confirmar = window.confirm(msg);
+          if (!confirmar) {
+            try {
+              window.history.pushState({ modalId: top.id, stackDepth: modalStack.length }, '');
+            } catch (e) {}
+            return false;
+          }
         }
       }
 
@@ -6468,13 +6511,48 @@
       const el = document.getElementById(top.id);
       if (el) el.classList.add('hidden');
       if (top.id === 'modalSalidaFolios') isSalidaFormDirty = false;
+      if (top.id === 'modalTicketODS') isTicketFormDirty = false;
+      if (top.id === 'modalNewRdi') isRdiFormDirty = false;
 
       modalStack.pop();
+
+      // Si aún queda otro modal abajo en la pila, asegurar que se mantenga visible (retroceso pausado nivel por nivel)
+      if (modalStack.length > 0) {
+        const under = modalStack[modalStack.length - 1];
+        const underEl = document.getElementById(under.id);
+        if (underEl) underEl.classList.remove('hidden');
+      }
+
       return true;
+    }
+
+    // Disparador seguro para cerrar un modal vía botón o código con sincronización de historial
+    function triggerModalClose(modalId, force = false) {
+      if (modalStack.length > 0 && modalStack[modalStack.length - 1].id === modalId) {
+        if (!force) {
+          const ok = popModalFromHistory(modalId, false);
+          if (ok) {
+            isPoppingModalProgrammatically = true;
+            window.history.back();
+          }
+        } else {
+          popModalFromHistory(modalId, true);
+          isPoppingModalProgrammatically = true;
+          window.history.back();
+        }
+      } else {
+        const el = document.getElementById(modalId);
+        if (el) el.classList.add('hidden');
+        modalStack = modalStack.filter(item => item.id !== modalId);
+      }
     }
 
     // Listener universal para el botón físico/virtual Atrás del navegador o móvil Android
     window.addEventListener('popstate', (e) => {
+      if (isPoppingModalProgrammatically) {
+        isPoppingModalProgrammatically = false;
+        return;
+      }
       if (modalStack.length > 0) {
         popModalFromHistory(null, false);
       }
@@ -6518,21 +6596,7 @@
     }
 
     function closeSalidaModal(force = false) {
-      if (modalStack.length > 0 && modalStack[modalStack.length - 1].id === 'modalSalidaFolios') {
-        if (isSalidaFormDirty && !force) {
-          const confirmar = window.confirm(
-            "⚠️ ATENCIÓN: Tienes datos modificados en la salida sin guardar.\n\n" +
-            "¿Estás seguro de que deseas retroceder y descartar los cambios?"
-          );
-          if (!confirmar) return;
-        }
-        isSalidaFormDirty = false;
-        window.history.back();
-      } else {
-        isSalidaFormDirty = false;
-        document.getElementById('modalSalidaFolios').classList.add('hidden');
-        modalStack = modalStack.filter(item => item.id !== 'modalSalidaFolios');
-      }
+      triggerModalClose('modalSalidaFolios', force);
     }
 
     function editSalida(index) {
@@ -6992,11 +7056,12 @@
         }
       }
 
-      document.getElementById('modalTicketODS').classList.remove('hidden');
+      isTicketFormDirty = false;
+      pushModalToHistory('modalTicketODS');
     }
 
-    function closeTicketModal() {
-      document.getElementById('modalTicketODS').classList.add('hidden');
+    function closeTicketModal(force = false) {
+      triggerModalClose('modalTicketODS', force);
     }
 
     function editTicket(index) {
@@ -7029,7 +7094,8 @@
       document.getElementById('ticketServicioRealizado').value = row['SERVICIO REALIZADO'] || '';
       document.getElementById('ticketDescripcion').value = row['DESCRIPCIÓN DEL SERVICIO'] || row['DESCRIPCION'] || '';
 
-      document.getElementById('modalTicketODS').classList.remove('hidden');
+      isTicketFormDirty = false;
+      pushModalToHistory('modalTicketODS');
     }
 
     function deleteTicket(index) {
@@ -7143,7 +7209,7 @@
       if (bOds) bOds.textContent = `${sheetStore['ODS'].length} tickets`;
       const bNext = document.getElementById('badgeNextTicketId');
       if (bNext) bNext.textContent = getNextTicketId();
-      closeTicketModal();
+      closeTicketModal(true);
       updateOdsKPIs();
       filterOdsTable();
     }
@@ -7504,7 +7570,8 @@
       document.getElementById('formRdiEquipment').reset();
       document.getElementById('rdiInputPais').value = "El Salvador";
       document.getElementById('rdiInputPropiedad').value = "IEXCA";
-      document.getElementById('modalNewRdi').classList.remove('hidden');
+      isRdiFormDirty = false;
+      pushModalToHistory('modalNewRdi');
     }
 
     function openNewRdiModalWithData(source) {
@@ -7529,8 +7596,8 @@
       }
     }
 
-    function closeRdiModal() {
-      document.getElementById('modalNewRdi').classList.add('hidden');
+    function closeRdiModal(force = false) {
+      triggerModalClose('modalNewRdi', force);
     }
 
     function editRdi(index) {
@@ -7552,7 +7619,8 @@
       document.getElementById('rdiInputIp').value = (item['IP'] || '').toString().trim();
       document.getElementById('rdiInputPropiedad').value = (item['PROPIEDAD'] || 'IEXCA').toString().trim();
 
-      document.getElementById('modalNewRdi').classList.remove('hidden');
+      isRdiFormDirty = false;
+      pushModalToHistory('modalNewRdi');
     }
 
     function deleteRdi(index) {
@@ -7621,7 +7689,7 @@
       refreshRdiIndex();
       updateRdiKPIs();
       filterRdiTable();
-      closeRdiModal();
+      closeRdiModal(true);
     }
 
     function copyRdiSerie(serie) {

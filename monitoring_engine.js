@@ -1469,11 +1469,41 @@ function renderMonitoringTable() {
     // 1. RENDERIZADO EN TABLA (Escritorio / Tablet)
     if (tbody) {
       const tr = document.createElement('tr');
-      tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/40 transition border-b border-slate-100 dark:border-slate-800 cursor-pointer';
-      tr.onclick = (e) => {
-        if (e.target.closest('button')) return;
+      tr.className = 'hover:bg-rose-50/40 dark:hover:bg-slate-700/60 active:bg-rose-100/50 transition border-b border-slate-100 dark:border-slate-800 cursor-pointer touch-manipulation select-none';
+      tr.setAttribute('role', 'button');
+      tr.setAttribute('tabindex', '0');
+      tr.title = `Toca para abrir la Ficha e Historial del equipo ${r.serie}`;
+
+      let trTouchStartX = 0, trTouchStartY = 0, trTouchMoved = false;
+      tr.addEventListener('touchstart', (e) => {
+        trTouchMoved = false;
+        if (e.touches && e.touches[0]) {
+          trTouchStartX = e.touches[0].clientX;
+          trTouchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+      tr.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+          const dx = Math.abs(e.touches[0].clientX - trTouchStartX);
+          const dy = Math.abs(e.touches[0].clientY - trTouchStartY);
+          if (dx > 10 || dy > 10) trTouchMoved = true;
+        }
+      }, { passive: true });
+      tr.addEventListener('click', (e) => {
+        if (trTouchMoved) {
+          trTouchMoved = false;
+          return;
+        }
+        if (e.target.closest('button, a, input, select')) return;
         openEquipmentHistoryModal(r.serie);
-      };
+      });
+      tr.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (e.target.closest('button, a, input, select')) return;
+          e.preventDefault();
+          openEquipmentHistoryModal(r.serie);
+        }
+      });
 
       tr.innerHTML = `
         <td class="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">${startIdx + idx + 1}</td>
@@ -1552,8 +1582,51 @@ function renderMonitoringTable() {
     // 2. RENDERIZADO EN TARJETAS MÓVILES (Smartphone Friendly)
     if (cardsContainer) {
       const card = document.createElement('div');
-      card.className = 'bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3';
+      card.className = 'bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-500 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] active:bg-rose-50/20 dark:active:bg-slate-700/60 transition touch-manipulation select-none';
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.title = `Toca para abrir la Ficha e Historial del equipo ${r.serie}`;
+
+      let cardTouchStartX = 0, cardTouchStartY = 0, cardTouchMoved = false;
+      card.addEventListener('touchstart', (e) => {
+        cardTouchMoved = false;
+        if (e.touches && e.touches[0]) {
+          cardTouchStartX = e.touches[0].clientX;
+          cardTouchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+      card.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+          const dx = Math.abs(e.touches[0].clientX - cardTouchStartX);
+          const dy = Math.abs(e.touches[0].clientY - cardTouchStartY);
+          if (dx > 10 || dy > 10) cardTouchMoved = true;
+        }
+      }, { passive: true });
+      card.addEventListener('click', (e) => {
+        if (cardTouchMoved) {
+          cardTouchMoved = false;
+          return;
+        }
+        if (e.target.closest('button, a, input, select')) return;
+        openEquipmentHistoryModal(r.serie);
+      });
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (e.target.closest('button, a, input, select')) return;
+          e.preventDefault();
+          openEquipmentHistoryModal(r.serie);
+        }
+      });
+
       card.innerHTML = `
+        <!-- Banner Táctil para Móvil -->
+        <div class="flex items-center justify-between text-[11px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-200/80 dark:border-rose-900/40">
+          <span class="flex items-center gap-1.5">
+            <span>📋 Toca para ver Ficha &amp; Historial</span>
+          </span>
+          <svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+
         <div class="flex items-start justify-between gap-2">
           <div>
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -1638,8 +1711,8 @@ function renderMonitoringTable() {
             <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
               <span>📦 Despachar</span>
             </button>
-            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 transition flex-shrink-0" title="Ver Historial Completo y Folios">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shrink-0" title="Ver Historial Completo y Folios">
+              <span>📋 Ficha</span>
             </button>
           </div>
         </div>
@@ -1741,11 +1814,11 @@ function openEquipmentHistoryModal(serie) {
           <span class="text-[10px] font-semibold text-slate-500">Salidas más recientes al inicio</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1 min-w-0">
           <!-- Tarjeta TNR (Tóner) -->
-          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between gap-2">
-            <div>
-              <div class="flex items-center gap-1.5">
+          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-bold text-slate-800 dark:text-slate-100">🖨️ Tóner (TNR):</span>
                 <span class="font-bold text-xs ${matchProcessed && matchProcessed.isTnrLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${matchProcessed && matchProcessed.tnrNivel !== null ? matchProcessed.tnrNivel + '%' : 'N/D'}</span>
               </div>
@@ -1765,13 +1838,13 @@ function openEquipmentHistoryModal(serie) {
                 `}
               </div>
             </div>
-            <div>
+            <div class="w-full sm:w-auto flex justify-end shrink-0 pt-1 sm:pt-0">
               ${matchProcessed && matchProcessed.lastTnrFolio ? `
-                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrFolio['FOLIO'] || matchProcessed.lastTnrFolio['FOLIO '] || ''}', '${serieUpper}');" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition whitespace-nowrap">
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrFolio['FOLIO'] || matchProcessed.lastTnrFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition whitespace-nowrap text-center">
                   ✏️ Folio TNR
                 </button>
               ` : `
-                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNR', ${matchProcessed ? matchProcessed.tnrNivel : 10});" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition whitespace-nowrap">
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNR', ${matchProcessed ? matchProcessed.tnrNivel : 10});" class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition whitespace-nowrap text-center">
                   📦 Salida TNR
                 </button>
               `}
@@ -1779,9 +1852,9 @@ function openEquipmentHistoryModal(serie) {
           </div>
 
           <!-- Tarjeta UDI (Unidad de Imagen) -->
-          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between gap-2">
-            <div>
-              <div class="flex items-center gap-1.5">
+          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-bold text-slate-800 dark:text-slate-100">⚙️ UDI (Imagen):</span>
                 <span class="font-bold text-xs ${matchProcessed && matchProcessed.isUdiLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${matchProcessed && matchProcessed.udiNivel !== null ? matchProcessed.udiNivel + '%' : 'N/D'}</span>
               </div>
@@ -1801,13 +1874,13 @@ function openEquipmentHistoryModal(serie) {
                 `}
               </div>
             </div>
-            <div>
+            <div class="w-full sm:w-auto flex justify-end shrink-0 pt-1 sm:pt-0">
               ${matchProcessed && matchProcessed.lastUdiFolio ? `
-                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastUdiFolio['FOLIO'] || matchProcessed.lastUdiFolio['FOLIO '] || ''}', '${serieUpper}');" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition whitespace-nowrap">
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastUdiFolio['FOLIO'] || matchProcessed.lastUdiFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition whitespace-nowrap text-center">
                   ✏️ Folio UDI
                 </button>
               ` : `
-                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'UDI', ${matchProcessed ? matchProcessed.udiNivel : 10});" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition whitespace-nowrap">
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'UDI', ${matchProcessed ? matchProcessed.udiNivel : 10});" class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition whitespace-nowrap text-center">
                   📦 Salida UDI
                 </button>
               `}
@@ -1960,13 +2033,10 @@ function openEquipmentHistoryModal(serie) {
   }
 }
 
-function closeEquipmentHistoryModal() {
-  if (typeof popModalFromHistory === 'function' && typeof modalStack !== 'undefined') {
-    const top = modalStack[modalStack.length - 1];
-    if (top && top.id === 'modalEquipmentHistory') {
-      window.history.back();
-      return;
-    }
+function closeEquipmentHistoryModal(force = false) {
+  if (typeof triggerModalClose === 'function') {
+    triggerModalClose('modalEquipmentHistory', force);
+    return;
   }
   const modal = document.getElementById('modalEquipmentHistory');
   if (modal) modal.classList.add('hidden');
