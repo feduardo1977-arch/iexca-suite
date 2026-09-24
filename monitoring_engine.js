@@ -525,7 +525,7 @@ function refreshMonitoringAnalysis() {
           deltaTnr = prevRow.tnrNivel - row.tnrNivel;
         }
         if ((prevRow.tnrSerie && row.tnrSerie && prevRow.tnrSerie !== row.tnrSerie) ||
-            (prevRow.tnrNivel !== null && prevRow.tnrNivel <= 20 && row.tnrNivel !== null && row.tnrNivel >= 80)) {
+            (prevRow.tnrNivel !== null && prevRow.tnrNivel <= 15 && row.tnrNivel !== null && row.tnrNivel >= 80)) {
           tnrReplaced = true;
         }
       }
@@ -537,7 +537,7 @@ function refreshMonitoringAnalysis() {
           deltaUdi = prevRow.udiNivel - row.udiNivel;
         }
         if ((prevRow.udiSerie && row.udiSerie && prevRow.udiSerie !== row.udiSerie) ||
-            (prevRow.udiNivel !== null && prevRow.udiNivel <= 20 && row.udiNivel !== null && row.udiNivel >= 80)) {
+            (prevRow.udiNivel !== null && prevRow.udiNivel <= 15 && row.udiNivel !== null && row.udiNivel >= 80)) {
           udiReplaced = true;
         }
       }
@@ -547,12 +547,12 @@ function refreshMonitoringAnalysis() {
         deltaKmt = prevRow.kmtNivel - row.kmtNivel;
       }
 
-      // Alertas de Nivel Bajo
-      const isTnrLow = (row.tnrNivel !== null && row.tnrNivel <= 20) || 
-                       (row.estadoSuministro === 'Advertencia' && (row.tnrNivel === null || row.tnrNivel <= 25));
-      const isUdiLow = (row.udiNivel !== null && row.udiNivel <= 20) || 
-                       (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 25);
-      const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 20);
+      // Alertas de Nivel Bajo (Regla operativa IEXCA: 15% o menos)
+      const isTnrLow = (row.tnrNivel !== null && row.tnrNivel <= 15) || 
+                       (row.estadoSuministro === 'Advertencia' && (row.tnrNivel === null || row.tnrNivel <= 15));
+      const isUdiLow = (row.udiNivel !== null && row.udiNivel <= 15) || 
+                       (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 15);
+      const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 15);
 
       // Salidas registradas en FOLIOS para este equipo
       const equipFolios = foliosBySerie.get(serieUpper) || [];
@@ -653,7 +653,7 @@ function refreshMonitoringAnalysis() {
 
       // DIAGNÓSTICO GENERAL DEL EQUIPO (Por prioridad de criticidad)
       let overallDiag = 'OPTIMO';
-      let primaryReason = 'Niveles de suministros en rango seguro (> 20%).';
+      let primaryReason = 'Niveles de suministros en rango seguro (> 15%).';
       let alertSupplyType = null;
       let alertLevel = null;
 
@@ -716,16 +716,19 @@ function refreshMonitoringAnalysis() {
         tnrReplaced,
         diagTnr,
         reasonTnr,
+        isTnrLow,
         udiNivel: row.udiNivel,
         udiSerie: row.udiSerie,
         deltaUdi,
         udiReplaced,
         diagUdi,
         reasonUdi,
+        isUdiLow,
         kmtNivel: row.kmtNivel,
         deltaKmt,
         diagKmt,
         reasonKmt,
+        isKmtLow,
         overallDiag,
         primaryReason,
         alertSupplyType,
@@ -920,7 +923,139 @@ function filterMonitoringTable() {
   });
 
   monitoringCurrentPage = 1;
+  updateActiveSlideUI(monitoringFilterStatus);
   renderMonitoringTable();
+}
+
+// Sincronización visual e interactiva de Slides KPIs y Píldoras con el estado de filtrado
+function filterMonitoringBySlide(status) {
+  const statusSelect = document.getElementById('filterMonitoringStatusSelect');
+  if (statusSelect) {
+    statusSelect.value = status || 'ALL';
+  }
+  monitoringFilterStatus = status || 'ALL';
+  filterMonitoringTable();
+
+  // Desplazamiento suave para visualizar la lista en pantallas móviles y desktop
+  const targetScroll = document.getElementById('monitoringTableContainer') || document.getElementById('monitoringMobileCardsContainer');
+  if (targetScroll && window.innerWidth < 1024) {
+    targetScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function updateActiveSlideUI(activeStatus) {
+  const status = activeStatus || 'ALL';
+
+  // 1. Tarjetas Superiores (Slides KPIs)
+  const slideMap = {
+    'ALL': document.getElementById('slideMonTotal'),
+    'DESPACHO_REQUERIDO': document.getElementById('slideMonDespacho'),
+    'REPOSICION_STOCK': document.getElementById('slideMonReponer'),
+    'STOCK_EN_SITIO': document.getElementById('slideMonStockSitio'),
+    'OPTIMO': document.getElementById('slideMonOptimos')
+  };
+
+  Object.keys(slideMap).forEach(key => {
+    const el = slideMap[key];
+    if (!el) return;
+    if (key === status) {
+      el.classList.add('ring-4', 'ring-rose-500/50', 'dark:ring-rose-400/50', 'border-rose-500', 'shadow-md', 'scale-[1.02]');
+    } else {
+      el.classList.remove('ring-4', 'ring-rose-500/50', 'dark:ring-rose-400/50', 'border-rose-500', 'shadow-md', 'scale-[1.02]');
+    }
+  });
+
+  // 2. Píldoras de filtrado táctil
+  const pillMap = {
+    'ALL': document.getElementById('pillMonFilterAll'),
+    'DESPACHO_REQUERIDO': document.getElementById('pillMonFilterDespacho'),
+    'REPOSICION_STOCK': document.getElementById('pillMonFilterReponer'),
+    'STOCK_EN_SITIO': document.getElementById('pillMonFilterStockSitio'),
+    'EN_TRANSITO': document.getElementById('pillMonFilterTransito'),
+    'OPTIMO': document.getElementById('pillMonFilterOptimos')
+  };
+
+  Object.keys(pillMap).forEach(key => {
+    const pill = pillMap[key];
+    if (!pill) return;
+    if (key === status) {
+      pill.classList.remove('bg-rose-50', 'text-rose-700', 'bg-amber-50', 'text-amber-700', 'bg-blue-50', 'text-blue-700', 'bg-indigo-50', 'text-indigo-700', 'bg-emerald-50', 'text-emerald-700', 'bg-slate-100', 'text-slate-600');
+      pill.classList.add('bg-slate-900', 'text-white', 'dark:bg-white', 'dark:text-slate-900', 'shadow-xs');
+    } else {
+      pill.classList.remove('bg-slate-900', 'text-white', 'dark:bg-white', 'dark:text-slate-900', 'shadow-xs');
+      if (key === 'ALL') {
+        pill.classList.add('bg-slate-100', 'text-slate-600', 'dark:bg-slate-800', 'dark:text-slate-400');
+      } else if (key === 'DESPACHO_REQUERIDO') {
+        pill.classList.add('bg-rose-50', 'text-rose-700', 'dark:bg-rose-950/60', 'dark:text-rose-300');
+      } else if (key === 'REPOSICION_STOCK') {
+        pill.classList.add('bg-amber-50', 'text-amber-700', 'dark:bg-amber-950/60', 'dark:text-amber-300');
+      } else if (key === 'STOCK_EN_SITIO') {
+        pill.classList.add('bg-blue-50', 'text-blue-700', 'dark:bg-blue-950/60', 'dark:text-blue-300');
+      } else if (key === 'EN_TRANSITO') {
+        pill.classList.add('bg-indigo-50', 'text-indigo-700', 'dark:bg-indigo-950/60', 'dark:text-indigo-300');
+      } else if (key === 'OPTIMO') {
+        pill.classList.add('bg-emerald-50', 'text-emerald-700', 'dark:bg-emerald-950/60', 'dark:text-emerald-300');
+      }
+    }
+  });
+}
+
+// Redirección directa al Folio amarrado a la serie para consultar o modificar estatus
+function goToFolioDetail(folioNum, serie) {
+  // 1. Cerrar modal de historial de equipo si estuviera abierto
+  closeEquipmentHistoryModal();
+
+  // 2. Alternar a la pestaña de Salidas
+  if (typeof switchSuiteTab === 'function') {
+    switchSuiteTab('salidas');
+  }
+
+  // 3. Buscar registro en sheetStore['FOLIOS']
+  const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
+  let targetIdx = -1;
+
+  const fClean = (folioNum || '').toString().replace(/^[#\s]+/, '').trim();
+  if (fClean && fClean !== 'S/N' && fClean !== '-' && fClean !== '0') {
+    targetIdx = allFolios.findIndex(f => {
+      const fn = (f['FOLIO'] || f['FOLIO '] || '').toString().replace(/^[#\s]+/, '').trim();
+      return fn === fClean;
+    });
+  }
+
+  if (targetIdx === -1 && serie) {
+    const sClean = serie.toString().trim().toUpperCase();
+    // Buscar la salida más reciente de esta serie
+    for (let i = allFolios.length - 1; i >= 0; i--) {
+      const fs = (allFolios[i]['SERIE'] || '').toString().trim().toUpperCase();
+      if (fs === sClean) {
+        targetIdx = i;
+        break;
+      }
+    }
+  }
+
+  // 4. Filtrar la tabla de Salidas para que se vea el registro
+  const searchInput = document.getElementById('searchSalidasInput');
+  if (searchInput) {
+    searchInput.value = fClean && fClean !== 'S/N' && fClean !== '-' ? fClean : (serie || '');
+    if (typeof filterSalidasTable === 'function') {
+      filterSalidasTable();
+    }
+  }
+
+  // 5. Abrir inmediatamente el modal de edición de la salida si encontramos el registro
+  if (targetIdx !== -1 && typeof editSalida === 'function') {
+    setTimeout(() => {
+      editSalida(targetIdx);
+      if (typeof showToast === 'function') {
+        showToast(`Folio #${fClean || allFolios[targetIdx]['FOLIO'] || ''} abierto. Puedes cambiar el ESTADO SUM a ENTREGADO y guardar.`);
+      }
+    }, 100);
+  } else {
+    if (typeof showToast === 'function') {
+      showToast(`Mostrando salidas asociadas a la serie ${serie || fClean}.`);
+    }
+  }
 }
 
 function changeMonitoringPageSize(newSize) {
@@ -1011,8 +1146,8 @@ function renderMonitoringTable() {
     // Barra de Tóner
     let tnrBarColor = 'bg-emerald-500';
     if (r.tnrNivel === null) tnrBarColor = 'bg-slate-300 dark:bg-slate-600';
-    else if (r.tnrNivel <= 10) tnrBarColor = 'bg-rose-500';
-    else if (r.tnrNivel <= 20) tnrBarColor = 'bg-amber-500';
+    else if (r.tnrNivel <= 5) tnrBarColor = 'bg-rose-600';
+    else if (r.tnrNivel <= 15) tnrBarColor = 'bg-amber-500';
 
     let deltaTnrBadge = '';
     const prevDateLabel = r.prevSnapDate ? formatDateShortWithDay(r.prevSnapDate) : 'anterior';
@@ -1027,8 +1162,8 @@ function renderMonitoringTable() {
     // Barra de UDI
     let udiBarColor = 'bg-emerald-500';
     if (r.udiNivel === null) udiBarColor = 'bg-slate-300 dark:bg-slate-600';
-    else if (r.udiNivel <= 10) udiBarColor = 'bg-rose-500';
-    else if (r.udiNivel <= 20) udiBarColor = 'bg-amber-500';
+    else if (r.udiNivel <= 5) udiBarColor = 'bg-rose-600';
+    else if (r.udiNivel <= 15) udiBarColor = 'bg-amber-500';
 
     let deltaUdiBadge = '';
     if (r.udiReplaced) {
@@ -1042,7 +1177,7 @@ function renderMonitoringTable() {
     // Barra de KMT
     let kmtBarColor = 'bg-emerald-500';
     if (r.kmtNivel === null) kmtBarColor = 'bg-slate-300 dark:bg-slate-600';
-    else if (r.kmtNivel <= 20) kmtBarColor = 'bg-amber-500';
+    else if (r.kmtNivel <= 15) kmtBarColor = 'bg-amber-500';
 
     // Badge Diagnóstico
     let diagBadge = '';
@@ -1077,13 +1212,13 @@ function renderMonitoringTable() {
     } else {
       diagBadge = `
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-          <span>🟢 ÓPTIMO (&gt; 20%)</span>
+          <span>🟢 ÓPTIMO (&gt; 15%)</span>
         </span>
       `;
     }
 
-    // Última Salida Folios
-    let lastFolioHtml = '<span class="text-slate-400 italic">Sin salidas</span>';
+    // Última Salida Folios con enlace interactivo
+    let lastFolioHtml = '<span class="text-slate-400 italic text-[11px]">Sin salidas en FOLIOS</span>';
     if (r.lastFolio) {
       const fNum = r.lastFolio['FOLIO'] || r.lastFolio['FOLIO '] || 'S/N';
       const fFecha = r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : '';
@@ -1092,10 +1227,22 @@ function renderMonitoringTable() {
       const fSerieSum = r.lastFolio['SERIE SUM'] || '';
       lastFolioHtml = `
         <div class="leading-tight">
-          <span class="font-bold text-slate-800 dark:text-slate-100">Folio #${fNum}</span>
+          <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 hover:underline text-left group" title="Clic para ir a FOLIOS y modificar o consultar estatus">
+            <span>Folio #${fNum}</span>
+            <svg class="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          </button>
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
           <p class="text-[10px] text-slate-600 dark:text-slate-300">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
-          <span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold">${fEst}</span>
+          <div class="mt-1 flex items-center gap-1.5">
+            <span class="text-[9px] px-1.5 py-0.2 rounded font-semibold ${
+              fEst === 'ENTREGADO' 
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
+                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+            }">${fEst}</span>
+            <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
+              ✏️ Modificar
+            </button>
+          </div>
         </div>
       `;
     }
@@ -1214,7 +1361,7 @@ function renderMonitoringTable() {
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
             <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
               <span>Tóner (TNR)</span>
-              <span class="${r.tnrNivel !== null && r.tnrNivel <= 10 ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-200'}">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+              <span class="${r.tnrNivel !== null && r.tnrNivel <= 5 ? 'text-rose-600 font-bold' : (r.tnrNivel !== null && r.tnrNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
             </div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
               <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
@@ -1226,7 +1373,7 @@ function renderMonitoringTable() {
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
             <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
               <span>Imagen (UDI)</span>
-              <span class="${r.udiNivel !== null && r.udiNivel <= 10 ? 'text-rose-600 font-bold' : 'text-slate-700 dark:text-slate-200'}">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+              <span class="${r.udiNivel !== null && r.udiNivel <= 5 ? 'text-rose-600 font-bold' : (r.udiNivel !== null && r.udiNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
             </div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
               <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
@@ -1238,7 +1385,7 @@ function renderMonitoringTable() {
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
             <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
               <span>Mantto (KMT)</span>
-              <span class="text-slate-700 dark:text-slate-200">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+              <span class="${r.kmtNivel !== null && r.kmtNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200'}">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
             </div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
               <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
@@ -1250,15 +1397,29 @@ function renderMonitoringTable() {
         <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
           <div class="text-xs">
             ${r.lastFolio 
-              ? `<div class="leading-tight"><span class="font-bold text-slate-700 dark:text-slate-200">Folio #${r.lastFolio['FOLIO'] || ''}</span> <span class="text-[10px] text-slate-400">(${r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : ''})</span><p class="text-[10px] text-slate-500">${r.lastFolio['TIPO SUM'] || 'SUM'}: <span class="font-semibold text-emerald-600">${r.lastFolio['ESTADO SUM'] || 'ENTREGADO'}</span></p></div>`
+              ? `<div class="leading-tight">
+                  <div class="flex items-center gap-1">
+                    <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Ir a Salidas y modificar este folio">
+                      <span>Folio #${r.lastFolio['FOLIO'] || ''}</span>
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                    </button>
+                    <span class="text-[10px] text-slate-400">(${r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : ''})</span>
+                  </div>
+                  <p class="text-[10px] text-slate-500 mt-0.5">${r.lastFolio['TIPO SUM'] || 'SUM'}: <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="font-bold underline text-emerald-600 dark:text-emerald-400">${r.lastFolio['ESTADO SUM'] || 'ENTREGADO'} ✏️</button></p>
+                </div>`
               : '<span class="text-[11px] text-slate-400 italic">Sin salidas en FOLIOS</span>'
             }
           </div>
           <div class="flex items-center gap-1.5">
+            ${r.lastFolio ? `
+              <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus de entrega">
+                <span>✏️ Folio</span>
+              </button>
+            ` : ''}
             <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
               <span>📦 Despachar</span>
             </button>
-            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 transition" title="Ver Historial Completo">
+            <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200 transition" title="Ver Historial Completo y Folios">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
             </button>
           </div>
@@ -1351,6 +1512,39 @@ function openEquipmentHistoryModal(serie) {
         <p class="text-slate-400 text-[10px] uppercase font-semibold">Propiedad</p>
         <p class="font-bold text-slate-700 dark:text-slate-300 mt-0.5">${rdiInfo ? rdiInfo.PROPIEDAD : 'IEXCA'}</p>
       </div>
+
+      <!-- Bloque de Folio Amarrado y Redirección Directa -->
+      <div class="col-span-2 sm:col-span-4 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 flex flex-wrap items-center justify-between gap-3 mt-1">
+        <div>
+          <p class="text-amber-800 dark:text-amber-300 text-[10px] uppercase font-bold tracking-wider">Folio Amarrado a esta Serie</p>
+          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+            ${matchProcessed && matchProcessed.lastFolio ? `
+              <span class="font-mono font-bold text-sm text-slate-900 dark:text-white">Folio #${matchProcessed.lastFolio['FOLIO'] || matchProcessed.lastFolio['FOLIO '] || ''}</span>
+              <span class="text-xs text-slate-500">(${matchProcessed.lastFolio['FECHA'] ? formatDateShort(matchProcessed.lastFolio['FECHA']) : ''})</span>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${
+                (matchProcessed.lastFolio['ESTADO SUM'] || 'ENTREGADO') === 'ENTREGADO' 
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+              }">${matchProcessed.lastFolio['ESTADO SUM'] || 'ENTREGADO'}</span>
+              <span class="text-xs text-slate-600 dark:text-slate-300">${matchProcessed.lastFolio['TIPO SUM'] || 'SUM'}: ${matchProcessed.lastFolio['DESCRIPCION'] || ''}</span>
+            ` : `
+              <span class="text-xs text-slate-500 italic">No hay folio amarrado a esta serie en la hoja FOLIOS.</span>
+            `}
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          ${matchProcessed && matchProcessed.lastFolio ? `
+            <button type="button" onclick="closeEquipmentHistoryModal(); goToFolioDetail('${matchProcessed.lastFolio['FOLIO'] || ''}', '${serieUpper}');" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+              <span>Consultar / Modificar Estatus en FOLIOS ↗</span>
+            </button>
+          ` : `
+            <button type="button" onclick="closeEquipmentHistoryModal(); dispatchSalidaFromAlert('${serieUpper}', '${matchProcessed ? matchProcessed.alertSupplyType || 'TNR' : 'TNR'}', 10);" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
+              <span>📦 Despachar y Vincular Folio</span>
+            </button>
+          `}
+        </div>
+      </div>
     `;
   }
 
@@ -1387,7 +1581,7 @@ function openEquipmentHistoryModal(serie) {
           const diff = nextOlder.tnrNivel - h.tnrNivel;
           if (diff > 0) {
             deltaTnrText = ` <span class="text-rose-600 font-bold text-[10px]">(-${diff}%)</span>`;
-          } else if (nextOlder.tnrNivel <= 20 && h.tnrNivel >= 80) {
+          } else if (nextOlder.tnrNivel <= 15 && h.tnrNivel >= 80) {
             deltaTnrText = ` <span class="text-amber-600 font-bold text-[10px]">🔄 Reemplazado</span>`;
           } else if (diff === 0) {
             deltaTnrText = ` <span class="text-slate-400 font-normal text-[10px]">(0%)</span>`;
@@ -1424,7 +1618,7 @@ function openEquipmentHistoryModal(serie) {
     const equipFolios = allFolios.filter(f => (f['SERIE'] || '').toString().trim().toUpperCase() === serieUpper).reverse();
 
     if (equipFolios.length === 0) {
-      foliosBody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">Sin salidas registradas en la hoja FOLIOS para esta serie.</td></tr>`;
+      foliosBody.innerHTML = `<tr><td colspan="8" class="py-4 text-center text-slate-400">Sin salidas registradas en la hoja FOLIOS para esta serie.</td></tr>`;
     } else {
       equipFolios.forEach(f => {
         const folNum = f['FOLIO'] || f['FOLIO '] || 'S/N';
@@ -1436,7 +1630,7 @@ function openEquipmentHistoryModal(serie) {
         const fEst = f['ESTADO SUM'] || 'ENTREGADO';
 
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-100 dark:border-slate-800 text-xs';
+        tr.className = 'border-b border-slate-100 dark:border-slate-800 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40';
         tr.innerHTML = `
           <td class="py-2 px-3 font-bold font-mono text-slate-900 dark:text-white">Folio #${folNum}</td>
           <td class="py-2 px-3 text-slate-600 dark:text-slate-300">${fFecha}</td>
@@ -1450,6 +1644,12 @@ function openEquipmentHistoryModal(serie) {
                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                 : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
             }">${fEst}</span>
+          </td>
+          <td class="py-2 px-3 text-center">
+            <button type="button" onclick="closeEquipmentHistoryModal(); goToFolioDetail('${folNum}', '${serieUpper}');" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition" title="Redireccionar a FOLIOS para consultar o modificar estatus">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+              <span>✏️ Modificar</span>
+            </button>
           </td>
         `;
         foliosBody.appendChild(tr);
@@ -1627,6 +1827,9 @@ if (typeof window !== 'undefined') {
   window.parseLexmarkFleetCsv = parseLexmarkFleetCsv;
   window.detectClientFromCsvRows = detectClientFromCsvRows;
   window.addMonitoringSnapshot = addMonitoringSnapshot;
+  window.filterMonitoringBySlide = filterMonitoringBySlide;
+  window.updateActiveSlideUI = updateActiveSlideUI;
+  window.goToFolioDetail = goToFolioDetail;
 
   // Auto-inicialización inmediata al cargar el DOM
   const autoInitMonitoringModule = () => {
@@ -1648,6 +1851,9 @@ if (typeof module !== 'undefined' && module.exports) {
     addMonitoringSnapshot,
     refreshMonitoringAnalysis,
     filterMonitoringTable,
+    filterMonitoringBySlide,
+    updateActiveSlideUI,
+    goToFolioDetail,
     renderMonitoringTable,
     initMonitoringModule,
     exportMonitoringAuditToExcel,

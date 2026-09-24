@@ -1438,38 +1438,62 @@
         </div>
       </div>
 
-      <!-- Tarjetas Resumen KPIs de Auditoría -->
+      <!-- Tarjetas Resumen KPIs de Auditoría (Slides Interactivos de Filtrado) -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs">
-          <p class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Total Equipos</p>
+        <div id="slideMonTotal" onclick="filterMonitoringBySlide('ALL')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 shadow-xs ring-offset-2 hover:border-slate-400 group" title="Clic para ver todos los equipos">
+          <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
           <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
           <p class="text-[10px] text-slate-400 mt-0.5 truncate" id="kpiMonClienteLabel">Parque monitoreado</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden">
+        <div id="slideMonDespacho" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden hover:border-rose-500 group" title="Clic para filtrar solo Alertas Urgentes / Despacho Requerido (≤ 15%)">
           <div class="absolute right-2 top-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">🚨 Despacho Requerido</p>
+          <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Requerido</p>
           <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
-          <p class="text-[10px] text-rose-500/80 mt-0.5 truncate">Bajo y sin stock en sitio</p>
+          <p class="text-[10px] text-rose-500/80 mt-0.5 truncate">&le; 15% y sin stock en sitio</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-amber-200 dark:border-amber-900/50 shadow-xs">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">🔄 Reponer Stock</p>
+        <div id="slideMonReponer" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-amber-200 dark:border-amber-900/50 shadow-xs hover:border-amber-500 group" title="Clic para filtrar equipos que ya cambiaron cartucho y requieren reposición">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
           <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
           <p class="text-[10px] text-amber-500/80 mt-0.5 truncate">Cartucho cambiado en sitio</p>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-blue-200 dark:border-blue-900/50 shadow-xs">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">🛡️ Stock en Sitio</p>
+        <div id="slideMonStockSitio" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-blue-200 dark:border-blue-900/50 shadow-xs hover:border-blue-500 group" title="Clic para filtrar equipos protegidos con stock de respaldo">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
           <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
           <p class="text-[10px] text-blue-500/80 mt-0.5 truncate">Protegido con respaldo</p>
         </div>
 
-        <div class="col-span-2 sm:col-span-1 lg:col-span-1 bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-emerald-200 dark:border-emerald-900/50 shadow-xs">
-          <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">🟢 Niveles Óptimos</p>
+        <div id="slideMonOptimos" onclick="filterMonitoringBySlide('OPTIMO')" class="col-span-2 sm:col-span-1 lg:col-span-1 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-emerald-200 dark:border-emerald-900/50 shadow-xs hover:border-emerald-500 group" title="Clic para filtrar equipos con niveles óptimos (> 15%)">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
           <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
-          <p class="text-[10px] text-emerald-500/80 mt-0.5 truncate">Equipos con suministros &gt; 20%</p>
+          <p class="text-[10px] text-emerald-500/80 mt-0.5 truncate">Equipos con suministros &gt; 15%</p>
         </div>
+      </div>
+
+      <!-- Barra Rápida de Filtrado Táctil de Alertas (Píldoras Deslizables) -->
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Filtrar Alertas:</span>
+        <button type="button" onclick="filterMonitoringBySlide('ALL')" id="pillMonFilterAll" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex-shrink-0 shadow-xs">
+          <span>🌐 Todos</span>
+        </button>
+        <button type="button" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" id="pillMonFilterDespacho" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex-shrink-0">
+          <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          <span>🚨 Despacho Urgente (&le; 15%)</span>
+        </button>
+        <button type="button" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" id="pillMonFilterReponer" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex-shrink-0">
+          <span>🔄 Reponer Stock Sitio</span>
+        </button>
+        <button type="button" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" id="pillMonFilterStockSitio" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800 flex-shrink-0">
+          <span>🛡️ En Stock en Sitio</span>
+        </button>
+        <button type="button" onclick="filterMonitoringBySlide('EN_TRANSITO')" id="pillMonFilterTransito" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 flex-shrink-0">
+          <span>🚚 En Tránsito</span>
+        </button>
+        <button type="button" onclick="filterMonitoringBySlide('OPTIMO')" id="pillMonFilterOptimos" class="px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex-shrink-0">
+          <span>🟢 Óptimos (&gt; 15%)</span>
+        </button>
       </div>
 
       <!-- Filtros y Tabla / Tarjetas de Monitoreo -->
@@ -1501,7 +1525,7 @@
               <option value="REPOSICION_STOCK">🔄 Solo Reponer Stock de Sitio</option>
               <option value="STOCK_EN_SITIO">🛡️ Protegidos con Stock</option>
               <option value="EN_TRANSITO">🚚 En Tránsito</option>
-              <option value="OPTIMO">🟢 Niveles Óptimos (&gt; 20%)</option>
+              <option value="OPTIMO">🟢 Niveles Óptimos (&gt; 15%)</option>
             </select>
 
             <!-- Filtro Suministro en Alerta -->
@@ -1647,6 +1671,7 @@
                   <th class="py-2 px-3">Serie Suministro</th>
                   <th class="py-2 px-3">Cant</th>
                   <th class="py-2 px-3">Estado Salida</th>
+                  <th class="py-2 px-3 text-center">Acción</th>
                 </tr>
               </thead>
               <tbody id="modalEquipFoliosBody" class="divide-y divide-slate-100 dark:divide-slate-800">
