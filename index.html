@@ -2815,6 +2815,8 @@
     }
 
     function loadSheetData(sheetName) {
+      const prevDim1 = document.getElementById('chart1Dim')?.value;
+
       let jsonData = null;
       if (typeof sheetStore !== 'undefined' && sheetStore[sheetName]) {
         jsonData = sheetStore[sheetName];
@@ -2833,6 +2835,20 @@
       }
 
       setDataset(jsonData);
+
+      // Si el usuario tenía seleccionado MODELO o MOD, preservar MODELO de forma transparente
+      if (prevDim1 && /^(modelo|mod)$/i.test(prevDim1)) {
+        const dim1El = document.getElementById('chart1Dim');
+        if (dim1El) {
+          const modOpt = Array.from(dim1El.options).find(o => /^(modelo|mod)$/i.test(o.value));
+          if (modOpt) {
+            dim1El.value = modOpt.value;
+            syncChartAxisExclusion(1);
+            renderChart1();
+          }
+        }
+      }
+
       const sheetInfo = document.getElementById('activeSheetInfo');
       if (sheetInfo) {
         sheetInfo.textContent = `Hoja activa: ${sheetName} (${originalData.length} filas, ${Object.keys(columnTypes).length} columnas)`;
@@ -3507,9 +3523,9 @@
       const currencyKeywords = ['precio', 'costo', 'importe', 'monto', 'valor', '$', 'total_mxn', 'venta', 'factura', 'subtotal'];
       if (currencyKeywords.some(kw => lower.includes(kw))) return 'CURRENCY';
 
-      // Categorías textuales, códigos o series de equipos (ej. MODELO, SERIE, etc.)
-      const codeKeywords = ['modelo', 'serie', 'codigo', 'código', 'ip', 'mac', 'telefono', 'teléfono', 'cp', 'postal', 'dni', 'rfc', 'sku'];
-      if (codeKeywords.some(kw => lower.includes(kw))) return 'CATEGORY';
+      // Categorías textuales, códigos o series de equipos (ej. MODELO, MOD, SERIE, etc.)
+      const codeKeywords = ['modelo', 'mod', 'serie', 'codigo', 'código', 'ip', 'mac', 'telefono', 'teléfono', 'cp', 'postal', 'dni', 'rfc', 'sku', 'numpart', 'ceco', 'det'];
+      if (codeKeywords.some(kw => lower === kw || lower.startsWith(kw + ' ') || lower.endsWith(' ' + kw) || lower.includes('_' + kw) || lower.includes(kw + '_') || (kw.length >= 4 && lower.includes(kw)))) return 'CATEGORY';
 
       // Numéricos generales
       if (typeof columnTypes !== 'undefined' && columnTypes[colName] === 'number') return 'QUANTITY';
@@ -3755,25 +3771,71 @@
       const firstPass = data.map(row => {
         const cleanRow = {};
         for (let key in row) {
+          if (key.startsWith('__EMPTY')) continue;
           let val = row[key];
           if (typeof val === 'string') {
-            let numCandidate = val.trim().replace(/[$€\s]/g, '');
-            if (/^-?\d+([.,]\d+)?$/.test(numCandidate)) {
-              val = parseFloat(numCandidate.replace(',', '.'));
-            } else {
-              const durHours = parseDurationStringToHours(val);
-              if (durHours !== null) {
-                val = durHours;
+            // NUNCA convertir identificadores, códigos, series ni modelos a float
+            const isIdentifier = /^(serie|serie sum|serie reg|serie equipo|serie retirado|serie sustituto|mod|modelo|det|ceco|id ticket|ticket|folio|numpart|codigo|código|ip|mac)$/i.test(key.trim());
+            
+            if (!isIdentifier) {
+              let numCandidate = val.trim().replace(/[$€\s]/g, '');
+              if (/^-?\d+([.,]\d+)?$/.test(numCandidate)) {
+                val = parseFloat(numCandidate.replace(',', '.'));
+              } else {
+                const durHours = parseDurationStringToHours(val);
+                if (durHours !== null) {
+                  val = durHours;
+                }
               }
             }
           }
           cleanRow[key] = val;
         }
+
+        // Alias canónico bidireccional MODELO <-> MOD
+        const modVal = cleanRow['MOD'] !== undefined ? cleanRow['MOD'] : cleanRow['Mod'];
+        const modeloVal = cleanRow['MODELO'] !== undefined ? cleanRow['MODELO'] : cleanRow['Modelo'];
+        if (modVal !== undefined && cleanRow['MODELO'] === undefined) {
+          cleanRow['MODELO'] = modVal;
+        }
+        if (modeloVal !== undefined && cleanRow['MOD'] === undefined) {
+          cleanRow['MOD'] = modeloVal;
+        }
+
+        // Sanitización y enriquecimiento de modelo mediante el catálogo RDI si es inválido
+        const currentMod = (cleanRow['MODELO'] || cleanRow['MOD'] || '').toString().trim();
+        const isBadModel = !currentMod || 
+          /^(SIN DATO|SIN MODELO|S\/N|N\/D|SERVIDOR)$/i.test(currentMod) || 
+          /^P[0-9A-Z]{6,}/i.test(currentMod); // Códigos de partes consumibles que empiezan con P
+
+        if (isBadModel) {
+          const rawSerie = (cleanRow['SERIE'] || cleanRow['SERIE SUM'] || cleanRow['Serie'] || '').toString().trim().toUpperCase();
+          if (rawSerie && typeof rdiMapBySerie !== 'undefined' && rdiMapBySerie && rdiMapBySerie.has(rawSerie)) {
+            const rdiMatch = rdiMapBySerie.get(rawSerie);
+            const rdiModel = (rdiMatch.MOD || rdiMatch.MODELO || '').toString().trim();
+            if (rdiModel && !/^(SIN DATO|SIN MODELO|S\/N|N\/D)$/i.test(rdiModel)) {
+              cleanRow['MODELO'] = rdiModel;
+              cleanRow['MOD'] = rdiModel;
+            }
+          }
+        } else if (typeof normalizeMarkVisionModel === 'function') {
+          // Normalizar si viene de MarkVision (ej. Lexmark MS811 -> MS811dn)
+          const normMod = normalizeMarkVisionModel(currentMod, cleanRow['SERIE'] || cleanRow['SERIE SUM']);
+          if (normMod) {
+            cleanRow['MODELO'] = normMod;
+            cleanRow['MOD'] = normMod;
+          }
+        }
+
         return cleanRow;
       });
 
       const sample = firstPass.slice(0, 100);
-      const keys = Object.keys(firstPass[0]);
+      const keysSet = new Set();
+      sample.forEach(r => Object.keys(r).forEach(k => {
+        if (!k.startsWith('__EMPTY')) keysSet.add(k);
+      }));
+      const keys = Array.from(keysSet);
       const detectedDateCols = [];
 
       keys.forEach(col => {
@@ -3871,7 +3933,7 @@
     // AUTO-AÑADIR FILTROS SUGERIDOS (CLIENTE, PRODUCTO, ETC.)
     function autoAddSuggestedFilters() {
       activeCustomFilters = {};
-      const priorityKeywords = ['cliente', 'customer', 'vendedor', 'categoria', 'categoría', 'producto', 'estado', 'sucursal'];
+      const priorityKeywords = ['cliente', 'customer', 'modelo', 'mod', 'formato', 'estado', 'vendedor', 'categoria', 'categoría', 'producto', 'sucursal'];
       
       let candidates = [];
       categoryCols.forEach(col => {
@@ -4647,8 +4709,11 @@
       }
 
       // 3. Poblar selectores de gráficos 1, 2 y 3 con TODAS las columnas y opción de conteo en métricas
-      let defaultDim1 = categoryCols.length ? categoryCols[0] : allCols[0];
-      let defaultMetric1 = numericCols.length ? numericCols[0] : '__COUNT__';
+      // En Eje X (Dimensión) de Gráfico 1: Priorizar MODELO o MOD si existen, evitando caer en series
+      let defaultDim1 = allCols.find(c => /^(modelo|mod)$/i.test(c.trim())) ||
+                        categoryCols.find(c => !/serie/i.test(c)) ||
+                        (categoryCols.length ? categoryCols[0] : allCols[0]);
+      let defaultMetric1 = '__COUNT__';
       if (defaultDim1 === defaultMetric1) {
         defaultMetric1 = '__COUNT__';
       }
@@ -5660,13 +5725,20 @@
         }
       });
 
-      const labels = Object.keys(groups);
-      const values = labels.map(label => {
+      const entries = Object.keys(groups).map(label => {
         const g = groups[label];
-        if (isCount) return g.count;
-        if (aggType === 'avg') return g.validNums > 0 ? (g.sum / g.validNums) : 0;
-        return g.sum;
+        let val = 0;
+        if (isCount) val = g.count;
+        else if (aggType === 'avg') val = g.validNums > 0 ? (g.sum / g.validNums) : 0;
+        else val = g.sum;
+        return { label, val };
       });
+
+      // Ordenar por volumen/frecuencia descendente (Top categorías de mayor a menor)
+      entries.sort((a, b) => b.val - a.val);
+
+      const labels = entries.map(e => e.label);
+      const values = entries.map(e => e.val);
 
       return { labels, values };
     }
@@ -6521,10 +6593,24 @@
           try {
             const ws = rawWorkbook.Sheets[sheetName];
             if (ws && Object.keys(ws).length > 0) {
-              sheetStore[sheetName] = XLSX.utils.sheet_to_json(ws, { defval: "" });
-              // Preservar orden físico original del archivo Excel (la fila 2 es index 0, el más reciente)
-              sheetStore[sheetName].forEach((row, idx) => {
-                row._origIdx = idx;
+              const rawRows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+              sheetStore[sheetName] = rawRows.map((rawRow, idx) => {
+                const cleanRow = {};
+                for (let k in rawRow) {
+                  if (k.startsWith('__EMPTY')) continue;
+                  cleanRow[k] = rawRow[k];
+                }
+                // Alias bidireccional MODELO <-> MOD
+                const modVal = cleanRow['MOD'] !== undefined ? cleanRow['MOD'] : cleanRow['Mod'];
+                const modeloVal = cleanRow['MODELO'] !== undefined ? cleanRow['MODELO'] : cleanRow['Modelo'];
+                if (modVal !== undefined && cleanRow['MODELO'] === undefined) {
+                  cleanRow['MODELO'] = modVal;
+                }
+                if (modeloVal !== undefined && cleanRow['MOD'] === undefined) {
+                  cleanRow['MOD'] = modeloVal;
+                }
+                cleanRow._origIdx = idx;
+                return cleanRow;
               });
             }
           } catch (e) {
@@ -8180,8 +8266,10 @@
 
       list.forEach((item, idx) => {
         const rawSerie = (item['SERIE'] || item['Serie'] || item['serie'] || '').toString().trim();
-        if (rawSerie) {
-          const mod = (item['MOD'] || item['MODELO'] || item['Modelo'] || item['Mod'] || '').toString().trim();
+          let mod = (item['MOD'] || item['MODELO'] || item['Modelo'] || item['Mod'] || '').toString().trim();
+          if (typeof normalizeMarkVisionModel === 'function' && mod) {
+            mod = normalizeMarkVisionModel(mod);
+          }
           const cli = (item['CLIENTE'] || item['Cliente'] || '').toString().trim();
           const det = (item['CECO/DET'] || item['DET'] || item['CECO'] || item['Det'] || '').toString().trim();
           const pais = (item['PAÍS'] || item['PAIS'] || item['País'] || item['Pais'] || (cli.toUpperCase().includes('GUATEMALA') ? 'Guatemala' : (cli.toUpperCase().includes('HONDURAS') ? 'Honduras' : (cli.toUpperCase().includes('COSTA RICA') ? 'Costa Rica' : 'El Salvador')))).toString().trim();
@@ -8190,6 +8278,7 @@
             _index: idx,
             SERIE: rawSerie,
             MOD: mod,
+            MODELO: mod,
             CLIENTE: cli,
             TIENDA: (item['TIENDA'] || item['Tienda'] || item['SUCURSAL'] || item['Sucursal'] || '').toString().trim(),
             FORMATO: (item['FORMATO'] || item['Formato'] || '').toString().trim(),
@@ -8203,7 +8292,7 @@
 
           rdiMapBySerie.set(rawSerie.toUpperCase(), normalized);
 
-          if (mod) uniqueModelos.add(mod);
+          if (mod && !/^(SIN DATO|SIN MODELO|S\/N|N\/D)$/i.test(mod)) uniqueModelos.add(mod);
           if (cli) uniqueClientes.add(cli);
           if (det) uniqueDets.add(det);
           if (pais) uniquePaises.add(pais);

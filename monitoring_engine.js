@@ -137,6 +137,48 @@ function extractDateFromFileName(fileName) {
 }
 
 
+// Normalización de modelos reconocidos por MarkVision Fleet Manager
+function normalizeMarkVisionModel(rawModel, serie) {
+  const sUpper = (serie || '').toString().trim().toUpperCase();
+  // 1. Si existe en el Catálogo RDI Maestro, su modelo oficial manda
+  if (sUpper && typeof rdiMapBySerie !== 'undefined' && rdiMapBySerie && rdiMapBySerie.has(sUpper)) {
+    const rdi = rdiMapBySerie.get(sUpper);
+    const rdiMod = (rdi && (rdi.MOD || rdi.MODELO || rdi.Modelo)) ? (rdi.MOD || rdi.MODELO || rdi.Modelo).toString().trim() : '';
+    if (rdiMod && !/^(SIN DATO|SIN MODELO|S\/N|N\/D)$/i.test(rdiMod)) {
+      return rdiMod;
+    }
+  }
+
+  if (!rawModel) return '';
+  let m = rawModel.toString().trim();
+  // Quitar prefijo Lexmark / LEXMARK
+  m = m.replace(/^lexmark\s+/i, '').trim();
+
+  // Mapeo canónico de modelos MarkVision a modelos oficiales de la Suite
+  const mvMap = {
+    'MS811': 'MS811dn',
+    'MX711': 'MX711de',
+    'CX725': 'CX725dhe',
+    'MS823': 'MS823dn',
+    'MS521': 'MS521dn',
+    'MS621': 'MS621dn',
+    'MX511': 'MX511de',
+    'MX622': 'MX622adhe',
+    'MX722': 'MX722adhe',
+    'MX522': 'MX522adhe',
+    'CX522': 'CX522ade',
+    'CX625': 'CX625adhe',
+    'CS521': 'CS521dn',
+    'CS820': 'CS820dtfe',
+    'MX432': 'MX432adwe',
+    'MX317': 'MX317dn',
+    'MS317': 'MS317dn'
+  };
+
+  if (mvMap[m]) return mvMap[m];
+  return m;
+}
+
 // Parseo robusto de CSV Fleet Manager
 function parseLexmarkFleetCsv(csvText, fileName) {
   if (!csvText || typeof csvText !== 'string') return [];
@@ -214,10 +256,13 @@ function parseLexmarkFleetCsv(csvText, fileName) {
     const serie = (serIdx >= 0 && cols[serIdx] ? cols[serIdx] : '').trim().toUpperCase();
     if (!serie) continue;
 
+    const rawMod = modIdx >= 0 ? cols[modIdx] : '';
+    const cleanMod = normalizeMarkVisionModel(rawMod, serie);
+
     rows.push({
       ip: ipIdx >= 0 ? cols[ipIdx] : '',
       ubicacion: kwIdx >= 0 ? cols[kwIdx] : '',
-      modelo: modIdx >= 0 ? cols[modIdx] : '',
+      modelo: cleanMod,
       serie: serie,
       tnrNivel: tnrNivelIdx >= 0 ? parseNivel(cols[tnrNivelIdx]) : null,
       tnrSerie: (tnrSerieIdx >= 0 && cols[tnrSerieIdx] ? cols[tnrSerieIdx] : '').trim().toUpperCase(),
@@ -636,7 +681,10 @@ function refreshMonitoringAnalysis() {
 
       // Datos RDI
       const rdiInfo = (typeof rdiMapBySerie !== 'undefined') ? rdiMapBySerie.get(serieUpper) : null;
-      const displayModelo = row.modelo || (rdiInfo ? rdiInfo.MOD : '') || 'N/D';
+      const rdiModelo = rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || rdiInfo.Modelo || '').toString().trim() : '';
+      const displayModelo = (rdiModelo && !/^(SIN DATO|SIN MODELO|S\/N|N\/D)$/i.test(rdiModelo))
+        ? rdiModelo
+        : (normalizeMarkVisionModel(row.modelo, serieUpper) || 'N/D');
       const displayUbicacion = row.ubicacion || (rdiInfo ? `${rdiInfo.TIENDA} - ${rdiInfo.DET}` : '') || 'N/D';
       const displayCliente = clientName || (rdiInfo ? rdiInfo.CLIENTE : '') || 'N/D';
       const displayDet = (rdiInfo && rdiInfo.DET) ? rdiInfo.DET : '';
@@ -2624,6 +2672,7 @@ if (typeof window !== 'undefined') {
   window.deleteMonitoringClient = deleteMonitoringClient;
   window.resetMonitoringToDefault = resetMonitoringToDefault;
   window.exportMonitoringAuditToExcel = exportMonitoringAuditToExcel;
+  window.normalizeMarkVisionModel = normalizeMarkVisionModel;
   window.parseLexmarkFleetCsv = parseLexmarkFleetCsv;
   window.detectClientFromCsvRows = detectClientFromCsvRows;
   window.addMonitoringSnapshot = addMonitoringSnapshot;
@@ -2663,6 +2712,7 @@ if (typeof window !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    normalizeMarkVisionModel,
     parseLexmarkFleetCsv,
     detectClientFromCsvRows,
     addMonitoringSnapshot,
