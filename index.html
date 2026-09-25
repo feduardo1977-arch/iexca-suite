@@ -1938,26 +1938,26 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">SERIE *</label>
-            <input type="text" id="appsheetInputSerie" readonly class="w-full text-xs font-mono font-bold bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+            <input type="text" id="appsheetInputSerie" readonly class="w-full text-xs font-mono font-bold uppercase bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">MODELO</label>
-            <input type="text" id="appsheetInputModelo" readonly class="w-full text-xs font-medium bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+            <input type="text" id="appsheetInputModelo" readonly class="w-full text-xs font-medium uppercase bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">MARCA</label>
-            <input type="text" id="appsheetInputMarca" value="Lexmark" readonly class="w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+            <input type="text" id="appsheetInputMarca" value="LEXMARK" readonly class="w-full text-xs uppercase bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-bold text-indigo-700 dark:text-indigo-300 mb-1">DET (Código Tienda)</label>
-            <input type="text" id="appsheetInputDet" class="w-full text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputDet" oninput="this.value = this.value.toUpperCase();" class="w-full text-xs font-mono uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">TIENDA / SUCURSAL</label>
-            <input type="text" id="appsheetInputTienda" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputTienda" oninput="this.value = this.value.toUpperCase();" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
         </div>
 
@@ -1973,7 +1973,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">TIPO / SOLICITUD</label>
-              <select id="appsheetInputTipoSum" onchange="onAppSheetTipoSumChange(this.value)" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <select id="appsheetInputTipoSum" onchange="onAppSheetTipoSumChange(this.value)" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-semibold">
                 <option value="TNR">Tóner Negro (TNR)</option>
                 <option value="UDI">Unidad de Imagen (UDI)</option>
                 <option value="KMT">Kit de Mantenimiento (KMT)</option>
@@ -1981,22 +1981,22 @@
             </div>
             <div>
               <label class="block text-[11px] font-bold text-rose-600 dark:text-rose-400 mb-1">NUMPART (N° de Parte) *</label>
-              <input type="text" id="appsheetInputNumpart" placeholder="Ej. 52D4H00" class="w-full text-xs font-mono font-bold bg-white dark:bg-slate-800 border-2 border-rose-300 dark:border-rose-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+              <input type="text" id="appsheetInputNumpart" oninput="this.value = this.value.toUpperCase();" placeholder="Ej. 52D4H00" class="w-full text-xs font-mono font-bold uppercase bg-white dark:bg-slate-800 border-2 border-rose-300 dark:border-rose-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
             </div>
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">PORCENTAJE ACTUAL</label>
-              <input type="text" id="appsheetInputPorcentaje" placeholder="Ej. 8%" class="w-full text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <input type="text" id="appsheetInputPorcentaje" oninput="this.value = this.value.toUpperCase();" placeholder="Ej. 8%" class="w-full text-xs font-bold uppercase bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">DETALLE SOLICITUD</label>
-              <input type="text" id="appsheetInputSolicitud" placeholder="Descripción del requerimiento" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <input type="text" id="appsheetInputSolicitud" oninput="this.value = this.value.toUpperCase();" placeholder="Descripción del requerimiento" class="w-full text-xs uppercase bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
             </div>
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">PRIORIDAD</label>
-              <select id="appsheetInputPrioridad" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <select id="appsheetInputPrioridad" class="w-full text-xs uppercase bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-bold">
                 <option value="URGENTE">URGENTE (Despacho inmediato)</option>
                 <option value="ALTA">ALTA</option>
                 <option value="MEDIA">MEDIA</option>
@@ -2009,8 +2009,8 @@
         <!-- Campos de Entrega / Contacto / Red -->
         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">IP IMPRESOR</label>
-            <input type="text" id="appsheetInputIp" placeholder="10.x.x.x" class="w-full text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">IP IMPRESOR (SOLO IP)</label>
+            <input type="text" id="appsheetInputIp" oninput="this.value = cleanIpAddress(this.value);" onblur="this.value = cleanIpAddress(this.value);" placeholder="10.x.x.x" class="w-full text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">FECHA</label>
@@ -2018,22 +2018,22 @@
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">STATUS</label>
-            <input type="text" id="appsheetInputStatus" value="ABIERTO" class="w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputStatus" value="ABIERTO" readonly class="w-full text-xs uppercase bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-bold">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">FORMATO TIENDA</label>
-            <input type="text" id="appsheetInputFormato" placeholder="Formato" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputFormato" oninput="this.value = this.value.toUpperCase();" placeholder="Formato" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">TÉCNICO ASIGNADO</label>
-            <input type="text" id="appsheetInputTecnico" list="datalistTecnicos" placeholder="Nombre de Técnico" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputTecnico" oninput="this.value = this.value.toUpperCase();" list="datalistTecnicos" placeholder="Nombre de Técnico" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">ENVÍO POR</label>
-            <select id="appsheetInputEnvioPor" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <select id="appsheetInputEnvioPor" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-semibold">
               <option value="XPRESS">XPRESS</option>
               <option value="RUTA NORMAL">RUTA NORMAL</option>
               <option value="ENTREGA TECNICO">ENTREGA TÉCNICO</option>
@@ -2042,24 +2042,24 @@
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">UBICACIÓN INTERNA</label>
-            <input type="text" id="appsheetInputUbicacion" placeholder="Área / Depto" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputUbicacion" oninput="this.value = this.value.toUpperCase();" placeholder="Área / Depto" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">DIRECCIÓN PARA ENVÍO XPRESS</label>
-            <input type="text" id="appsheetInputDireccionXpress" placeholder="Dirección de entrega" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputDireccionXpress" oninput="this.value = this.value.toUpperCase();" placeholder="Dirección de entrega" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CONTACTO PARA RECIBIR</label>
-            <input type="text" id="appsheetInputContacto" placeholder="Nombre encargado" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <input type="text" id="appsheetInputContacto" oninput="this.value = this.value.toUpperCase();" placeholder="Nombre encargado" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">NÚMERO DE CONTACTO</label>
-          <input type="text" id="appsheetInputTelefono" placeholder="Teléfono" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          <input type="text" id="appsheetInputTelefono" oninput="this.value = this.value.toUpperCase();" placeholder="Teléfono" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
         </div>
       </div>
 
@@ -2067,7 +2067,7 @@
       <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
         <button type="button" onclick="copyAppSheetOrderToClipboard()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition">
           <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          <span>📋 Copiar Datos (Portapapeles)</span>
+          <span>📋 Copiar Datos (Mayúsculas)</span>
         </button>
 
         <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
@@ -2956,6 +2956,16 @@
       return `${dd}/${mm}/${yyyy}`;
     }
 
+    // LIMPIEZA ESTRICTA DE DIRECCIONES IP (Aísla únicamente formato IPv4 estándar)
+    function cleanIpAddress(rawIp) {
+      if (!rawIp) return '';
+      const str = rawIp.toString().trim();
+      const match = str.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+      if (match) return match[0];
+      const cleaned = str.replace(/\s*\(.*?\)\s*/g, '').replace(/[^\d.]/g, '').trim();
+      return cleaned;
+    }
+    window.cleanIpAddress = cleanIpAddress;
 
     // PROCESAMIENTO ROBUSTO DE ARCHIVOS (USANDO ARRAYBUFFER PARA .XLSM, .XLSB, .XLSX)
     function processFile(file) {
@@ -4009,7 +4019,9 @@
             // NUNCA convertir identificadores, códigos, series ni modelos a float
             const isIdentifier = /^(serie|serie sum|serie reg|serie equipo|serie retirado|serie sustituto|mod|modelo|det|ceco|id ticket|ticket|folio|numpart|codigo|código|ip|mac)$/i.test(key.trim());
             
-            if (!isIdentifier) {
+            if (/^(ip|direccion ip|dirección ip)$/i.test(key.trim())) {
+              val = cleanIpAddress(val);
+            } else if (!isIdentifier) {
               let numCandidate = val.trim().replace(/[$€\s]/g, '');
               if (/^-?\d+([.,]\d+)?$/.test(numCandidate)) {
                 val = parseFloat(numCandidate.replace(',', '.'));
@@ -8520,7 +8532,7 @@
             FORMATO: (item['FORMATO'] || item['Formato'] || '').toString().trim(),
             DET: det,
             DEPTO: (item['DEPTO'] || item['Departamento'] || item['Depto'] || '').toString().trim(),
-            IP: (item['IP'] || item['Ip'] || '').toString().trim(),
+            IP: cleanIpAddress((item['IP'] || item['Ip'] || item['DIRECCION IP'] || item['Direccion IP'] || item['DIRECCIÓN IP'] || '').toString()),
             PROPIEDAD: (item['PROPIEDAD'] || item['Propiedad'] || 'IEXCA').toString().trim(),
             DIRECCION: (item['DIRECCIÓN'] || item['DIRECCION'] || item['Dirección'] || item['Direccion'] || '').toString().trim(),
             PAIS: pais

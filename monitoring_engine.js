@@ -28,6 +28,16 @@ let monitoringViewMode = 'auto'; // 'auto' (cards en móvil <768px, tabla en des
 let isMonitoringInitialized = false;
 let isMonitoringLoadingDB = false;
 
+// Limpieza estricta de dirección IP para extraer únicamente formato IPv4 estándar
+function cleanIpAddress(rawIp) {
+  if (!rawIp) return '';
+  const str = rawIp.toString().trim();
+  const match = str.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+  if (match) return match[0];
+  const cleaned = str.replace(/\s*\(.*?\)\s*/g, '').replace(/[^\d.]/g, '').trim();
+  return cleaned;
+}
+
 function setMonitoringViewMode(mode) {
   monitoringViewMode = mode;
   const btnCards = document.getElementById('btnMonitoringViewCards');
@@ -260,7 +270,7 @@ function parseLexmarkFleetCsv(csvText, fileName) {
     const cleanMod = normalizeMarkVisionModel(rawMod, serie);
 
     rows.push({
-      ip: ipIdx >= 0 ? cols[ipIdx] : '',
+      ip: cleanIpAddress(ipIdx >= 0 ? cols[ipIdx] : ''),
       ubicacion: kwIdx >= 0 ? cols[kwIdx] : '',
       modelo: cleanMod,
       serie: serie,
@@ -933,7 +943,7 @@ function refreshMonitoringAnalysis() {
         cliente: displayCliente,
         ubicacion: displayUbicacion,
         det: displayDet,
-        ip: row.ip,
+        ip: cleanIpAddress(row.ip || (rdiInfo ? rdiInfo.IP : '')),
         tnrNivel: row.tnrNivel,
         tnrSerie: row.tnrSerie,
         paginasCarro: row.paginasCarro,
@@ -2163,10 +2173,31 @@ function renderMonitoringTable() {
 // ============================================================================
 // INTEGRACIÓN CON APPSHEET FRESHDESK & ASISTENTE INTELIGENTE DE DESPACHO
 // ============================================================================
-const APPSHEET_BASE_URL = "https://www.appsheet.com/start/4a341b5d-6396-4900-b551-6a5a715dc668?platform=desktop#appName=FreshdeskIEXCASV-1001025472&view=Freshdesk_IEXCA%20SV";
+const APPSHEET_APP_ID = "4a341b5d-6396-4900-b551-6a5a715dc668";
+const APPSHEET_APP_NAME = "FreshdeskIEXCASV-1001025472";
+
+function isMobileUserAgent() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '') || 
+         (typeof window !== 'undefined' && window.innerWidth < 768);
+}
+
+function getAppSheetBaseUrl(isMobile) {
+  // En móviles NUNCA enviar ?platform=desktop porque AppSheet descarga la versión pesada de PC,
+  // causando bloqueos, lentitud extrema (15-30 seg) o fallos de renderizado en smartphones.
+  if (isMobile) {
+    return `https://www.appsheet.com/start/${APPSHEET_APP_ID}#appName=${APPSHEET_APP_NAME}&view=Bienvenido`;
+  }
+  return `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=Bienvenido`;
+}
 
 function openAppSheetOrderGeneral() {
-  window.open(APPSHEET_BASE_URL, '_blank');
+  const isMobile = isMobileUserAgent();
+  const url = getAppSheetBaseUrl(isMobile);
+  const win = window.open(url, '_blank');
+  if (!win || win.closed || typeof win.closed === 'undefined') {
+    window.location.href = url;
+  }
 }
 
 // Búsqueda inteligente de NUMPART según el tipo de suministro y la última salida registrada en FOLIOS
@@ -2181,7 +2212,7 @@ function findLastNumpartForSupply(serie, tipoSum, modelo) {
     if (match) {
       const folioRef = (tipoUpper === 'UDI') ? match.lastUdiFolio : ((tipoUpper === 'KMT') ? match.lastKmtFolio : match.lastTnrFolio);
       if (folioRef) {
-        const np = (folioRef['NUMPART'] || folioRef['NUMERO DE PARTE'] || folioRef['NUM_PART'] || folioRef['NUMPAR'] || '').toString().trim();
+        const np = (folioRef['NUMPART'] || folioRef['NUMERO DE PARTE'] || folioRef['NUM_PART'] || folioRef['NUMPAR'] || '').toString().trim().toUpperCase();
         if (np) return np;
       }
     }
@@ -2194,7 +2225,7 @@ function findLastNumpartForSupply(serie, tipoSum, modelo) {
       const s = (f['SERIE'] || f['SERIE EQUIPO'] || '').toString().trim().toUpperCase();
       const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
       if (s === serieUpper && (t === tipoUpper || t.includes(tipoUpper))) {
-        const np = (f['NUMPART'] || f['NUMERO DE PARTE'] || f['NUM_PART'] || f['NUMPAR'] || '').toString().trim();
+        const np = (f['NUMPART'] || f['NUMERO DE PARTE'] || f['NUM_PART'] || f['NUMPAR'] || '').toString().trim().toUpperCase();
         if (np) return np;
       }
     }
@@ -2208,7 +2239,7 @@ function findLastNumpartForSupply(serie, tipoSum, modelo) {
       const m = (f['MODELO'] || f['MOD'] || '').toString().trim().toUpperCase();
       const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
       if (m === modeloUpper && (t === tipoUpper || t.includes(tipoUpper))) {
-        const np = (f['NUMPART'] || f['NUMERO DE PARTE'] || f['NUM_PART'] || f['NUMPAR'] || '').toString().trim();
+        const np = (f['NUMPART'] || f['NUMERO DE PARTE'] || f['NUM_PART'] || f['NUMPAR'] || '').toString().trim().toUpperCase();
         if (np) return np;
       }
     }
@@ -2233,14 +2264,14 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   const match = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === serieUpper) : null;
   const rdiInfo = (typeof rdiMapBySerie !== 'undefined') ? rdiMapBySerie.get(serieUpper) : null;
 
-  const modelo = match ? match.modelo : (rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || '') : '');
-  const cliente = match ? match.cliente : (rdiInfo ? rdiInfo.CLIENTE : '');
-  const tienda = match ? match.ubicacion : (rdiInfo ? rdiInfo.TIENDA : '');
-  const det = match ? match.det : (rdiInfo ? rdiInfo.DET : '');
-  const ip = match ? match.ip : (rdiInfo ? rdiInfo.IP : '');
-  const direccion = rdiInfo ? (rdiInfo.DIRECCION || '') : '';
-  const formato = rdiInfo ? (rdiInfo.FORMATO || '') : '';
-  const tecnico = rdiInfo ? (rdiInfo.TECNICO || '') : '';
+  const modelo = (match ? match.modelo : (rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || '') : '')).toUpperCase();
+  const cliente = (match ? match.cliente : (rdiInfo ? rdiInfo.CLIENTE : '')).toUpperCase();
+  const tienda = (match ? match.ubicacion : (rdiInfo ? rdiInfo.TIENDA : '')).toUpperCase();
+  const det = (match ? match.det : (rdiInfo ? rdiInfo.DET : '')).toUpperCase();
+  const ip = cleanIpAddress(match ? match.ip : (rdiInfo ? rdiInfo.IP : ''));
+  const direccion = (rdiInfo ? (rdiInfo.DIRECCION || '') : '').toUpperCase();
+  const formato = (rdiInfo ? (rdiInfo.FORMATO || '') : '').toUpperCase();
+  const tecnico = (rdiInfo ? (rdiInfo.TECNICO || '') : '').toUpperCase();
 
   // Determinar porcentaje
   let nivelVal = alertLevel;
@@ -2249,7 +2280,7 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
     else if (tipoSum === 'UDI') nivelVal = match ? match.udiNivel : null;
     else if (tipoSum === 'KMT') nivelVal = match ? match.kmtNivel : null;
   }
-  const nivelStr = (nivelVal !== null && nivelVal !== undefined) ? `${nivelVal}%` : 'Bajo';
+  const nivelStr = (nivelVal !== null && nivelVal !== undefined) ? `${nivelVal}%` : 'BAJO';
 
   // Buscar NUMPART según última salida en FOLIOS
   const numPart = findLastNumpartForSupply(serieUpper, tipoSum, modelo);
@@ -2261,8 +2292,8 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   else prioridad = 'MEDIA';
 
   // Texto solicitud
-  const tipoLabel = (tipoSum === 'TNR') ? 'Tóner Negro (TNR)' : ((tipoSum === 'UDI') ? 'Unidad de Imagen (UDI)' : 'Kit de Mantenimiento (KMT)');
-  const solicitudTexto = `Suministro ${tipoLabel} por desgaste de monitoreo (${nivelStr})`;
+  const tipoLabel = (tipoSum === 'TNR') ? 'TÓNER NEGRO (TNR)' : ((tipoSum === 'UDI') ? 'UNIDAD DE IMAGEN (UDI)' : 'KIT DE MANTENIMIENTO (KMT)');
+  const solicitudTexto = `SUMINISTRO ${tipoLabel} POR DESGASTE DE MONITOREO (${nivelStr})`.toUpperCase();
 
   currentAppSheetEquipment = {
     serie: serieUpper,
@@ -2282,13 +2313,13 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
     direccion
   };
 
-  // Asignar valores a los inputs del modal
+  // Asignar valores a los inputs del modal en MAYÚSCULAS
   const elTitle = document.getElementById('appsheetModalTitle');
-  if (elTitle) elTitle.textContent = `Despacho & Pedido: ${serieUpper}`;
+  if (elTitle) elTitle.textContent = `DESPACHO & PEDIDO: ${serieUpper}`;
   const elSub = document.getElementById('appsheetModalSubtitle');
-  if (elSub) elSub.textContent = `${cliente || 'Cliente'} • ${modelo || 'Modelo'} • ${tienda || 'Tienda'}`;
+  if (elSub) elSub.textContent = `${cliente || 'CLIENTE'} • ${modelo || 'MODELO'} • ${tienda || 'TIENDA'}`;
   const elAlert = document.getElementById('appsheetBannerAlertText');
-  if (elAlert) elAlert.textContent = `Alerta de Desgaste: ${tipoLabel} al ${nivelStr}`;
+  if (elAlert) elAlert.textContent = `ALERTA DE DESGASTE: ${tipoLabel} AL ${nivelStr}`;
   const elBadge = document.getElementById('appsheetBadgePrioridad');
   if (elBadge) {
     elBadge.textContent = prioridad;
@@ -2299,10 +2330,10 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
     elOrigin.textContent = numPart ? `✅ Obtenido de última salida (${numPart})` : '⚠️ Sin salida previa (digitar parte)';
   }
 
-  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val !== undefined && val !== null ? val : ''; };
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val !== undefined && val !== null ? String(val).toUpperCase() : ''; };
   setVal('appsheetInputSerie', serieUpper);
   setVal('appsheetInputModelo', modelo);
-  setVal('appsheetInputMarca', 'Lexmark');
+  setVal('appsheetInputMarca', 'LEXMARK');
   setVal('appsheetInputDet', det);
   setVal('appsheetInputTienda', tienda);
   setVal('appsheetInputTipoSum', tipoSum);
@@ -2311,7 +2342,8 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   setVal('appsheetInputSolicitud', solicitudTexto);
   setVal('appsheetInputPrioridad', prioridad);
   setVal('appsheetInputIp', ip);
-  setVal('appsheetInputFecha', new Date().toISOString().split('T')[0]);
+  const elFecha = document.getElementById('appsheetInputFecha');
+  if (elFecha) elFecha.value = new Date().toISOString().split('T')[0];
   setVal('appsheetInputStatus', 'ABIERTO');
   setVal('appsheetInputFormato', formato);
   setVal('appsheetInputTecnico', tecnico);
@@ -2341,10 +2373,10 @@ function onAppSheetTipoSumChange(newTipo) {
   if (!currentAppSheetEquipment) return;
   const np = findLastNumpartForSupply(currentAppSheetEquipment.serie, newTipo, currentAppSheetEquipment.modelo);
   const elNum = document.getElementById('appsheetInputNumpart');
-  if (elNum) elNum.value = np;
-  const tipoLabel = (newTipo === 'TNR') ? 'Tóner Negro (TNR)' : ((newTipo === 'UDI') ? 'Unidad de Imagen (UDI)' : 'Kit de Mantenimiento (KMT)');
+  if (elNum) elNum.value = (np || '').toUpperCase();
+  const tipoLabel = (newTipo === 'TNR') ? 'TÓNER NEGRO (TNR)' : ((newTipo === 'UDI') ? 'UNIDAD DE IMAGEN (UDI)' : 'KIT DE MANTENIMIENTO (KMT)');
   const elSol = document.getElementById('appsheetInputSolicitud');
-  if (elSol) elSol.value = `Suministro ${tipoLabel} por desgaste de monitoreo (${currentAppSheetEquipment.nivelStr || 'Bajo'})`;
+  if (elSol) elSol.value = `SUMINISTRO ${tipoLabel} POR DESGASTE DE MONITOREO (${currentAppSheetEquipment.nivelStr || 'BAJO'})`.toUpperCase();
   const elOrigin = document.getElementById('appsheetNumpartOriginBadge');
   if (elOrigin) {
     elOrigin.textContent = np ? `✅ Obtenido de última salida (${np})` : '⚠️ Sin salida previa (digitar parte)';
@@ -2352,7 +2384,7 @@ function onAppSheetTipoSumChange(newTipo) {
 }
 
 function getAppSheetOrderData() {
-  const getV = (id) => (document.getElementById(id)?.value || '').trim();
+  const getV = (id) => (document.getElementById(id)?.value || '').trim().toUpperCase();
   return {
     ID_TICKET: '',
     DET: getV('appsheetInputDet'),
@@ -2365,10 +2397,10 @@ function getAppSheetOrderData() {
     NUMPART: getV('appsheetInputNumpart'),
     SOLICITUD: getV('appsheetInputSolicitud'),
     PORCENTAJE: getV('appsheetInputPorcentaje'),
-    FECHA: getV('appsheetInputFecha') || new Date().toISOString().split('T')[0],
+    FECHA: (document.getElementById('appsheetInputFecha')?.value || '').trim(),
     UBICACION: getV('appsheetInputUbicacion'),
-    MARCA: getV('appsheetInputMarca') || 'Lexmark',
-    IP: getV('appsheetInputIp'),
+    MARCA: getV('appsheetInputMarca') || 'LEXMARK',
+    IP: cleanIpAddress(document.getElementById('appsheetInputIp')?.value),
     ENVIO_POR: getV('appsheetInputEnvioPor') || 'XPRESS',
     PRIORIDAD: getV('appsheetInputPrioridad') || 'ALTA',
     DIRECCION_PARA_ENVIO_XPRESS: getV('appsheetInputDireccionXpress'),
@@ -2381,25 +2413,25 @@ function generateOrderTextSummary(data) {
   return [
     `📦 PEDIDO DE SUMINISTRO (IEXCA - APPSHEET / FRESHDESK)`,
     `----------------------------------------------------`,
-    `DET: ${data.DET}`,
-    `TIENDA: ${data.TIENDA}`,
-    `SERIE: ${data.SERIE}`,
-    `MODELO: ${data.MODELO}`,
-    `MARCA: ${data.MARCA}`,
-    `NUMPART: ${data.NUMPART}`,
-    `SOLICITUD: ${data.SOLICITUD}`,
-    `PORCENTAJE: ${data.PORCENTAJE}`,
-    `PRIORIDAD: ${data.PRIORIDAD}`,
-    `STATUS: ${data.STATUS}`,
-    `FECHA: ${data.FECHA}`,
-    `IP: ${data.IP}`,
-    `TECNICO: ${data.TECNICO}`,
-    `FORMATO: ${data.FORMATO}`,
-    `UBICACION: ${data.UBICACION}`,
-    `ENVIO POR: ${data.ENVIO_POR}`,
-    `DIRECCION PARA ENVIO XPRESS: ${data.DIRECCION_PARA_ENVIO_XPRESS}`,
-    `CONTACTO PARA RECIBIR XPRESS: ${data.CONTACTO_PARA_RECIBIR_XPRESS}`,
-    `NUMERO DE CONTACTO: ${data.NUMERO_DE_CONTACTO}`
+    `DET: ${String(data.DET || '').toUpperCase()}`,
+    `TIENDA: ${String(data.TIENDA || '').toUpperCase()}`,
+    `SERIE: ${String(data.SERIE || '').toUpperCase()}`,
+    `MODELO: ${String(data.MODELO || '').toUpperCase()}`,
+    `MARCA: ${String(data.MARCA || 'LEXMARK').toUpperCase()}`,
+    `NUMPART: ${String(data.NUMPART || '').toUpperCase()}`,
+    `SOLICITUD: ${String(data.SOLICITUD || '').toUpperCase()}`,
+    `PORCENTAJE: ${String(data.PORCENTAJE || '').toUpperCase()}`,
+    `PRIORIDAD: ${String(data.PRIORIDAD || 'ALTA').toUpperCase()}`,
+    `STATUS: ${String(data.STATUS || 'ABIERTO').toUpperCase()}`,
+    `FECHA: ${String(data.FECHA || '').toUpperCase()}`,
+    `IP: ${String(data.IP || '').toUpperCase()}`,
+    `TECNICO: ${String(data.TECNICO || '').toUpperCase()}`,
+    `FORMATO: ${String(data.FORMATO || '').toUpperCase()}`,
+    `UBICACION: ${String(data.UBICACION || '').toUpperCase()}`,
+    `ENVIO POR: ${String(data.ENVIO_POR || 'XPRESS').toUpperCase()}`,
+    `DIRECCION PARA ENVIO XPRESS: ${String(data.DIRECCION_PARA_ENVIO_XPRESS || '').toUpperCase()}`,
+    `CONTACTO PARA RECIBIR XPRESS: ${String(data.CONTACTO_PARA_RECIBIR_XPRESS || '').toUpperCase()}`,
+    `NUMERO DE CONTACTO: ${String(data.NUMERO_DE_CONTACTO || '').toUpperCase()}`
   ].join('\n');
 }
 
@@ -2409,7 +2441,7 @@ function copyAppSheetOrderToClipboard() {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(txt).then(() => {
       if (typeof showToast === 'function') {
-        showToast(`📋 ¡Datos del pedido de ${data.SERIE} copiados al portapapeles!`);
+        showToast(`📋 ¡Datos de ${data.SERIE} copiados en MAYÚSCULAS!`);
       }
     }).catch(() => {
       if (typeof showToast === 'function') {
@@ -2427,33 +2459,47 @@ function launchAppSheetOrder() {
   }
 
   const defaults = {
-    DET: data.DET,
-    TIENDA: data.TIENDA,
-    TECNICO: data.TECNICO,
-    FORMATO: data.FORMATO,
-    STATUS: data.STATUS,
-    SERIE: data.SERIE,
-    MODELO: data.MODELO,
-    NUMPART: data.NUMPART,
-    SOLICITUD: data.SOLICITUD,
-    PORCENTAJE: data.PORCENTAJE,
-    FECHA: data.FECHA,
-    UBICACION: data.UBICACION,
-    MARCA: data.MARCA,
-    IP: data.IP,
-    "ENVIO POR": data.ENVIO_POR,
-    PRIORIDAD: data.PRIORIDAD,
-    "DIRECCION PARA ENVIO XPRESS": data.DIRECCION_PARA_ENVIO_XPRESS,
-    "CONTACTO PARA RECIBIR XPRESS": data.CONTACTO_PARA_RECIBIR_XPRESS,
-    "NUEMERO DE CONTACTO": data.NUMERO_DE_CONTACTO
+    DET: String(data.DET || '').toUpperCase(),
+    TIENDA: String(data.TIENDA || '').toUpperCase(),
+    TECNICO: String(data.TECNICO || '').toUpperCase(),
+    FORMATO: String(data.FORMATO || '').toUpperCase(),
+    STATUS: String(data.STATUS || 'ABIERTO').toUpperCase(),
+    SERIE: String(data.SERIE || '').toUpperCase(),
+    MODELO: String(data.MODELO || '').toUpperCase(),
+    NUMPART: String(data.NUMPART || '').toUpperCase(),
+    SOLICITUD: String(data.SOLICITUD || '').toUpperCase(),
+    PORCENTAJE: String(data.PORCENTAJE || '').toUpperCase(),
+    FECHA: String(data.FECHA || ''),
+    UBICACION: String(data.UBICACION || '').toUpperCase(),
+    MARCA: String(data.MARCA || 'LEXMARK').toUpperCase(),
+    IP: cleanIpAddress(data.IP),
+    "ENVIO POR": String(data.ENVIO_POR || 'XPRESS').toUpperCase(),
+    PRIORIDAD: String(data.PRIORIDAD || 'ALTA').toUpperCase(),
+    "DIRECCION PARA ENVIO XPRESS": String(data.DIRECCION_PARA_ENVIO_XPRESS || '').toUpperCase(),
+    "CONTACTO PARA RECIBIR XPRESS": String(data.CONTACTO_PARA_RECIBIR_XPRESS || '').toUpperCase(),
+    "NUEMERO DE CONTACTO": String(data.NUMERO_DE_CONTACTO || '').toUpperCase()
   };
 
+  const isMobile = isMobileUserAgent();
   const encodedDefaults = encodeURIComponent(JSON.stringify(defaults));
-  const fullUrl = `https://www.appsheet.com/start/4a341b5d-6396-4900-b551-6a5a715dc668?platform=desktop#appName=FreshdeskIEXCASV-1001025472&view=Freshdesk_IEXCA%20SV&defaults=${encodedDefaults}`;
+  
+  // En móviles NUNCA incluir ?platform=desktop para evitar lentitud y bloqueos en smartphones
+  let fullUrl = "";
+  if (isMobile) {
+    fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}#appName=${APPSHEET_APP_NAME}&view=Bienvenido&defaults=${encodedDefaults}`;
+  } else {
+    fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=Bienvenido&defaults=${encodedDefaults}`;
+  }
 
-  window.open(fullUrl, '_blank');
+  const win = window.open(fullUrl, '_blank');
+  if (!win || win.closed || typeof win.closed === 'undefined') {
+    window.location.href = fullUrl;
+  }
+
   if (typeof showToast === 'function') {
-    showToast(`🚀 Abriendo AppSheet. ¡Datos copiados al portapapeles para facilitar el llenado!`);
+    showToast(isMobile 
+      ? `📱 Abriendo AppSheet Móvil... ¡Datos copiados en MAYÚSCULAS!` 
+      : `🚀 Abriendo AppSheet... ¡Datos copiados en MAYÚSCULAS!`);
   }
 }
 
@@ -2992,6 +3038,7 @@ if (typeof window !== 'undefined') {
   window.dispatchDirectToFoliosFromModal = dispatchDirectToFoliosFromModal;
   window.openAppSheetOrderGeneral = openAppSheetOrderGeneral;
   window.findLastNumpartForSupply = findLastNumpartForSupply;
+  window.cleanIpAddress = cleanIpAddress;
 
   // Auto-inicialización inmediata al cargar el DOM
   const autoInitMonitoringModule = () => {
@@ -3042,6 +3089,7 @@ if (typeof module !== 'undefined' && module.exports) {
     dispatchDirectToFoliosFromModal,
     openAppSheetOrderGeneral,
     findLastNumpartForSupply,
+    cleanIpAddress,
     getMonitoringSelectedTnrLevels: () => monitoringSelectedTnrLevels,
     getMonitoringSelectedUdiLevels: () => monitoringSelectedUdiLevels,
     getMonitoringSelectedKmtLevels: () => monitoringSelectedKmtLevels,
