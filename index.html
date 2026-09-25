@@ -1472,6 +1472,10 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             <span>📥 Cargar Archivos CSV</span>
           </button>
+          <button type="button" onclick="openAppSheetOrderGeneral()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition" title="Abrir Aplicación de Pedidos en AppSheet (Freshdesk)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            <span>📱 AppSheet Pedidos</span>
+          </button>
           <button type="button" onclick="exportMonitoringAuditToExcel()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Exportar reporte de auditoría completo a Excel">
             <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             <span>Exportar Auditoría (.xlsx)</span>
@@ -1893,6 +1897,188 @@
         <button type="button" onclick="closeEquipmentHistoryModal()" class="w-full sm:w-auto px-4 py-2 text-xs font-semibold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-200 transition">
           Cerrar Ficha
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ASISTENTE DE DESPACHO & PEDIDO EN APPSHEET FRESHDESK -->
+  <div id="modalAppSheetDispatch" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-3xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
+      <!-- Encabezado -->
+      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-gradient-to-r from-rose-50 via-indigo-50 to-amber-50 dark:from-slate-800 dark:to-slate-800 sticky top-0 z-10 min-w-0 w-full">
+        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div class="p-2 rounded-xl bg-indigo-600 text-white shrink-0 shadow-xs">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 id="appsheetModalTitle" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Despacho de Suministro &amp; Pedido AppSheet</h3>
+            <p id="appsheetModalSubtitle" class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Sincronización con Freshdesk IEXCA SV y control de salidas FOLIOS</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeAppSheetModal()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0" title="Cerrar ventana">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Contenido / Formulario -->
+      <div class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-w-0 w-full">
+        <!-- Banner de Resumen Rápido -->
+        <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-lg">🚨</span>
+            <div>
+              <p id="appsheetBannerAlertText" class="text-xs font-bold text-amber-900 dark:text-amber-200">Alerta de Desgaste: Tóner Negro al 8%</p>
+              <p id="appsheetBannerDetail" class="text-[11px] text-amber-700 dark:text-amber-400">Número de parte calculado según última salida registrada en FOLIOS</p>
+            </div>
+          </div>
+          <span id="appsheetBadgePrioridad" class="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white">URGENTE</span>
+        </div>
+
+        <!-- Grid de los campos solicitados por el usuario -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">SERIE *</label>
+            <input type="text" id="appsheetInputSerie" readonly class="w-full text-xs font-mono font-bold bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">MODELO</label>
+            <input type="text" id="appsheetInputModelo" readonly class="w-full text-xs font-medium bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">MARCA</label>
+            <input type="text" id="appsheetInputMarca" value="Lexmark" readonly class="w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-indigo-700 dark:text-indigo-300 mb-1">DET (Código Tienda)</label>
+            <input type="text" id="appsheetInputDet" class="w-full text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">TIENDA / SUCURSAL</label>
+            <input type="text" id="appsheetInputTienda" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <!-- Fila de Suministro y NUMPART (Clave del usuario) -->
+        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <span>📦 Suministro Solicitado &amp; Número de Parte (NUMPART)</span>
+            </label>
+            <span id="appsheetNumpartOriginBadge" class="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">Calculado de última salida</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">TIPO / SOLICITUD</label>
+              <select id="appsheetInputTipoSum" onchange="onAppSheetTipoSumChange(this.value)" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+                <option value="TNR">Tóner Negro (TNR)</option>
+                <option value="UDI">Unidad de Imagen (UDI)</option>
+                <option value="KMT">Kit de Mantenimiento (KMT)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-rose-600 dark:text-rose-400 mb-1">NUMPART (N° de Parte) *</label>
+              <input type="text" id="appsheetInputNumpart" placeholder="Ej. 52D4H00" class="w-full text-xs font-mono font-bold bg-white dark:bg-slate-800 border-2 border-rose-300 dark:border-rose-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">PORCENTAJE ACTUAL</label>
+              <input type="text" id="appsheetInputPorcentaje" placeholder="Ej. 8%" class="w-full text-xs font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">DETALLE SOLICITUD</label>
+              <input type="text" id="appsheetInputSolicitud" placeholder="Descripción del requerimiento" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">PRIORIDAD</label>
+              <select id="appsheetInputPrioridad" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+                <option value="URGENTE">URGENTE (Despacho inmediato)</option>
+                <option value="ALTA">ALTA</option>
+                <option value="MEDIA">MEDIA</option>
+                <option value="BAJA">BAJA</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campos de Entrega / Contacto / Red -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">IP IMPRESOR</label>
+            <input type="text" id="appsheetInputIp" placeholder="10.x.x.x" class="w-full text-xs font-mono bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">FECHA</label>
+            <input type="date" id="appsheetInputFecha" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">STATUS</label>
+            <input type="text" id="appsheetInputStatus" value="ABIERTO" class="w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">FORMATO TIENDA</label>
+            <input type="text" id="appsheetInputFormato" placeholder="Formato" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">TÉCNICO ASIGNADO</label>
+            <input type="text" id="appsheetInputTecnico" list="datalistTecnicos" placeholder="Nombre de Técnico" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">ENVÍO POR</label>
+            <select id="appsheetInputEnvioPor" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <option value="XPRESS">XPRESS</option>
+              <option value="RUTA NORMAL">RUTA NORMAL</option>
+              <option value="ENTREGA TECNICO">ENTREGA TÉCNICO</option>
+              <option value="CLIENTE RETIRA">CLIENTE RETIRA</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">UBICACIÓN INTERNA</label>
+            <input type="text" id="appsheetInputUbicacion" placeholder="Área / Depto" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">DIRECCIÓN PARA ENVÍO XPRESS</label>
+            <input type="text" id="appsheetInputDireccionXpress" placeholder="Dirección de entrega" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">CONTACTO PARA RECIBIR</label>
+            <input type="text" id="appsheetInputContacto" placeholder="Nombre encargado" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">NÚMERO DE CONTACTO</label>
+          <input type="text" id="appsheetInputTelefono" placeholder="Teléfono" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+        </div>
+      </div>
+
+      <!-- Barra de Acciones Inferior -->
+      <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <button type="button" onclick="copyAppSheetOrderToClipboard()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          <span>📋 Copiar Datos (Portapapeles)</span>
+        </button>
+
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          <button type="button" onclick="dispatchDirectToFoliosFromModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3.5 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl transition" title="Registrar también en hoja interna FOLIOS">
+            <span>📦 Registrar en FOLIOS</span>
+          </button>
+          <button type="button" onclick="launchAppSheetOrder()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition" title="Abrir AppSheet con los datos precargados">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            <span>🚀 Abrir Pedido en AppSheet</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -7361,6 +7547,8 @@
           msg = "📋 ¿Deseas cerrar la Ficha Técnica e Historial y volver al Monitoreo?";
         } else if (top.id === 'compareSheetsModal') {
           msg = "📊 ¿Deseas cerrar la Comparativa de Hojas?";
+        } else if (top.id === 'modalAppSheetDispatch') {
+          msg = null;
         }
 
         if (msg) {

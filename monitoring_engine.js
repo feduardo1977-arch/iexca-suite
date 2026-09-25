@@ -1684,22 +1684,7 @@ function goToFolioDetail(folioNum, serie) {
 
 // Despacho directo desde alertas de monitoreo precargando datos
 function dispatchSalidaFromAlert(serie, supplyType = 'TNR', level = 10) {
-  const item = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === serie) : null;
-  if (typeof openNewSalidaModal === 'function') {
-    openNewSalidaModal({
-      serie: serie || '',
-      modelo: item ? item.modelo : '',
-      cliente: item ? item.cliente : '',
-      destino: item ? item.ubicacion : '',
-      det: item ? item.det : '',
-      tipoSum: supplyType || (item && item.alertSupplyType ? item.alertSupplyType : 'TNR')
-    });
-    if (typeof showToast === 'function') {
-      showToast(`⚡ Iniciando despacho de ${supplyType} para serie ${serie}...`);
-    }
-  } else {
-    alert(`Iniciando despacho de ${supplyType} para equipo con serie: ${serie}`);
-  }
+  openDispatchAssistantModal(serie, supplyType, level);
 }
 
 // Creación de ticket desde alerta de monitoreo
@@ -2175,23 +2160,322 @@ function renderMonitoringTable() {
   if (cardsContainer && cardsFragment) cardsContainer.appendChild(cardsFragment);
 }
 
-// Acción Rápida: Despachar Salida Precargada en FOLIOS
-function dispatchSalidaFromAlert(serie, tipoSum, nivel) {
-  const match = monitoringProcessedList.find(r => r.serie === serie);
-  const modelo = match ? match.modelo : '';
-  const cliente = match ? match.cliente : '';
-  const destino = match ? match.ubicacion : '';
-  const det = match ? match.det : '';
+// ============================================================================
+// INTEGRACIÓN CON APPSHEET FRESHDESK & ASISTENTE INTELIGENTE DE DESPACHO
+// ============================================================================
+const APPSHEET_BASE_URL = "https://www.appsheet.com/start/4a341b5d-6396-4900-b551-6a5a715dc668?platform=desktop#appName=FreshdeskIEXCASV-1001025472&view=Freshdesk_IEXCA%20SV";
 
-  openNewSalidaModal({
-    serie,
-    tipoSum: tipoSum || 'TNR',
+function openAppSheetOrderGeneral() {
+  window.open(APPSHEET_BASE_URL, '_blank');
+}
+
+// Búsqueda inteligente de NUMPART según el tipo de suministro y la última salida registrada en FOLIOS
+function findLastNumpartForSupply(serie, tipoSum, modelo) {
+  const serieUpper = (serie || '').trim().toUpperCase();
+  const tipoUpper = (tipoSum || 'TNR').trim().toUpperCase();
+  const folios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
+
+  // 1. Si tenemos procesado el registro en monitoringProcessedList con sus folios asociados:
+  if (typeof monitoringProcessedList !== 'undefined' && Array.isArray(monitoringProcessedList)) {
+    const match = monitoringProcessedList.find(r => r.serie === serieUpper);
+    if (match) {
+      const folioRef = (tipoUpper === 'UDI') ? match.lastUdiFolio : ((tipoUpper === 'KMT') ? match.lastKmtFolio : match.lastTnrFolio);
+      if (folioRef) {
+        const np = (folioRef['NUMPART'] || folioRef['NUMERO DE PARTE'] || folioRef['NUM_PART'] || folioRef['NUMPAR'] || '').toString().trim();
+        if (np) return np;
+      }
+    }
+  }
+
+  // 2. Buscar en todas las filas de FOLIOS para esta serie específica (el más reciente primero)
+  if (serieUpper && Array.isArray(folios) && folios.length > 0) {
+    for (let i = 0; i < folios.length; i++) {
+      const f = folios[i];
+      const s = (f['SERIE'] || f['SERIE EQUIPO'] || '').toString().trim().toUpperCase();
+      const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
+      if (s === serieUpper && (t === tipoUpper || t.includes(tipoUpper))) {
+        const np = (f['NUMPART'] || f['NUMERO DE PARTE'] || f['NUM_PART'] || f['NUMPAR'] || '').toString().trim();
+        if (np) return np;
+      }
+    }
+  }
+
+  // 3. Fallback: Buscar en FOLIOS por MODELO y TIPO SUM
+  const modeloUpper = (modelo || '').trim().toUpperCase();
+  if (modeloUpper && Array.isArray(folios) && folios.length > 0) {
+    for (let i = 0; i < folios.length; i++) {
+      const f = folios[i];
+      const m = (f['MODELO'] || f['MOD'] || '').toString().trim().toUpperCase();
+      const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
+      if (m === modeloUpper && (t === tipoUpper || t.includes(tipoUpper))) {
+        const np = (f['NUMPART'] || f['NUMERO DE PARTE'] || f['NUM_PART'] || f['NUMPAR'] || '').toString().trim();
+        if (np) return np;
+      }
+    }
+  }
+
+  return '';
+}
+
+let currentAppSheetEquipment = null;
+
+function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel = null) {
+  const modal = document.getElementById('modalAppSheetDispatch');
+  if (!modal) {
+    if (typeof openNewSalidaModal === 'function') {
+      openNewSalidaModal({ serie, tipoSum: alertSupplyType });
+    }
+    return;
+  }
+
+  const serieUpper = (serie || '').trim().toUpperCase();
+  const tipoSum = (alertSupplyType || 'TNR').trim().toUpperCase();
+  const match = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === serieUpper) : null;
+  const rdiInfo = (typeof rdiMapBySerie !== 'undefined') ? rdiMapBySerie.get(serieUpper) : null;
+
+  const modelo = match ? match.modelo : (rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || '') : '');
+  const cliente = match ? match.cliente : (rdiInfo ? rdiInfo.CLIENTE : '');
+  const tienda = match ? match.ubicacion : (rdiInfo ? rdiInfo.TIENDA : '');
+  const det = match ? match.det : (rdiInfo ? rdiInfo.DET : '');
+  const ip = match ? match.ip : (rdiInfo ? rdiInfo.IP : '');
+  const direccion = rdiInfo ? (rdiInfo.DIRECCION || '') : '';
+  const formato = rdiInfo ? (rdiInfo.FORMATO || '') : '';
+  const tecnico = rdiInfo ? (rdiInfo.TECNICO || '') : '';
+
+  // Determinar porcentaje
+  let nivelVal = alertLevel;
+  if (nivelVal === undefined || nivelVal === null) {
+    if (tipoSum === 'TNR') nivelVal = match ? match.tnrNivel : null;
+    else if (tipoSum === 'UDI') nivelVal = match ? match.udiNivel : null;
+    else if (tipoSum === 'KMT') nivelVal = match ? match.kmtNivel : null;
+  }
+  const nivelStr = (nivelVal !== null && nivelVal !== undefined) ? `${nivelVal}%` : 'Bajo';
+
+  // Buscar NUMPART según última salida en FOLIOS
+  const numPart = findLastNumpartForSupply(serieUpper, tipoSum, modelo);
+
+  // Determinar Prioridad
+  let prioridad = 'ALTA';
+  if (nivelVal !== null && nivelVal <= 5) prioridad = 'URGENTE';
+  else if (nivelVal !== null && nivelVal <= 15) prioridad = 'ALTA';
+  else prioridad = 'MEDIA';
+
+  // Texto solicitud
+  const tipoLabel = (tipoSum === 'TNR') ? 'Tóner Negro (TNR)' : ((tipoSum === 'UDI') ? 'Unidad de Imagen (UDI)' : 'Kit de Mantenimiento (KMT)');
+  const solicitudTexto = `Suministro ${tipoLabel} por desgaste de monitoreo (${nivelStr})`;
+
+  currentAppSheetEquipment = {
+    serie: serieUpper,
     modelo,
     cliente,
-    destino,
+    tienda,
     det,
-    descripcion: `Despacho preventivo de ${tipoSum || 'TNR'} por alerta de monitoreo (Nivel actual: ${nivel !== null ? nivel + '%' : 'Bajo'})`
-  });
+    ip,
+    tipoSum,
+    numPart,
+    nivelVal,
+    nivelStr,
+    prioridad,
+    solicitudTexto,
+    formato,
+    tecnico,
+    direccion
+  };
+
+  // Asignar valores a los inputs del modal
+  const elTitle = document.getElementById('appsheetModalTitle');
+  if (elTitle) elTitle.textContent = `Despacho & Pedido: ${serieUpper}`;
+  const elSub = document.getElementById('appsheetModalSubtitle');
+  if (elSub) elSub.textContent = `${cliente || 'Cliente'} • ${modelo || 'Modelo'} • ${tienda || 'Tienda'}`;
+  const elAlert = document.getElementById('appsheetBannerAlertText');
+  if (elAlert) elAlert.textContent = `Alerta de Desgaste: ${tipoLabel} al ${nivelStr}`;
+  const elBadge = document.getElementById('appsheetBadgePrioridad');
+  if (elBadge) {
+    elBadge.textContent = prioridad;
+    elBadge.className = `text-xs font-bold px-2 py-0.5 rounded-full ${prioridad === 'URGENTE' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'}`;
+  }
+  const elOrigin = document.getElementById('appsheetNumpartOriginBadge');
+  if (elOrigin) {
+    elOrigin.textContent = numPart ? `✅ Obtenido de última salida (${numPart})` : '⚠️ Sin salida previa (digitar parte)';
+  }
+
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val !== undefined && val !== null ? val : ''; };
+  setVal('appsheetInputSerie', serieUpper);
+  setVal('appsheetInputModelo', modelo);
+  setVal('appsheetInputMarca', 'Lexmark');
+  setVal('appsheetInputDet', det);
+  setVal('appsheetInputTienda', tienda);
+  setVal('appsheetInputTipoSum', tipoSum);
+  setVal('appsheetInputNumpart', numPart);
+  setVal('appsheetInputPorcentaje', nivelStr);
+  setVal('appsheetInputSolicitud', solicitudTexto);
+  setVal('appsheetInputPrioridad', prioridad);
+  setVal('appsheetInputIp', ip);
+  setVal('appsheetInputFecha', new Date().toISOString().split('T')[0]);
+  setVal('appsheetInputStatus', 'ABIERTO');
+  setVal('appsheetInputFormato', formato);
+  setVal('appsheetInputTecnico', tecnico);
+  setVal('appsheetInputEnvioPor', 'XPRESS');
+  setVal('appsheetInputUbicacion', tienda);
+  setVal('appsheetInputDireccionXpress', direccion || tienda);
+  setVal('appsheetInputContacto', '');
+  setVal('appsheetInputTelefono', '');
+
+  if (typeof pushModalToHistory === 'function') {
+    pushModalToHistory('modalAppSheetDispatch');
+  } else {
+    modal.classList.remove('hidden');
+  }
+}
+
+function closeAppSheetModal(force = false) {
+  if (typeof triggerModalClose === 'function') {
+    triggerModalClose('modalAppSheetDispatch', force);
+  } else {
+    const modal = document.getElementById('modalAppSheetDispatch');
+    if (modal) modal.classList.add('hidden');
+  }
+}
+
+function onAppSheetTipoSumChange(newTipo) {
+  if (!currentAppSheetEquipment) return;
+  const np = findLastNumpartForSupply(currentAppSheetEquipment.serie, newTipo, currentAppSheetEquipment.modelo);
+  const elNum = document.getElementById('appsheetInputNumpart');
+  if (elNum) elNum.value = np;
+  const tipoLabel = (newTipo === 'TNR') ? 'Tóner Negro (TNR)' : ((newTipo === 'UDI') ? 'Unidad de Imagen (UDI)' : 'Kit de Mantenimiento (KMT)');
+  const elSol = document.getElementById('appsheetInputSolicitud');
+  if (elSol) elSol.value = `Suministro ${tipoLabel} por desgaste de monitoreo (${currentAppSheetEquipment.nivelStr || 'Bajo'})`;
+  const elOrigin = document.getElementById('appsheetNumpartOriginBadge');
+  if (elOrigin) {
+    elOrigin.textContent = np ? `✅ Obtenido de última salida (${np})` : '⚠️ Sin salida previa (digitar parte)';
+  }
+}
+
+function getAppSheetOrderData() {
+  const getV = (id) => (document.getElementById(id)?.value || '').trim();
+  return {
+    ID_TICKET: '',
+    DET: getV('appsheetInputDet'),
+    TIENDA: getV('appsheetInputTienda'),
+    TECNICO: getV('appsheetInputTecnico'),
+    FORMATO: getV('appsheetInputFormato'),
+    STATUS: getV('appsheetInputStatus') || 'ABIERTO',
+    SERIE: getV('appsheetInputSerie'),
+    MODELO: getV('appsheetInputModelo'),
+    NUMPART: getV('appsheetInputNumpart'),
+    SOLICITUD: getV('appsheetInputSolicitud'),
+    PORCENTAJE: getV('appsheetInputPorcentaje'),
+    FECHA: getV('appsheetInputFecha') || new Date().toISOString().split('T')[0],
+    UBICACION: getV('appsheetInputUbicacion'),
+    MARCA: getV('appsheetInputMarca') || 'Lexmark',
+    IP: getV('appsheetInputIp'),
+    ENVIO_POR: getV('appsheetInputEnvioPor') || 'XPRESS',
+    PRIORIDAD: getV('appsheetInputPrioridad') || 'ALTA',
+    DIRECCION_PARA_ENVIO_XPRESS: getV('appsheetInputDireccionXpress'),
+    CONTACTO_PARA_RECIBIR_XPRESS: getV('appsheetInputContacto'),
+    NUMERO_DE_CONTACTO: getV('appsheetInputTelefono')
+  };
+}
+
+function generateOrderTextSummary(data) {
+  return [
+    `📦 PEDIDO DE SUMINISTRO (IEXCA - APPSHEET / FRESHDESK)`,
+    `----------------------------------------------------`,
+    `DET: ${data.DET}`,
+    `TIENDA: ${data.TIENDA}`,
+    `SERIE: ${data.SERIE}`,
+    `MODELO: ${data.MODELO}`,
+    `MARCA: ${data.MARCA}`,
+    `NUMPART: ${data.NUMPART}`,
+    `SOLICITUD: ${data.SOLICITUD}`,
+    `PORCENTAJE: ${data.PORCENTAJE}`,
+    `PRIORIDAD: ${data.PRIORIDAD}`,
+    `STATUS: ${data.STATUS}`,
+    `FECHA: ${data.FECHA}`,
+    `IP: ${data.IP}`,
+    `TECNICO: ${data.TECNICO}`,
+    `FORMATO: ${data.FORMATO}`,
+    `UBICACION: ${data.UBICACION}`,
+    `ENVIO POR: ${data.ENVIO_POR}`,
+    `DIRECCION PARA ENVIO XPRESS: ${data.DIRECCION_PARA_ENVIO_XPRESS}`,
+    `CONTACTO PARA RECIBIR XPRESS: ${data.CONTACTO_PARA_RECIBIR_XPRESS}`,
+    `NUMERO DE CONTACTO: ${data.NUMERO_DE_CONTACTO}`
+  ].join('\n');
+}
+
+function copyAppSheetOrderToClipboard() {
+  const data = getAppSheetOrderData();
+  const txt = generateOrderTextSummary(data);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => {
+      if (typeof showToast === 'function') {
+        showToast(`📋 ¡Datos del pedido de ${data.SERIE} copiados al portapapeles!`);
+      }
+    }).catch(() => {
+      if (typeof showToast === 'function') {
+        showToast(`📋 Datos listos en pantalla.`);
+      }
+    });
+  }
+}
+
+function launchAppSheetOrder() {
+  const data = getAppSheetOrderData();
+  const txt = generateOrderTextSummary(data);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).catch(() => {});
+  }
+
+  const defaults = {
+    DET: data.DET,
+    TIENDA: data.TIENDA,
+    TECNICO: data.TECNICO,
+    FORMATO: data.FORMATO,
+    STATUS: data.STATUS,
+    SERIE: data.SERIE,
+    MODELO: data.MODELO,
+    NUMPART: data.NUMPART,
+    SOLICITUD: data.SOLICITUD,
+    PORCENTAJE: data.PORCENTAJE,
+    FECHA: data.FECHA,
+    UBICACION: data.UBICACION,
+    MARCA: data.MARCA,
+    IP: data.IP,
+    "ENVIO POR": data.ENVIO_POR,
+    PRIORIDAD: data.PRIORIDAD,
+    "DIRECCION PARA ENVIO XPRESS": data.DIRECCION_PARA_ENVIO_XPRESS,
+    "CONTACTO PARA RECIBIR XPRESS": data.CONTACTO_PARA_RECIBIR_XPRESS,
+    "NUEMERO DE CONTACTO": data.NUMERO_DE_CONTACTO
+  };
+
+  const encodedDefaults = encodeURIComponent(JSON.stringify(defaults));
+  const fullUrl = `https://www.appsheet.com/start/4a341b5d-6396-4900-b551-6a5a715dc668?platform=desktop#appName=FreshdeskIEXCASV-1001025472&view=Freshdesk_IEXCA%20SV&defaults=${encodedDefaults}`;
+
+  window.open(fullUrl, '_blank');
+  if (typeof showToast === 'function') {
+    showToast(`🚀 Abriendo AppSheet. ¡Datos copiados al portapapeles para facilitar el llenado!`);
+  }
+}
+
+function dispatchDirectToFoliosFromModal() {
+  const data = getAppSheetOrderData();
+  closeAppSheetModal(true);
+
+  const match = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === data.SERIE) : null;
+  const cliente = match ? match.cliente : '';
+
+  if (typeof openNewSalidaModal === 'function') {
+    openNewSalidaModal({
+      serie: data.SERIE,
+      tipoSum: (document.getElementById('appsheetInputTipoSum')?.value || 'TNR'),
+      numPart: data.NUMPART,
+      modelo: data.MODELO,
+      cliente: cliente,
+      destino: data.TIENDA,
+      det: data.DET,
+      descripcion: `Despacho de ${data.SOLICITUD} (${data.PORCENTAJE}) - Pedido AppSheet`
+    });
+  }
 }
 
 // Acción Rápida: Crear Ticket Precargado en ODS
@@ -2697,6 +2981,18 @@ if (typeof window !== 'undefined') {
   window.monitoringSelectedUdiLevels = monitoringSelectedUdiLevels;
   window.monitoringSelectedKmtLevels = monitoringSelectedKmtLevels;
 
+  // Integración AppSheet & Asistente de Despacho
+  window.openDispatchAssistantModal = openDispatchAssistantModal;
+  window.closeAppSheetModal = closeAppSheetModal;
+  window.onAppSheetTipoSumChange = onAppSheetTipoSumChange;
+  window.getAppSheetOrderData = getAppSheetOrderData;
+  window.generateOrderTextSummary = generateOrderTextSummary;
+  window.copyAppSheetOrderToClipboard = copyAppSheetOrderToClipboard;
+  window.launchAppSheetOrder = launchAppSheetOrder;
+  window.dispatchDirectToFoliosFromModal = dispatchDirectToFoliosFromModal;
+  window.openAppSheetOrderGeneral = openAppSheetOrderGeneral;
+  window.findLastNumpartForSupply = findLastNumpartForSupply;
+
   // Auto-inicialización inmediata al cargar el DOM
   const autoInitMonitoringModule = () => {
     const navSuite = document.getElementById('suiteNavigation');
@@ -2736,6 +3032,16 @@ if (typeof module !== 'undefined' && module.exports) {
     clearSpecificSupplyLevelType,
     clearAllSpecificSupplyLevels,
     updateSpecificSupplyLevelBadges,
+    openDispatchAssistantModal,
+    closeAppSheetModal,
+    onAppSheetTipoSumChange,
+    getAppSheetOrderData,
+    generateOrderTextSummary,
+    copyAppSheetOrderToClipboard,
+    launchAppSheetOrder,
+    dispatchDirectToFoliosFromModal,
+    openAppSheetOrderGeneral,
+    findLastNumpartForSupply,
     getMonitoringSelectedTnrLevels: () => monitoringSelectedTnrLevels,
     getMonitoringSelectedUdiLevels: () => monitoringSelectedUdiLevels,
     getMonitoringSelectedKmtLevels: () => monitoringSelectedKmtLevels,
