@@ -317,6 +317,35 @@
     <!-- MÓDULO 1: DASHBOARD EJECUTIVO & ANALÍTICA -->
     <div id="dashboardViewModule" class="space-y-6">
 
+    <!-- PANEL DE ANALÍTICA A DEMANDA (EVITA CONGELAMIENTO Y PROCESAMIENTO INNECESARIO) -->
+    <div id="dashboardDemandStarter" class="bg-gradient-to-br from-white via-slate-50 to-brand-50/20 dark:from-slate-800 dark:via-slate-800 dark:to-brand-950/30 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-start gap-3.5 min-w-0 w-full md:w-auto">
+        <div class="w-11 h-11 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-xl shadow-md shrink-0">
+          📊
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Analizador de Datos &amp; BI Ejecutivo</h2>
+            <span id="badgeDashboardActiveStatus" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">Modo en espera</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Para garantizar la máxima velocidad en tu móvil y PC, el análisis se genera a demanda. Selecciona qué base u hoja deseas auditar:
+          </p>
+        </div>
+      </div>
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0">
+        <select id="selectSheetToAnalyze" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 font-semibold text-slate-800 dark:text-slate-100 shadow-2xs focus:ring-2 focus:ring-brand-500">
+          <option value="">Cargando hojas disponibles...</option>
+        </select>
+        <button type="button" id="btnRunDashboardAnalysis" onclick="runDashboardAnalysisOnDemand()" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white shadow-xs transition active:scale-95 whitespace-nowrap">
+          <span>⚡ Analizar Hoja</span>
+        </button>
+        <button type="button" id="btnCloseDashboardAnalysis" onclick="closeDashboardAnalysis()" class="hidden inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Cerrar análisis y liberar memoria">
+          <span>✕ Cerrar Análisis</span>
+        </button>
+      </div>
+    </div>
+
     <!-- BARRA DE PESTAÑAS DE HOJAS INDEPENDIENTES (TABS CON MEMORIA TOTAL DE FILTROS) -->
     <div id="sheetsTabBarContainer" class="hidden bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col gap-2.5 min-w-0 w-full max-w-full overflow-hidden">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 dark:border-slate-700/60 pb-2.5 min-w-0 w-full">
@@ -1580,6 +1609,28 @@
                 <option value="GT_30">🟢 Mayor al 30% (Óptimo)</option>
               </select>
             </div>
+
+            <!-- Botones de Acceso Rápido a Filtro por Casillas (TNR / UDI / KMT) -->
+            <div class="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-700/60 mt-1">
+              <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Filtrar por Casillas:</span>
+              <button type="button" onclick="openSupplyLevelsPopover('TNR', this)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition shadow-2xs">
+                <span>🔢 Casillas TNR</span>
+                <span id="badgeToolbarFilterTNR" class="hidden text-[10px] bg-rose-600 text-white rounded-full px-1.5 font-bold">0</span>
+              </button>
+              <button type="button" onclick="openSupplyLevelsPopover('UDI', this)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition shadow-2xs">
+                <span>🔢 Casillas UDI</span>
+                <span id="badgeToolbarFilterUDI" class="hidden text-[10px] bg-amber-600 text-white rounded-full px-1.5 font-bold">0</span>
+              </button>
+              <button type="button" onclick="openSupplyLevelsPopover('KMT', this)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition shadow-2xs">
+                <span>🔢 Casillas KMT</span>
+                <span id="badgeToolbarFilterKMT" class="hidden text-[10px] bg-purple-600 text-white rounded-full px-1.5 font-bold">0</span>
+              </button>
+              <button type="button" id="btnClearSpecificLevels" onclick="clearAllSpecificSupplyLevels()" class="hidden text-[11px] text-slate-500 hover:text-rose-600 underline font-medium px-1">
+                Limpiar casillas
+              </button>
+            </div>
+            <!-- Chips de Niveles Específicos Activos -->
+            <div id="activeSpecificLevelsChips" class="hidden flex flex-wrap gap-1.5 items-center pt-1 text-xs"></div>
           </div>
         </div>
 
@@ -1621,9 +1672,33 @@
                 <th class="py-2.5 px-3">Serie Impresor</th>
                 <th class="py-2.5 px-3">Modelo &amp; IP</th>
                 <th class="py-2.5 px-3">Tienda / DET</th>
-                <th class="py-2.5 px-3 min-w-[140px]">TNR (Tóner)</th>
-                <th class="py-2.5 px-3 min-w-[130px]">UDI (Imagen)</th>
-                <th class="py-2.5 px-3 min-w-[110px]">KMT (Mantto)</th>
+                <th class="py-2.5 px-3 min-w-[145px]">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>TNR (Tóner)</span>
+                    <button type="button" onclick="openSupplyLevelsPopover('TNR', this)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 transition cursor-pointer" title="Filtrar por casillas de niveles exactos de TNR">
+                      <span>🔢</span>
+                      <span id="badgeHeaderFilterTNR" class="hidden text-[9px] bg-rose-600 text-white rounded-full px-1">0</span>
+                    </button>
+                  </div>
+                </th>
+                <th class="py-2.5 px-3 min-w-[135px]">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>UDI (Imagen)</span>
+                    <button type="button" onclick="openSupplyLevelsPopover('UDI', this)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 transition cursor-pointer" title="Filtrar por casillas de niveles exactos de UDI">
+                      <span>🔢</span>
+                      <span id="badgeHeaderFilterUDI" class="hidden text-[9px] bg-amber-600 text-white rounded-full px-1">0</span>
+                    </button>
+                  </div>
+                </th>
+                <th class="py-2.5 px-3 min-w-[125px]">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>KMT (Mantto)</span>
+                    <button type="button" onclick="openSupplyLevelsPopover('KMT', this)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 transition cursor-pointer" title="Filtrar por casillas de niveles exactos de KMT">
+                      <span>🔢</span>
+                      <span id="badgeHeaderFilterKMT" class="hidden text-[9px] bg-purple-600 text-white rounded-full px-1">0</span>
+                    </button>
+                  </div>
+                </th>
                 <th class="py-2.5 px-3 min-w-[180px]">Diagnóstico de Stock</th>
                 <th class="py-2.5 px-3 min-w-[170px]">Última Salida (FOLIOS)</th>
                 <th class="py-2.5 px-3 text-center min-w-[150px]">Acciones</th>
@@ -1650,6 +1725,47 @@
     </div>
 
   </main>
+
+  <!-- POPOVER / MODAL: FILTRO POR CASILLAS DE NIVELES EXACTOS DE SUMINISTROS -->
+  <div id="supplyLevelsPopoverModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] modal-box-safe animate-in fade-in zoom-in-95 duration-150">
+      <!-- Cabecera -->
+      <div class="p-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/80">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">🔢</span>
+          <div>
+            <h3 id="supplyLevelsPopoverTitle" class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Filtrar Niveles TNR</h3>
+            <p class="text-[11px] text-slate-400">Selecciona casillas de porcentajes exactos</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSupplyLevelsPopover()" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold">✕</button>
+      </div>
+
+      <!-- Buscador y Acciones Rápidas -->
+      <div class="p-2.5 border-b border-slate-100 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-900/20 space-y-2">
+        <input type="text" id="supplyLevelsSearchInput" oninput="onSupplyLevelsSearchInput(this.value)" placeholder="Buscar nivel (ej. 0, 5, 10)..." class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500">
+        <div class="flex items-center justify-between gap-1 text-[11px]">
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="selectAllSupplyLevelsInPopover(true)" class="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-semibold text-slate-700 dark:text-slate-200 transition">Todos</button>
+            <button type="button" onclick="selectAllSupplyLevelsInPopover(false)" class="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-semibold text-slate-700 dark:text-slate-200 transition">Ninguno</button>
+            <button type="button" onclick="invertSupplyLevelsInPopover()" class="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-semibold text-slate-700 dark:text-slate-200 transition">Invertir</button>
+          </div>
+          <span id="supplyLevelsSelectionCount" class="text-slate-500 dark:text-slate-400 font-semibold text-[10px]">0 seleccionados</span>
+        </div>
+      </div>
+
+      <!-- Lista con Scroll de Casillas -->
+      <div id="supplyLevelsChecklistContainer" class="p-2 overflow-y-auto max-h-[45vh] space-y-0.5 custom-scrollbar text-xs">
+        <!-- Generado dinámicamente -->
+      </div>
+
+      <!-- Pie de Acciones -->
+      <div class="p-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80">
+        <button type="button" onclick="closeSupplyLevelsPopover()" class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">Cancelar</button>
+        <button type="button" onclick="applySupplyLevelsPopover()" class="px-4 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs transition">Aplicar Filtro</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: HISTORIAL TÉCNICO Y EVOLUCIÓN DEL EQUIPO -->
   <div id="modalEquipmentHistory" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
@@ -2252,6 +2368,7 @@
     let numericCols = [];
     let categoryCols = [];
     let dateCols = [];
+    let isDashboardAnalysisActive = false;
 
     // Estado del Filtro de Fechas
     const SPANISH_MONTH_NAMES = [
@@ -2288,6 +2405,13 @@
     let chartInstance2 = null;
     let chartInstance3 = null;
     let chartInstance4 = null;
+
+    function destroyAllDashboardCharts() {
+      if (chartInstance1) { chartInstance1.destroy(); chartInstance1 = null; }
+      if (chartInstance2) { chartInstance2.destroy(); chartInstance2 = null; }
+      if (chartInstance3) { chartInstance3.destroy(); chartInstance3 = null; }
+      if (chartInstance4) { chartInstance4.destroy(); chartInstance4 = null; }
+    }
 
     // Paleta de colores para comparación multiaño
     const yearColors = {
@@ -2359,11 +2483,10 @@
           sheetStore = {};
           currentSheetName = rawWorkbook.SheetNames[0];
           initSuiteModules();
-          loadSheetData(currentSheetName);
-          saveCurrentSheetState(currentSheetName);
-          renderSheetsTabBar();
+          populateDashboardSheetsSelector();
+          updateDashboardDemandStarterUI();
           saveToIndexedDB();
-          showToast(`⚡ SUITE.xlsm cargado automáticamente (${wb.SheetNames.length} hojas).`);
+          showToast(`⚡ SUITE.xlsm preparado (${wb.SheetNames.length} hojas listas).`);
           return;
         }
       } catch (e) {
@@ -2628,9 +2751,8 @@
           sheetStore = {};
           currentSheetName = rawWorkbook.SheetNames[0];
           initSuiteModules();
-          loadSheetData(currentSheetName);
-          saveCurrentSheetState(currentSheetName);
-          renderSheetsTabBar();
+          populateDashboardSheetsSelector();
+          updateDashboardDemandStarterUI();
 
           // Sincronizar de inmediato con la Base de Datos Local Permanente
           saveToIndexedDB();
@@ -2648,22 +2770,156 @@
     }
 
     function onSheetChange(sheetName) {
-      switchSheet(sheetName);
+      if (isDashboardAnalysisActive) {
+        switchSheet(sheetName);
+      } else {
+        const selDemand = document.getElementById('selectSheetToAnalyze');
+        if (selDemand) selDemand.value = sheetName;
+        currentSheetName = sheetName;
+      }
     }
 
     function loadSheetData(sheetName) {
-      const worksheet = rawWorkbook.Sheets[sheetName];
-      if (!worksheet) return;
+      let jsonData = null;
+      if (typeof sheetStore !== 'undefined' && sheetStore[sheetName]) {
+        jsonData = sheetStore[sheetName];
+      } else if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets[sheetName]) {
+        jsonData = XLSX.utils.sheet_to_json(rawWorkbook.Sheets[sheetName], { defval: "" });
+        if (typeof sheetStore !== 'undefined') sheetStore[sheetName] = jsonData;
+      }
 
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
       if (!jsonData || jsonData.length === 0) {
-        alert("La pestaña seleccionada está vacía.");
+        if (typeof showToast === 'function') {
+          showToast(`⚠️ La pestaña '${sheetName}' está vacía.`);
+        } else {
+          alert("La pestaña seleccionada está vacía.");
+        }
         return;
       }
 
       setDataset(jsonData);
-      document.getElementById('activeSheetInfo').textContent = `Hoja activa: ${sheetName} (${originalData.length} filas, ${Object.keys(columnTypes).length} columnas)`;
+      const sheetInfo = document.getElementById('activeSheetInfo');
+      if (sheetInfo) {
+        sheetInfo.textContent = `Hoja activa: ${sheetName} (${originalData.length} filas, ${Object.keys(columnTypes).length} columnas)`;
+      }
       saveCurrentSheetState(sheetName);
+    }
+
+    // GESTIÓN DE ANALÍTICA DEL DASHBOARD A DEMANDA (ALTO RENDIMIENTO EN MÓVIL Y PC)
+    function populateDashboardSheetsSelector() {
+      const selectElem = document.getElementById('selectSheetToAnalyze');
+      if (!selectElem) return;
+
+      const names = (rawWorkbook && rawWorkbook.SheetNames && rawWorkbook.SheetNames.length > 0)
+        ? rawWorkbook.SheetNames
+        : (typeof sheetStore !== 'undefined' ? Object.keys(sheetStore) : []);
+
+      if (names.length === 0) {
+        selectElem.innerHTML = '<option value="">Sin hojas disponibles</option>';
+        return;
+      }
+
+      selectElem.innerHTML = '';
+      names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        let count = 0;
+        if (typeof sheetStore !== 'undefined' && sheetStore[name]) {
+          count = sheetStore[name].length;
+        } else if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets[name]) {
+          const ref = rawWorkbook.Sheets[name]['!ref'];
+          if (ref) {
+            try {
+              const range = XLSX.utils.decode_range(ref);
+              count = Math.max(0, range.e.r);
+            } catch(e) {}
+          }
+        }
+        opt.textContent = count > 0 ? `${name} (${count.toLocaleString()} registros)` : name;
+        selectElem.appendChild(opt);
+      });
+
+      if (currentSheetName && names.includes(currentSheetName)) {
+        selectElem.value = currentSheetName;
+      } else if (names.length > 0) {
+        currentSheetName = names[0];
+        selectElem.value = names[0];
+      }
+    }
+
+    function runDashboardAnalysisOnDemand(requestedSheetName) {
+      const selectElem = document.getElementById('selectSheetToAnalyze');
+      const targetSheet = requestedSheetName || (selectElem ? selectElem.value : '') || currentSheetName || 'ODS';
+
+      if (!targetSheet) {
+        if (typeof showToast === 'function') showToast("⚠️ Selecciona una hoja para analizar.");
+        return;
+      }
+
+      currentSheetName = targetSheet;
+      if (selectElem) selectElem.value = targetSheet;
+      const sheetSelectHeader = document.getElementById('sheetSelect');
+      if (sheetSelectHeader) sheetSelectHeader.value = targetSheet;
+
+      isDashboardAnalysisActive = true;
+
+      if (sheetStateMap[targetSheet]) {
+        restoreSheetState(targetSheet);
+      } else {
+        loadSheetData(targetSheet);
+        saveCurrentSheetState(targetSheet);
+      }
+
+      // Desocultar componentes del Dashboard
+      document.getElementById('sheetsTabBarContainer')?.classList.remove('hidden');
+      document.getElementById('kpiSection')?.classList.remove('hidden');
+      document.getElementById('filtersSection')?.classList.remove('hidden');
+      document.getElementById('chartsSection')?.classList.remove('hidden');
+      document.getElementById('tableSection')?.classList.remove('hidden');
+
+      renderSheetsTabBar();
+      updateDashboardDemandStarterUI();
+      if (typeof showToast === 'function') {
+        showToast(`📊 Análisis generado para '${targetSheet}' (${originalData ? originalData.length.toLocaleString() : 0} registros).`);
+      }
+    }
+
+    function closeDashboardAnalysis() {
+      isDashboardAnalysisActive = false;
+      destroyAllDashboardCharts();
+
+      document.getElementById('sheetsTabBarContainer')?.classList.add('hidden');
+      document.getElementById('kpiSection')?.classList.add('hidden');
+      document.getElementById('filtersSection')?.classList.add('hidden');
+      document.getElementById('chartsSection')?.classList.add('hidden');
+      document.getElementById('tableSection')?.classList.add('hidden');
+
+      updateDashboardDemandStarterUI();
+      if (typeof showToast === 'function') {
+        showToast("Análisis cerrado. Recursos de memoria liberados.");
+      }
+    }
+
+    function updateDashboardDemandStarterUI() {
+      const badgeStatus = document.getElementById('badgeDashboardActiveStatus');
+      const btnClose = document.getElementById('btnCloseDashboardAnalysis');
+      const btnRun = document.getElementById('btnRunDashboardAnalysis');
+
+      if (isDashboardAnalysisActive) {
+        if (badgeStatus) {
+          badgeStatus.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+          badgeStatus.textContent = `🟢 Activo: ${currentSheetName} (${originalData ? originalData.length.toLocaleString() : 0} registros)`;
+        }
+        if (btnClose) btnClose.classList.remove('hidden');
+        if (btnRun) btnRun.innerHTML = '<span>🔄 Re-analizar</span>';
+      } else {
+        if (badgeStatus) {
+          badgeStatus.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
+          badgeStatus.textContent = "Modo en espera";
+        }
+        if (btnClose) btnClose.classList.add('hidden');
+        if (btnRun) btnRun.innerHTML = '<span>⚡ Analizar Hoja</span>';
+      }
     }
 
     // CLONADOR PROFUNDO DE FILTROS PERSONALIZADOS (PRESERVA SETS Y RANGOS)
@@ -2873,39 +3129,52 @@
     // CAMBIO FLUIDO DE HOJA (CON GUARDA Y RECUPERACIÓN AUTOMÁTICA)
     function switchSheet(targetSheetName) {
       if (!targetSheetName) return;
-      if (targetSheetName === currentSheetName) return;
+      if (targetSheetName === currentSheetName && isDashboardAnalysisActive) return;
 
       // 1. Guardar estado de la hoja actual antes de abandonarla
-      if (currentSheetName) {
+      if (currentSheetName && isDashboardAnalysisActive) {
         saveCurrentSheetState(currentSheetName);
       }
 
-      // 2. Si la hoja destino ya tiene estado guardado, restaurarlo
-      if (sheetStateMap[targetSheetName]) {
-        restoreSheetState(targetSheetName);
-      } else {
-        // Primera visita a esta hoja en esta sesión
-        currentSheetName = targetSheetName;
-        loadSheetData(targetSheetName);
-        saveCurrentSheetState(targetSheetName);
-      }
+      currentSheetName = targetSheetName;
+      const selDemand = document.getElementById('selectSheetToAnalyze');
+      if (selDemand) selDemand.value = targetSheetName;
+      const sheetSelectHeader = document.getElementById('sheetSelect');
+      if (sheetSelectHeader) sheetSelectHeader.value = targetSheetName;
 
-      renderSheetsTabBar();
+      // 2. Si la analítica está activa, cambiar y renderizar inmediatamente
+      if (isDashboardAnalysisActive) {
+        if (sheetStateMap[targetSheetName]) {
+          restoreSheetState(targetSheetName);
+        } else {
+          loadSheetData(targetSheetName);
+          saveCurrentSheetState(targetSheetName);
+        }
+        renderSheetsTabBar();
+        updateDashboardDemandStarterUI();
+      } else {
+        updateDashboardDemandStarterUI();
+      }
     }
 
     // RENDERIZADO DE LA BARRA DE PESTAÑAS DE HOJAS ESTILO EXCEL
     function renderSheetsTabBar() {
       const container = document.getElementById('sheetsTabBarContainer');
       const list = document.getElementById('sheetsTabList');
-      if (!rawWorkbook || !rawWorkbook.SheetNames || rawWorkbook.SheetNames.length <= 1) {
-        container.classList.add('hidden');
+      const sNames = (rawWorkbook && rawWorkbook.SheetNames && rawWorkbook.SheetNames.length > 0)
+        ? rawWorkbook.SheetNames
+        : (typeof sheetStore !== 'undefined' ? Object.keys(sheetStore) : []);
+
+      if (sNames.length <= 1 || !isDashboardAnalysisActive) {
+        if (container) container.classList.add('hidden');
         return;
       }
 
-      container.classList.remove('hidden');
+      if (container) container.classList.remove('hidden');
+      if (!list) return;
       list.innerHTML = '';
 
-      rawWorkbook.SheetNames.forEach(name => {
+      sNames.forEach(name => {
         const isActive = (name === currentSheetName);
         
         let filterCount = 0;
@@ -5628,11 +5897,10 @@
       if (sheetSelect) sheetSelect.value = currentSheetName;
 
       sheetStateMap = {};
-      setDataset(sheetStore[currentSheetName] || []);
-      saveCurrentSheetState(currentSheetName);
-      renderSheetsTabBar();
-      // Inicializar módulos pasando skipSheetParsing = true para no ejecutar sheet_to_json innecesario
+      // Inicializar módulos de la Suite pasando skipSheetParsing = true para máxima velocidad
       initSuiteModules(true);
+      populateDashboardSheetsSelector();
+      updateDashboardDemandStarterUI();
 
       updateStorageUI('loaded', state.timestamp);
       return true;
@@ -6079,16 +6347,23 @@
       const fileInfo = document.getElementById('fileInfoBar');
       const sheetsTabBar = document.getElementById('sheetsTabBarContainer');
 
+      const hasWb = (rawWorkbook && rawWorkbook.SheetNames && rawWorkbook.SheetNames.length > 0) ||
+                    (typeof sheetStore !== 'undefined' && Object.keys(sheetStore).length > 0);
+
       if (tabId === 'dashboard') {
-        if (uploadSec && (!currentWorkbook || currentWorkbook.SheetNames.length === 0)) {
-          uploadSec.classList.remove('hidden');
+        if (uploadSec) {
+          if (hasWb) uploadSec.classList.add('hidden');
+          else uploadSec.classList.remove('hidden');
         }
-        if (fileInfo && currentWorkbook) {
+        if (fileInfo && hasWb) {
           fileInfo.classList.remove('hidden');
         }
-        if (sheetsTabBar && currentWorkbook) {
-          sheetsTabBar.classList.remove('hidden');
+        if (sheetsTabBar) {
+          if (hasWb && isDashboardAnalysisActive) sheetsTabBar.classList.remove('hidden');
+          else sheetsTabBar.classList.add('hidden');
         }
+        populateDashboardSheetsSelector();
+        updateDashboardDemandStarterUI();
       } else {
         if (uploadSec) uploadSec.classList.add('hidden');
         if (fileInfo) fileInfo.classList.add('hidden');
@@ -8175,10 +8450,9 @@
       sheetStateMap = {};
       currentSheetName = "ODS";
       sheetSelect.value = "ODS";
-      setDataset(sampleODS);
-      saveCurrentSheetState(currentSheetName);
-      renderSheetsTabBar();
       initSuiteModules();
+      populateDashboardSheetsSelector();
+      updateDashboardDemandStarterUI();
 
       // Guardar en la Base de Datos Local Permanente
       saveToIndexedDB();

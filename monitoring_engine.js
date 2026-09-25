@@ -19,6 +19,11 @@ let monitoringCurrentPage = 1;
 let monitoringPageSize = (typeof window !== 'undefined' && window.innerWidth < 768) ? 25 : 50;
 let monitoringProcessedList = [];
 let monitoringFilteredList = [];
+let monitoringSelectedTnrLevels = new Set();
+let monitoringSelectedUdiLevels = new Set();
+let monitoringSelectedKmtLevels = new Set();
+let activeSupplyPopoverType = null; // 'TNR' | 'UDI' | 'KMT'
+let popoverSearchQuery = '';
 let monitoringViewMode = 'auto'; // 'auto' (cards en móvil <768px, tabla en desktop), 'cards', 'table'
 let isMonitoringInitialized = false;
 let isMonitoringLoadingDB = false;
@@ -1104,6 +1109,17 @@ function filterMonitoringTable() {
       }
     }
 
+    // 3.b Filtro de Casillas por Cantidades/Niveles Específicos para TNR, UDI y KMT
+    if (monitoringSelectedTnrLevels.size > 0) {
+      if (row.tnrNivel === null || !monitoringSelectedTnrLevels.has(row.tnrNivel)) return false;
+    }
+    if (monitoringSelectedUdiLevels.size > 0) {
+      if (row.udiNivel === null || !monitoringSelectedUdiLevels.has(row.udiNivel)) return false;
+    }
+    if (monitoringSelectedKmtLevels.size > 0) {
+      if (row.kmtNivel === null || !monitoringSelectedKmtLevels.has(row.kmtNivel)) return false;
+    }
+
     // 4. Búsqueda de Texto
     if (monitoringSearchQuery) {
       const text = `${row.serie} ${row.cliente} ${row.ubicacion} ${row.det} ${row.modelo} ${row.ip} ${row.tnrSerie} ${row.udiSerie}`.toLowerCase();
@@ -1114,8 +1130,264 @@ function filterMonitoringTable() {
   });
 
   monitoringCurrentPage = 1;
+  updateSpecificSupplyLevelBadges();
   updateActiveSlideUI(monitoringFilterStatus);
   renderMonitoringTable();
+}
+
+// ==========================================
+// LÓGICA DE FILTRADO POR CASILLAS DE SUMINISTROS
+// ==========================================
+
+function getSelectedSetForSupply(supplyType) {
+  if (supplyType === 'TNR') return monitoringSelectedTnrLevels;
+  if (supplyType === 'UDI') return monitoringSelectedUdiLevels;
+  if (supplyType === 'KMT') return monitoringSelectedKmtLevels;
+  return new Set();
+}
+
+function getAvailableLevelsForSupply(supplyType) {
+  const map = new Map();
+  monitoringProcessedList.forEach(row => {
+    let level = null;
+    if (supplyType === 'TNR') level = row.tnrNivel;
+    else if (supplyType === 'UDI') level = row.udiNivel;
+    else if (supplyType === 'KMT') level = row.kmtNivel;
+
+    if (level !== null && level !== undefined && !isNaN(level)) {
+      level = Math.round(Number(level));
+      map.set(level, (map.get(level) || 0) + 1);
+    }
+  });
+
+  const list = Array.from(map.entries()).map(([level, count]) => ({ level, count }));
+  list.sort((a, b) => a.level - b.level);
+  return list;
+}
+
+function openSupplyLevelsPopover(supplyType, triggerElem) {
+  activeSupplyPopoverType = supplyType;
+  popoverSearchQuery = '';
+
+  const modal = document.getElementById('supplyLevelsPopoverModal');
+  if (!modal) return;
+
+  const titleElem = document.getElementById('popoverSupplyTitle');
+  const typeBadge = document.getElementById('popoverSupplyTypeBadge');
+  const searchInput = document.getElementById('popoverSearchLevelsInput');
+
+  const names = {
+    'TNR': 'Tóner (TNR)',
+    'UDI': 'Unidad de Imagen (UDI)',
+    'KMT': 'Kit de Mantenimiento (KMT)'
+  };
+
+  if (titleElem) titleElem.textContent = `Filtrar Niveles: ${names[supplyType] || supplyType}`;
+  if (typeBadge) typeBadge.textContent = supplyType;
+  if (searchInput) {
+    searchInput.value = '';
+    setTimeout(() => searchInput.focus(), 50);
+  }
+
+  renderSupplyLevelsChecklist();
+  updateSupplyLevelsSelectionCount();
+
+  modal.classList.remove('hidden');
+}
+
+function closeSupplyLevelsPopover() {
+  const modal = document.getElementById('supplyLevelsPopoverModal');
+  if (modal) modal.classList.add('hidden');
+  activeSupplyPopoverType = null;
+  popoverSearchQuery = '';
+}
+
+function renderSupplyLevelsChecklist() {
+  const container = document.getElementById('popoverLevelsChecklist');
+  if (!container || !activeSupplyPopoverType) return;
+
+  const allLevels = getAvailableLevelsForSupply(activeSupplyPopoverType);
+  const selectedSet = getSelectedSetForSupply(activeSupplyPopoverType);
+
+  let filtered = allLevels;
+  if (popoverSearchQuery) {
+    const q = popoverSearchQuery.toLowerCase();
+    filtered = allLevels.filter(item => String(item.level).includes(q) || `${item.level}%`.includes(q));
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+        No se encontraron niveles con "${popoverSearchQuery}"
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  filtered.forEach(({ level, count }) => {
+    const isChecked = selectedSet.has(level);
+    let colorBadge = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300';
+    if (level <= 5) {
+      colorBadge = 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300';
+    } else if (level <= 15) {
+      colorBadge = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300';
+    } else if (level <= 30) {
+      colorBadge = 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-300';
+    }
+
+    html += `
+      <label class="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors shadow-2xs">
+        <div class="flex items-center gap-2">
+          <input type="checkbox"
+            class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700 cursor-pointer"
+            ${isChecked ? 'checked' : ''}
+            onchange="onSupplyLevelCheckboxChange(${level}, this.checked)"
+          />
+          <span class="px-2 py-0.5 rounded text-xs font-bold border ${colorBadge}">
+            ${level}%
+          </span>
+        </div>
+        <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          ${count.toLocaleString()} ${count === 1 ? 'eq' : 'eqs'}
+        </span>
+      </label>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function onSupplyLevelCheckboxChange(level, isChecked) {
+  if (!activeSupplyPopoverType) return;
+  const num = Number(level);
+  const set = getSelectedSetForSupply(activeSupplyPopoverType);
+  if (isChecked) {
+    set.add(num);
+  } else {
+    set.delete(num);
+  }
+  updateSupplyLevelsSelectionCount();
+}
+
+function selectAllSupplyLevelsInPopover(selectAll) {
+  if (!activeSupplyPopoverType) return;
+  const set = getSelectedSetForSupply(activeSupplyPopoverType);
+  const allLevels = getAvailableLevelsForSupply(activeSupplyPopoverType);
+
+  if (selectAll) {
+    allLevels.forEach(item => set.add(item.level));
+  } else {
+    set.clear();
+  }
+  renderSupplyLevelsChecklist();
+  updateSupplyLevelsSelectionCount();
+}
+
+function invertSupplyLevelsInPopover() {
+  if (!activeSupplyPopoverType) return;
+  const set = getSelectedSetForSupply(activeSupplyPopoverType);
+  const allLevels = getAvailableLevelsForSupply(activeSupplyPopoverType);
+
+  allLevels.forEach(item => {
+    if (set.has(item.level)) {
+      set.delete(item.level);
+    } else {
+      set.add(item.level);
+    }
+  });
+
+  renderSupplyLevelsChecklist();
+  updateSupplyLevelsSelectionCount();
+}
+
+function onSupplyLevelsSearchInput(val) {
+  popoverSearchQuery = (val || '').trim();
+  renderSupplyLevelsChecklist();
+}
+
+function updateSupplyLevelsSelectionCount() {
+  const badge = document.getElementById('popoverSelectionCountBadge');
+  if (!badge || !activeSupplyPopoverType) return;
+
+  const set = getSelectedSetForSupply(activeSupplyPopoverType);
+  const allLevels = getAvailableLevelsForSupply(activeSupplyPopoverType);
+
+  if (set.size === 0) {
+    badge.textContent = `Todos (${allLevels.length} niveles)`;
+    badge.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
+  } else {
+    badge.textContent = `${set.size} de ${allLevels.length} seleccionados`;
+    badge.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300";
+  }
+}
+
+function applySupplyLevelsPopover() {
+  closeSupplyLevelsPopover();
+  filterMonitoringTable();
+}
+
+function clearSpecificSupplyLevelType(supplyType) {
+  const set = getSelectedSetForSupply(supplyType);
+  set.clear();
+  filterMonitoringTable();
+}
+
+function clearAllSpecificSupplyLevels() {
+  monitoringSelectedTnrLevels.clear();
+  monitoringSelectedUdiLevels.clear();
+  monitoringSelectedKmtLevels.clear();
+  filterMonitoringTable();
+}
+
+function updateSpecificSupplyLevelBadges() {
+  const updateBadge = (badgeId, count) => {
+    const el = document.getElementById(badgeId);
+    if (!el) return;
+    if (count > 0) {
+      el.textContent = count;
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  };
+
+  updateBadge('badgeToolbarFilterTNR', monitoringSelectedTnrLevels.size);
+  updateBadge('badgeToolbarFilterUDI', monitoringSelectedUdiLevels.size);
+  updateBadge('badgeToolbarFilterKMT', monitoringSelectedKmtLevels.size);
+
+  updateBadge('badgeHeaderFilterTNR', monitoringSelectedTnrLevels.size);
+  updateBadge('badgeHeaderFilterUDI', monitoringSelectedUdiLevels.size);
+  updateBadge('badgeHeaderFilterKMT', monitoringSelectedKmtLevels.size);
+
+  // Chips activos y botón limpiar
+  const chipsContainer = document.getElementById('activeSpecificLevelsChips');
+  const clearBtn = document.getElementById('btnClearSpecificLevels');
+  const totalSelected = monitoringSelectedTnrLevels.size + monitoringSelectedUdiLevels.size + monitoringSelectedKmtLevels.size;
+
+  if (clearBtn) {
+    if (totalSelected > 0) clearBtn.classList.remove('hidden');
+    else clearBtn.classList.add('hidden');
+  }
+
+  if (chipsContainer) {
+    chipsContainer.innerHTML = '';
+    const renderChips = (type, set, label, color) => {
+      if (set.size === 0) return;
+      const sorted = Array.from(set).sort((a,b) => a - b);
+      const text = `${label}: ${sorted.map(s => s + '%').join(', ')}`;
+      const chip = document.createElement('div');
+      chip.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${color} border shadow-2xs`;
+      chip.innerHTML = `
+        <span>${text}</span>
+        <button type="button" onclick="clearSpecificSupplyLevelType('${type}')" class="hover:opacity-75 font-bold cursor-pointer ml-1" title="Quitar filtro ${type}">✕</button>
+      `;
+      chipsContainer.appendChild(chip);
+    };
+
+    renderChips('TNR', monitoringSelectedTnrLevels, 'TNR', 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300');
+    renderChips('UDI', monitoringSelectedUdiLevels, 'UDI', 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border-cyan-300');
+    renderChips('KMT', monitoringSelectedKmtLevels, 'KMT', 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300');
+  }
 }
 
 // Sincronización visual e interactiva de Slides KPIs y Píldoras con el estado de filtrado
@@ -2263,6 +2535,22 @@ if (typeof window !== 'undefined') {
   window.updateActiveSlideUI = updateActiveSlideUI;
   window.goToFolioDetail = goToFolioDetail;
 
+  // Funciones de Filtro de Casillas por Cantidades de Suministros
+  window.openSupplyLevelsPopover = openSupplyLevelsPopover;
+  window.closeSupplyLevelsPopover = closeSupplyLevelsPopover;
+  window.renderSupplyLevelsChecklist = renderSupplyLevelsChecklist;
+  window.onSupplyLevelCheckboxChange = onSupplyLevelCheckboxChange;
+  window.selectAllSupplyLevelsInPopover = selectAllSupplyLevelsInPopover;
+  window.invertSupplyLevelsInPopover = invertSupplyLevelsInPopover;
+  window.onSupplyLevelsSearchInput = onSupplyLevelsSearchInput;
+  window.applySupplyLevelsPopover = applySupplyLevelsPopover;
+  window.clearSpecificSupplyLevelType = clearSpecificSupplyLevelType;
+  window.clearAllSpecificSupplyLevels = clearAllSpecificSupplyLevels;
+  window.updateSpecificSupplyLevelBadges = updateSpecificSupplyLevelBadges;
+  window.monitoringSelectedTnrLevels = monitoringSelectedTnrLevels;
+  window.monitoringSelectedUdiLevels = monitoringSelectedUdiLevels;
+  window.monitoringSelectedKmtLevels = monitoringSelectedKmtLevels;
+
   // Auto-inicialización inmediata al cargar el DOM
   const autoInitMonitoringModule = () => {
     const navSuite = document.getElementById('suiteNavigation');
@@ -2289,6 +2577,20 @@ if (typeof module !== 'undefined' && module.exports) {
     renderMonitoringTable,
     initMonitoringModule,
     exportMonitoringAuditToExcel,
+    openSupplyLevelsPopover,
+    closeSupplyLevelsPopover,
+    renderSupplyLevelsChecklist,
+    onSupplyLevelCheckboxChange,
+    selectAllSupplyLevelsInPopover,
+    invertSupplyLevelsInPopover,
+    onSupplyLevelsSearchInput,
+    applySupplyLevelsPopover,
+    clearSpecificSupplyLevelType,
+    clearAllSpecificSupplyLevels,
+    updateSpecificSupplyLevelBadges,
+    getMonitoringSelectedTnrLevels: () => monitoringSelectedTnrLevels,
+    getMonitoringSelectedUdiLevels: () => monitoringSelectedUdiLevels,
+    getMonitoringSelectedKmtLevels: () => monitoringSelectedKmtLevels,
     getMonitoringData: () => monitoringData,
     setMonitoringData: (d) => { monitoringData = d; },
     getMonitoringProcessedList: () => monitoringProcessedList
