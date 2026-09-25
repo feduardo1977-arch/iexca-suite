@@ -2017,8 +2017,15 @@
             <input type="date" id="appsheetInputFecha" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">STATUS</label>
-            <input type="text" id="appsheetInputStatus" value="ABIERTO" readonly class="w-full text-xs uppercase bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-bold">
+            <label class="block text-xs font-bold text-amber-700 dark:text-amber-400 mb-1">STATUS *</label>
+            <select id="appsheetInputStatus" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-amber-400 dark:border-amber-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-bold">
+              <option value="PENDIENTE DE DESPACHAR" selected>PENDIENTE DE DESPACHAR</option>
+              <option value="ABIERTO">ABIERTO</option>
+              <option value="DESPACHADO">DESPACHADO</option>
+              <option value="EN RUTA">EN RUTA</option>
+              <option value="ENTREGADO">ENTREGADO</option>
+              <option value="CERRADO">CERRADO</option>
+            </select>
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">FORMATO TIENDA</label>
@@ -2041,8 +2048,8 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">UBICACIÓN INTERNA</label>
-            <input type="text" id="appsheetInputUbicacion" oninput="this.value = this.value.toUpperCase();" placeholder="Área / Depto" class="w-full text-xs uppercase bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <label class="block text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-1">UBICACIÓN (SEGÚN RDI) *</label>
+            <input type="text" id="appsheetInputUbicacion" oninput="this.value = this.value.toUpperCase();" placeholder="Área / Depto RDI (Ej. Gerencia, Tesorería)" class="w-full text-xs uppercase font-bold bg-white dark:bg-slate-900 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
           </div>
         </div>
 
@@ -2065,10 +2072,16 @@
 
       <!-- Barra de Acciones Inferior -->
       <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-        <button type="button" onclick="copyAppSheetOrderToClipboard()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition">
-          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-          <span>📋 Copiar Datos (Mayúsculas)</span>
-        </button>
+        <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+          <button type="button" onclick="copyAppSheetOrderToClipboard()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition" title="Copiar resumen con etiquetas en mayúsculas">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span>📋 Copiar Resumen</span>
+          </button>
+          <button type="button" onclick="copyAppSheetOrderRowTabbed()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition" title="Copiar 20 columnas separadas por tabulador (para pegar directo en filas de Excel o AppSheet)">
+            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>📑 Copiar Fila Tabulada</span>
+          </button>
+        </div>
 
         <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
           <button type="button" onclick="dispatchDirectToFoliosFromModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3.5 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl transition" title="Registrar también en hoja interna FOLIOS">
@@ -8522,6 +8535,8 @@
           const det = (item['CECO/DET'] || item['DET'] || item['CECO'] || item['Det'] || '').toString().trim();
           const pais = (item['PAÍS'] || item['PAIS'] || item['País'] || item['Pais'] || (cli.toUpperCase().includes('GUATEMALA') ? 'Guatemala' : (cli.toUpperCase().includes('HONDURAS') ? 'Honduras' : (cli.toUpperCase().includes('COSTA RICA') ? 'Costa Rica' : 'El Salvador')))).toString().trim();
 
+          const ubicacionFisica = (item['UBICACIÓN'] || item['UBICACION'] || item['Ubicación'] || item['Ubicacion'] || item['DEPTO'] || item['Departamento'] || item['Depto'] || item['ÁREA'] || item['AREA'] || item['LUGAR'] || item['TIPO LUGAR'] || '').toString().trim();
+
           const normalized = {
             _index: idx,
             SERIE: rawSerie,
@@ -8531,7 +8546,9 @@
             TIENDA: (item['TIENDA'] || item['Tienda'] || item['SUCURSAL'] || item['Sucursal'] || '').toString().trim(),
             FORMATO: (item['FORMATO'] || item['Formato'] || '').toString().trim(),
             DET: det,
-            DEPTO: (item['DEPTO'] || item['Departamento'] || item['Depto'] || '').toString().trim(),
+            DEPTO: (item['DEPTO'] || item['Departamento'] || item['Depto'] || ubicacionFisica).toString().trim(),
+            UBICACION: ubicacionFisica,
+            UBICACIÓN: ubicacionFisica,
             IP: cleanIpAddress((item['IP'] || item['Ip'] || item['DIRECCION IP'] || item['Direccion IP'] || item['DIRECCIÓN IP'] || '').toString()),
             PROPIEDAD: (item['PROPIEDAD'] || item['Propiedad'] || 'IEXCA').toString().trim(),
             DIRECCION: (item['DIRECCIÓN'] || item['DIRECCION'] || item['Dirección'] || item['Direccion'] || '').toString().trim(),

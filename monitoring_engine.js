@@ -2266,12 +2266,30 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
 
   const modelo = (match ? match.modelo : (rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || '') : '')).toUpperCase();
   const cliente = (match ? match.cliente : (rdiInfo ? rdiInfo.CLIENTE : '')).toUpperCase();
-  const tienda = (match ? match.ubicacion : (rdiInfo ? rdiInfo.TIENDA : '')).toUpperCase();
-  const det = (match ? match.det : (rdiInfo ? rdiInfo.DET : '')).toUpperCase();
+  const tienda = (rdiInfo ? (rdiInfo.TIENDA || rdiInfo.SUCURSAL || '') : (match ? match.ubicacion : '')).toUpperCase();
+  const det = (rdiInfo ? (rdiInfo.DET || '') : (match ? match.det : '')).toUpperCase();
   const ip = cleanIpAddress(match ? match.ip : (rdiInfo ? rdiInfo.IP : ''));
   const direccion = (rdiInfo ? (rdiInfo.DIRECCION || '') : '').toUpperCase();
   const formato = (rdiInfo ? (rdiInfo.FORMATO || '') : '').toUpperCase();
   const tecnico = (rdiInfo ? (rdiInfo.TECNICO || '') : '').toUpperCase();
+
+  // Ubicación física del impresor según RDI (Depto / Área donde se ubica el impresor, NO la tienda)
+  let ubicacionImpresor = '';
+  if (rdiInfo) {
+    ubicacionImpresor = (rdiInfo.UBICACION || rdiInfo.UBICACIÓN || rdiInfo.DEPTO || rdiInfo.DEPARTAMENTO || rdiInfo.AREA || rdiInfo.LUGAR || rdiInfo['TIPO LUGAR'] || '').toString().trim();
+  }
+  if (!ubicacionImpresor && typeof rdiMapBySerie !== 'undefined' && rdiMapBySerie && rdiMapBySerie.has(serieUpper)) {
+    const r = rdiMapBySerie.get(serieUpper);
+    ubicacionImpresor = (r.UBICACION || r.UBICACIÓN || r.DEPTO || r.DEPARTAMENTO || '').toString().trim();
+  }
+  if (!ubicacionImpresor && typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) {
+    const folios = sheetStore['FOLIOS'];
+    const fMatch = folios.find(row => (row['SERIE'] || row['SERIE EQUIPO'] || '').toString().trim().toUpperCase() === serieUpper && (row['UBICACIÓN'] || row['UBICACION'] || row['DEPTO']));
+    if (fMatch) {
+      ubicacionImpresor = (fMatch['UBICACIÓN'] || fMatch['UBICACION'] || fMatch['DEPTO'] || '').toString().trim();
+    }
+  }
+  ubicacionImpresor = ubicacionImpresor.toUpperCase();
 
   // Determinar porcentaje
   let nivelVal = alertLevel;
@@ -2310,14 +2328,15 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
     solicitudTexto,
     formato,
     tecnico,
-    direccion
+    direccion,
+    ubicacion: ubicacionImpresor
   };
 
   // Asignar valores a los inputs del modal en MAYÚSCULAS
   const elTitle = document.getElementById('appsheetModalTitle');
   if (elTitle) elTitle.textContent = `DESPACHO & PEDIDO: ${serieUpper}`;
   const elSub = document.getElementById('appsheetModalSubtitle');
-  if (elSub) elSub.textContent = `${cliente || 'CLIENTE'} • ${modelo || 'MODELO'} • ${tienda || 'TIENDA'}`;
+  if (elSub) elSub.textContent = `${cliente || 'CLIENTE'} • ${modelo || 'MODELO'} • ${tienda || 'TIENDA'}${ubicacionImpresor ? ' (' + ubicacionImpresor + ')' : ''}`;
   const elAlert = document.getElementById('appsheetBannerAlertText');
   if (elAlert) elAlert.textContent = `ALERTA DE DESGASTE: ${tipoLabel} AL ${nivelStr}`;
   const elBadge = document.getElementById('appsheetBadgePrioridad');
@@ -2344,11 +2363,11 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   setVal('appsheetInputIp', ip);
   const elFecha = document.getElementById('appsheetInputFecha');
   if (elFecha) elFecha.value = new Date().toISOString().split('T')[0];
-  setVal('appsheetInputStatus', 'ABIERTO');
+  setVal('appsheetInputStatus', 'PENDIENTE DE DESPACHAR');
   setVal('appsheetInputFormato', formato);
   setVal('appsheetInputTecnico', tecnico);
   setVal('appsheetInputEnvioPor', 'XPRESS');
-  setVal('appsheetInputUbicacion', tienda);
+  setVal('appsheetInputUbicacion', ubicacionImpresor);
   setVal('appsheetInputDireccionXpress', direccion || tienda);
   setVal('appsheetInputContacto', '');
   setVal('appsheetInputTelefono', '');
@@ -2391,7 +2410,7 @@ function getAppSheetOrderData() {
     TIENDA: getV('appsheetInputTienda'),
     TECNICO: getV('appsheetInputTecnico'),
     FORMATO: getV('appsheetInputFormato'),
-    STATUS: getV('appsheetInputStatus') || 'ABIERTO',
+    STATUS: getV('appsheetInputStatus') || 'PENDIENTE DE DESPACHAR',
     SERIE: getV('appsheetInputSerie'),
     MODELO: getV('appsheetInputModelo'),
     NUMPART: getV('appsheetInputNumpart'),
@@ -2422,7 +2441,7 @@ function generateOrderTextSummary(data) {
     `SOLICITUD: ${String(data.SOLICITUD || '').toUpperCase()}`,
     `PORCENTAJE: ${String(data.PORCENTAJE || '').toUpperCase()}`,
     `PRIORIDAD: ${String(data.PRIORIDAD || 'ALTA').toUpperCase()}`,
-    `STATUS: ${String(data.STATUS || 'ABIERTO').toUpperCase()}`,
+    `STATUS: ${String(data.STATUS || 'PENDIENTE DE DESPACHAR').toUpperCase()}`,
     `FECHA: ${String(data.FECHA || '').toUpperCase()}`,
     `IP: ${String(data.IP || '').toUpperCase()}`,
     `TECNICO: ${String(data.TECNICO || '').toUpperCase()}`,
@@ -2435,13 +2454,57 @@ function generateOrderTextSummary(data) {
   ].join('\n');
 }
 
+function generateOrderTabbedSummary(data) {
+  // Orden exacto de las 20 columnas requeridas por AppSheet:
+  // ID_TICKET DET TIENDA TECNICO FORMATO STATUS SERIE MODELO NUMPART SOLICITUD PORCENTAJE FECHA UBICACION MARCA IP ENVIO POR PRIORIDAD DIRECCION PARA ENVIO XPRESS CONTACTO PARA RECIBIR XPRESS NUEMERO DE CONTACTO
+  const fields = [
+    data.ID_TICKET || '',
+    data.DET || '',
+    data.TIENDA || '',
+    data.TECNICO || '',
+    data.FORMATO || '',
+    data.STATUS || 'PENDIENTE DE DESPACHAR',
+    data.SERIE || '',
+    data.MODELO || '',
+    data.NUMPART || '',
+    data.SOLICITUD || '',
+    data.PORCENTAJE || '',
+    data.FECHA || '',
+    data.UBICACION || '',
+    data.MARCA || 'LEXMARK',
+    data.IP || '',
+    data.ENVIO_POR || 'XPRESS',
+    data.PRIORIDAD || 'ALTA',
+    data.DIRECCION_PARA_ENVIO_XPRESS || '',
+    data.CONTACTO_PARA_RECIBIR_XPRESS || '',
+    data.NUMERO_DE_CONTACTO || ''
+  ];
+  return fields.map(v => String(v).toUpperCase()).join('\t');
+}
+
+function copyAppSheetOrderRowTabbed() {
+  const data = getAppSheetOrderData();
+  const rowText = generateOrderTabbedSummary(data);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(rowText).then(() => {
+      if (typeof showToast === 'function') {
+        showToast(`📑 ¡Fila tabulada de ${data.SERIE} copiada (20 columnas en Mayúsculas)!`);
+      }
+    }).catch(() => {
+      if (typeof showToast === 'function') {
+        showToast(`📑 Fila tabulada lista.`);
+      }
+    });
+  }
+}
+
 function copyAppSheetOrderToClipboard() {
   const data = getAppSheetOrderData();
   const txt = generateOrderTextSummary(data);
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(txt).then(() => {
       if (typeof showToast === 'function') {
-        showToast(`📋 ¡Datos de ${data.SERIE} copiados en MAYÚSCULAS!`);
+        showToast(`📋 ¡Resumen de ${data.SERIE} copiado en MAYÚSCULAS!`);
       }
     }).catch(() => {
       if (typeof showToast === 'function') {
@@ -2463,7 +2526,7 @@ function launchAppSheetOrder() {
     TIENDA: String(data.TIENDA || '').toUpperCase(),
     TECNICO: String(data.TECNICO || '').toUpperCase(),
     FORMATO: String(data.FORMATO || '').toUpperCase(),
-    STATUS: String(data.STATUS || 'ABIERTO').toUpperCase(),
+    STATUS: String(data.STATUS || 'PENDIENTE DE DESPACHAR').toUpperCase(),
     SERIE: String(data.SERIE || '').toUpperCase(),
     MODELO: String(data.MODELO || '').toUpperCase(),
     NUMPART: String(data.NUMPART || '').toUpperCase(),
@@ -2471,13 +2534,15 @@ function launchAppSheetOrder() {
     PORCENTAJE: String(data.PORCENTAJE || '').toUpperCase(),
     FECHA: String(data.FECHA || ''),
     UBICACION: String(data.UBICACION || '').toUpperCase(),
+    "UBICACIÓN": String(data.UBICACION || '').toUpperCase(),
     MARCA: String(data.MARCA || 'LEXMARK').toUpperCase(),
     IP: cleanIpAddress(data.IP),
     "ENVIO POR": String(data.ENVIO_POR || 'XPRESS').toUpperCase(),
     PRIORIDAD: String(data.PRIORIDAD || 'ALTA').toUpperCase(),
     "DIRECCION PARA ENVIO XPRESS": String(data.DIRECCION_PARA_ENVIO_XPRESS || '').toUpperCase(),
     "CONTACTO PARA RECIBIR XPRESS": String(data.CONTACTO_PARA_RECIBIR_XPRESS || '').toUpperCase(),
-    "NUEMERO DE CONTACTO": String(data.NUMERO_DE_CONTACTO || '').toUpperCase()
+    "NUEMERO DE CONTACTO": String(data.NUMERO_DE_CONTACTO || '').toUpperCase(),
+    "NUMERO DE CONTACTO": String(data.NUMERO_DE_CONTACTO || '').toUpperCase()
   };
 
   const isMobile = isMobileUserAgent();
@@ -3033,7 +3098,9 @@ if (typeof window !== 'undefined') {
   window.onAppSheetTipoSumChange = onAppSheetTipoSumChange;
   window.getAppSheetOrderData = getAppSheetOrderData;
   window.generateOrderTextSummary = generateOrderTextSummary;
+  window.generateOrderTabbedSummary = generateOrderTabbedSummary;
   window.copyAppSheetOrderToClipboard = copyAppSheetOrderToClipboard;
+  window.copyAppSheetOrderRowTabbed = copyAppSheetOrderRowTabbed;
   window.launchAppSheetOrder = launchAppSheetOrder;
   window.dispatchDirectToFoliosFromModal = dispatchDirectToFoliosFromModal;
   window.openAppSheetOrderGeneral = openAppSheetOrderGeneral;
@@ -3084,7 +3151,9 @@ if (typeof module !== 'undefined' && module.exports) {
     onAppSheetTipoSumChange,
     getAppSheetOrderData,
     generateOrderTextSummary,
+    generateOrderTabbedSummary,
     copyAppSheetOrderToClipboard,
+    copyAppSheetOrderRowTabbed,
     launchAppSheetOrder,
     dispatchDirectToFoliosFromModal,
     openAppSheetOrderGeneral,
