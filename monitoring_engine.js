@@ -2175,6 +2175,7 @@ function renderMonitoringTable() {
 // ============================================================================
 const APPSHEET_APP_ID = "4a341b5d-6396-4900-b551-6a5a715dc668";
 const APPSHEET_APP_NAME = "FreshdeskIEXCASV-1001025472";
+const APPSHEET_FORM_VIEW = "Freshdesk_IEXCA%20SV";
 
 function isMobileUserAgent() {
   if (typeof navigator === 'undefined') return false;
@@ -2182,13 +2183,14 @@ function isMobileUserAgent() {
          (typeof window !== 'undefined' && window.innerWidth < 768);
 }
 
-function getAppSheetBaseUrl(isMobile) {
+function getAppSheetBaseUrl(isMobile, viewName) {
+  const targetView = viewName || APPSHEET_FORM_VIEW;
   // En móviles NUNCA enviar ?platform=desktop porque AppSheet descarga la versión pesada de PC,
   // causando bloqueos, lentitud extrema (15-30 seg) o fallos de renderizado en smartphones.
   if (isMobile) {
-    return `https://www.appsheet.com/start/${APPSHEET_APP_ID}#appName=${APPSHEET_APP_NAME}&view=Bienvenido`;
+    return `https://www.appsheet.com/start/${APPSHEET_APP_ID}#appName=${APPSHEET_APP_NAME}&view=${targetView}`;
   }
-  return `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=Bienvenido`;
+  return `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=${targetView}`;
 }
 
 function openAppSheetOrderGeneral() {
@@ -2547,13 +2549,14 @@ function launchAppSheetOrder() {
 
   const isMobile = isMobileUserAgent();
   const encodedDefaults = encodeURIComponent(JSON.stringify(defaults));
+  const targetView = APPSHEET_FORM_VIEW;
   
   // En móviles NUNCA incluir ?platform=desktop para evitar lentitud y bloqueos en smartphones
   let fullUrl = "";
   if (isMobile) {
-    fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}#appName=${APPSHEET_APP_NAME}&view=Bienvenido&defaults=${encodedDefaults}`;
+    fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}#appName=${APPSHEET_APP_NAME}&view=${targetView}&defaults=${encodedDefaults}`;
   } else {
-    fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=Bienvenido&defaults=${encodedDefaults}`;
+    fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=${targetView}&defaults=${encodedDefaults}`;
   }
 
   const win = window.open(fullUrl, '_blank');
