@@ -468,13 +468,40 @@ function initMonitoringModule(force = false) {
   }
 }
 
+// FUNCIONES UTILITARIAS DE ACCESO A FOLIOS Y METADATOS
+function getFoliosStore() {
+  if (typeof sheetStore === 'undefined' || !sheetStore) return [];
+  if (Array.isArray(sheetStore['FOLIOS']) && sheetStore['FOLIOS'].length > 0) {
+    return sheetStore['FOLIOS'];
+  }
+  const fKey = Object.keys(sheetStore).find(k => {
+    const uk = k.trim().toUpperCase();
+    return uk === 'FOLIOS' || uk.includes('FOLIO') || uk.includes('SALIDA');
+  });
+  if (fKey && Array.isArray(sheetStore[fKey])) {
+    sheetStore['FOLIOS'] = sheetStore[fKey];
+    return sheetStore['FOLIOS'];
+  }
+  return sheetStore['FOLIOS'] || [];
+}
+
+function getFolioNumber(folio) {
+  if (!folio) return 'S/N';
+  return (folio['FOLIO'] || folio['FOLIO '] || folio['Folio'] || folio['Folio '] || 'S/N').toString().trim();
+}
+
+function getFolioSerie(folio) {
+  if (!folio) return '';
+  return (folio['SERIE'] || folio['SERIE '] || folio['SERIE EQUIPO'] || folio['Serie'] || folio['Serie Equipo'] || '').toString().trim().toUpperCase();
+}
+
 // EVALUACIÓN DE STOCK EN SITIO POR FOLIO Y SERIE DE SUMINISTRO
 function evaluateFolioStockStatus(folio, currentInstalledSerie) {
   if (!folio) return { inStock: false, inTransit: false, consumed: false, status: 'NONE' };
 
   const est = (folio['ESTADO SUM'] || folio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
-  const folSerie = (folio['SERIE SUM'] || folio['SERIE'] || '').toString().trim().toUpperCase();
-  const folNum = folio['FOLIO'] || folio['FOLIO '] || 'S/N';
+  const folSerie = (folio['SERIE SUM'] || folio['SERIE_SUM'] || folio['SERIE SUMINISTRO'] || '').toString().trim().toUpperCase();
+  const folNum = getFolioNumber(folio);
 
   // 1. Estados explícitos de STOCK disponible en sitio (Reserva no consumida en tienda)
   if (est === 'EN STOCK' || est === 'STOCK' || est === 'EN SITIO' || est === 'EN_STOCK' || 
@@ -497,7 +524,7 @@ function evaluateFolioStockStatus(folio, currentInstalledSerie) {
   // 4. ENTREGADO / RECIBIDO:
   // Si la serie del cartucho despachado coincide con la serie del cartucho actualmente instalado en el impresor,
   // significa que ya fue colocado y se encuentra en uso (y si el nivel está bajo <= 15%, está agotándose).
-  if (folSerie && currentInstalledSerie && folSerie === currentInstalledSerie) {
+  if (folSerie && currentInstalledSerie && folSerie === currentInstalledSerie.toString().trim().toUpperCase()) {
     return { inStock: false, inTransit: false, consumed: true, status: 'INSTALLED_MATCH', folio, folNum, folSerie, est };
   }
 
@@ -509,7 +536,7 @@ function evaluateFolioStockStatus(folio, currentInstalledSerie) {
 function refreshMonitoringAnalysis() {
   // 1. Indexar y clasificar Folios por Serie de Equipo O(N) una sola vez
   const foliosBySerie = new Map();
-  const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
+  const allFolios = getFoliosStore();
 
   // Asegurar indexación de metadatos numéricos _ts y _folioNum para comparación rápida
   if (typeof indexFoliosMetadata === 'function') {
@@ -517,7 +544,7 @@ function refreshMonitoringAnalysis() {
   }
 
   allFolios.forEach(f => {
-    const ser = (f['SERIE'] || '').toString().trim().toUpperCase();
+    const ser = getFolioSerie(f);
     if (!ser) return;
     let entry = foliosBySerie.get(ser);
     if (!entry) {
@@ -545,8 +572,8 @@ function refreshMonitoringAnalysis() {
     const tsA = a._ts !== undefined ? a._ts : (typeof getRowDateTimestamp === 'function' ? getRowDateTimestamp(a) : 0);
     const tsB = b._ts !== undefined ? b._ts : (typeof getRowDateTimestamp === 'function' ? getRowDateTimestamp(b) : 0);
     if (tsB !== tsA) return tsB - tsA;
-    const numA = a._folioNum !== undefined ? a._folioNum : (parseInt(String(a['FOLIO'] || a['FOLIO '] || '').replace(/\D/g, ''), 10) || 0);
-    const numB = b._folioNum !== undefined ? b._folioNum : (parseInt(String(b['FOLIO'] || b['FOLIO '] || '').replace(/\D/g, ''), 10) || 0);
+    const numA = a._folioNum !== undefined ? a._folioNum : (parseInt(String(getFolioNumber(a)).replace(/\D/g, ''), 10) || 0);
+    const numB = b._folioNum !== undefined ? b._folioNum : (parseInt(String(getFolioNumber(b)).replace(/\D/g, ''), 10) || 0);
     return numB - numA;
   };
 
@@ -1536,13 +1563,13 @@ function updateActiveSlideUI(activeStatus) {
 function goToFolioDetail(folioNum, serie) {
   // Nota: NO se ejecuta switchSuiteTab('salidas') para mantener al usuario 100% en Monitoreo & Stock
 
-  const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
+  const allFolios = getFoliosStore();
   let targetIdx = -1;
 
   const fClean = (folioNum || '').toString().replace(/^[#\s]+/, '').trim();
   if (fClean && fClean !== 'S/N' && fClean !== '-' && fClean !== '0') {
     targetIdx = allFolios.findIndex(f => {
-      const fn = (f['FOLIO'] || f['FOLIO '] || '').toString().replace(/^[#\s]+/, '').trim();
+      const fn = getFolioNumber(f).replace(/^[#\s]+/, '').trim();
       return fn === fClean;
     });
   }
@@ -1551,7 +1578,7 @@ function goToFolioDetail(folioNum, serie) {
   if (targetIdx === -1 && serie) {
     const sClean = serie.toString().trim().toUpperCase();
     for (let i = allFolios.length - 1; i >= 0; i--) {
-      const fs = (allFolios[i]['SERIE'] || '').toString().trim().toUpperCase();
+      const fs = getFolioSerie(allFolios[i]);
       if (fs === sClean) {
         targetIdx = i;
         break;
@@ -1561,7 +1588,7 @@ function goToFolioDetail(folioNum, serie) {
 
   // Si aún no se encuentra, buscar por referencia de lastFolio en la lista analizada
   if (targetIdx === -1 && typeof monitoringProcessedList !== 'undefined') {
-    const item = monitoringProcessedList.find(r => r.serie === serie);
+    const item = monitoringProcessedList.find(r => (r.serie || '').toString().trim().toUpperCase() === (serie || '').toString().trim().toUpperCase());
     if (item && item.lastFolio) {
       targetIdx = allFolios.indexOf(item.lastFolio);
       if (targetIdx === -1) {
@@ -1577,7 +1604,7 @@ function goToFolioDetail(folioNum, serie) {
 
     const mTitle = document.getElementById('modalSalidaTitle');
     if (mTitle) {
-      const folVal = allFolios[targetIdx]['FOLIO'] || allFolios[targetIdx]['FOLIO '] || fClean;
+      const folVal = getFolioNumber(allFolios[targetIdx]) || fClean;
       mTitle.textContent = `Detalle de Folio #${folVal} (Monitoreo & Stock)`;
     }
     const subTitle = document.getElementById('modalSalidaSubtitle');
@@ -1586,7 +1613,7 @@ function goToFolioDetail(folioNum, serie) {
     }
 
     if (typeof showToast === 'function') {
-      showToast(`Folio #${fClean || (allFolios[targetIdx] && allFolios[targetIdx]['FOLIO']) || ''} abierto en ventana emergente.`);
+      showToast(`Folio #${fClean || getFolioNumber(allFolios[targetIdx]) || ''} abierto en ventana emergente.`);
     }
   } else {
     // Si no existe folio previo, abrir formulario para registrar nuevo movimiento precargando los datos
@@ -1808,11 +1835,11 @@ function renderMonitoringTable() {
     // Última Salida Folios con enlace interactivo
     let lastFolioHtml = '<span class="text-slate-400 italic text-[11px]">Sin salidas en FOLIOS</span>';
     if (r.lastFolio) {
-      const fNum = r.lastFolio['FOLIO'] || r.lastFolio['FOLIO '] || 'S/N';
+      const fNum = getFolioNumber(r.lastFolio);
       const fFecha = r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : '';
-      const fTipo = r.lastFolio['TIPO SUM'] || 'SUM';
-      const fEst = r.lastFolio['ESTADO SUM'] || 'ENTREGADO';
-      const fSerieSum = r.lastFolio['SERIE SUM'] || '';
+      const fTipo = r.lastFolio['TIPO SUM'] || r.lastFolio['TIPO'] || 'SUM';
+      const fEst = (r.lastFolio['ESTADO SUM'] || r.lastFolio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+      const fSerieSum = r.lastFolio['SERIE SUM'] || r.lastFolio['SERIE_SUM'] || '';
       lastFolioHtml = `
         <div class="leading-tight">
           <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 hover:underline text-left group" title="Clic para ir a FOLIOS y modificar o consultar estatus">
@@ -2058,22 +2085,28 @@ function renderMonitoringTable() {
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
           <div class="text-xs">
             ${r.lastFolio 
-              ? `<div class="leading-tight">
-                  <div class="flex items-center gap-1">
-                    <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Consultar o modificar folio en ventana emergente">
-                      <span>Folio #${r.lastFolio['FOLIO'] || ''}</span>
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                    </button>
-                    <span class="text-[10px] text-slate-400">(${r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : ''})</span>
-                  </div>
-                  <p class="text-[10px] text-slate-500 mt-0.5">${r.lastFolio['TIPO SUM'] || 'SUM'}: <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="font-bold underline text-emerald-600 dark:text-emerald-400">${r.lastFolio['ESTADO SUM'] || 'ENTREGADO'} ✏️</button></p>
-                </div>`
+              ? (() => {
+                  const cardFolNum = getFolioNumber(r.lastFolio);
+                  const cardFecha = r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : '';
+                  const cardTipo = r.lastFolio['TIPO SUM'] || r.lastFolio['TIPO'] || 'SUM';
+                  const cardEst = (r.lastFolio['ESTADO SUM'] || r.lastFolio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+                  return `<div class="leading-tight">
+                    <div class="flex items-center gap-1">
+                      <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Consultar o modificar folio en ventana emergente">
+                        <span>Folio #${cardFolNum}</span>
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                      </button>
+                      <span class="text-[10px] text-slate-400">(${cardFecha})</span>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-0.5">${cardTipo}: <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="font-bold underline text-emerald-600 dark:text-emerald-400">${cardEst} ✏️</button></p>
+                  </div>`;
+                })()
               : '<span class="text-[11px] text-slate-400 italic">Sin salidas en FOLIOS</span>'
             }
           </div>
           <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
             ${r.lastFolio ? `
-              <button type="button" onclick="goToFolioDetail('${r.lastFolio['FOLIO'] || ''}', '${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus del folio">
+              <button type="button" onclick="goToFolioDetail('${getFolioNumber(r.lastFolio)}', '${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus del folio">
                 <span>👁️ Ver Folio</span>
               </button>
             ` : ''}
@@ -2326,16 +2359,16 @@ function openEquipmentHistoryModal(serie) {
   const foliosBody = document.getElementById('modalEquipFoliosBody');
   if (foliosBody) {
     foliosBody.innerHTML = '';
-    const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
-    const equipFolios = allFolios.filter(f => (f['SERIE'] || '').toString().trim().toUpperCase() === serieUpper);
+    const allFolios = getFoliosStore();
+    const equipFolios = allFolios.filter(f => getFolioSerie(f) === serieUpper);
     
     // Ordenamiento riguroso cronológico descendente (más recientes al inicio)
     equipFolios.sort((a, b) => {
       const tsA = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(a) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(a['FECHA'])?.getTime() : 0) || (a['FECHA'] ? new Date(a['FECHA']).getTime() : 0) || 0);
       const tsB = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(b) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(b['FECHA'])?.getTime() : 0) || (b['FECHA'] ? new Date(b['FECHA']).getTime() : 0) || 0);
       if (tsB !== tsA) return tsB - tsA;
-      const numA = parseInt(String(a['FOLIO'] || a['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
-      const numB = parseInt(String(b['FOLIO'] || b['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
+      const numA = parseInt(String(getFolioNumber(a)).replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(String(getFolioNumber(b)).replace(/\D/g, ''), 10) || 0;
       if (numB !== numA) return numB - numA;
       return 0;
     });
@@ -2344,7 +2377,7 @@ function openEquipmentHistoryModal(serie) {
       foliosBody.innerHTML = `<tr><td colspan="8" class="py-4 text-center text-slate-400">Sin salidas registradas en la hoja FOLIOS para esta serie.</td></tr>`;
     } else {
       equipFolios.forEach(f => {
-        const folNum = f['FOLIO'] || f['FOLIO '] || 'S/N';
+        const folNum = getFolioNumber(f);
         const fFecha = f['FECHA'] ? formatDateShort(f['FECHA']) : 'N/D';
         const fTipo = f['TIPO SUM'] || 'SUM';
         const fDesc = f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '';
@@ -2505,10 +2538,10 @@ function exportMonitoringAuditToExcel() {
 
   const exportData = monitoringProcessedList.map((r, i) => {
     const lastF = r.lastFolio;
-    const fNum = lastF ? (lastF['FOLIO'] || lastF['FOLIO '] || '') : '';
+    const fNum = lastF ? getFolioNumber(lastF) : '';
     const fFecha = lastF && lastF['FECHA'] ? formatDateShort(lastF['FECHA']) : '';
-    const fSerieSum = lastF ? (lastF['SERIE SUM'] || '') : '';
-    const fEstado = lastF ? (lastF['ESTADO SUM'] || '') : '';
+    const fSerieSum = lastF ? (lastF['SERIE SUM'] || lastF['SERIE_SUM'] || '') : '';
+    const fEstado = lastF ? (lastF['ESTADO SUM'] || lastF['ESTADO'] || '') : '';
 
     let accion = 'Nivel Óptimo';
     if (r.overallDiag === 'DESPACHO_REQUERIDO') accion = 'DESPACHAR SALIDA URGENTE';

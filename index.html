@@ -5873,6 +5873,17 @@
       if (!state || !state.sheetStore) return false;
       sheetStore = state.sheetStore;
 
+      // Normalizar sheetStore['FOLIOS'] si viene con variaciones de nombre
+      if (!sheetStore['FOLIOS'] || !Array.isArray(sheetStore['FOLIOS']) || sheetStore['FOLIOS'].length === 0) {
+        const altFKey = Object.keys(sheetStore).find(k => {
+          const uk = k.trim().toUpperCase();
+          return uk === 'FOLIOS' || uk.includes('FOLIO') || uk.includes('SALIDA');
+        });
+        if (altFKey && Array.isArray(sheetStore[altFKey])) {
+          sheetStore['FOLIOS'] = sheetStore[altFKey];
+        }
+      }
+
       const sNames = state.sheetNames || Object.keys(sheetStore);
       // Crear un rawWorkbook ultraligero SIN llamar a json_to_sheet (ahorro masivo de memoria y CPU)
       const wb = XLSX.utils.book_new();
@@ -6204,14 +6215,26 @@
       refreshRdiIndex();
 
       // 3. Indexar Salidas y Movimientos (FOLIOS)
-      const foliosSheetName = rawWorkbook.SheetNames.find(n => n.trim().toUpperCase() === 'FOLIOS') || 
-                              rawWorkbook.SheetNames.find(n => n.toUpperCase().includes('FOLIO'));
+      const foliosSheetName = (rawWorkbook && rawWorkbook.SheetNames) ? (rawWorkbook.SheetNames.find(n => n.trim().toUpperCase() === 'FOLIOS') || 
+                              rawWorkbook.SheetNames.find(n => n.toUpperCase().includes('FOLIO'))) : null;
       let foliosData = [];
       if (foliosSheetName && sheetStore[foliosSheetName]) {
         foliosData = sheetStore[foliosSheetName];
-      } else {
-        if (!sheetStore['FOLIOS']) sheetStore['FOLIOS'] = [];
+        sheetStore['FOLIOS'] = foliosData;
+      } else if (sheetStore['FOLIOS'] && Array.isArray(sheetStore['FOLIOS']) && sheetStore['FOLIOS'].length > 0) {
         foliosData = sheetStore['FOLIOS'];
+      } else {
+        const altFoliosKey = Object.keys(sheetStore).find(k => {
+          const uk = k.trim().toUpperCase();
+          return uk === 'FOLIOS' || uk.includes('FOLIO') || uk.includes('SALIDA');
+        });
+        if (altFoliosKey && sheetStore[altFoliosKey]) {
+          foliosData = sheetStore[altFoliosKey];
+          sheetStore['FOLIOS'] = foliosData;
+        } else {
+          if (!sheetStore['FOLIOS']) sheetStore['FOLIOS'] = [];
+          foliosData = sheetStore['FOLIOS'];
+        }
       }
 
       // Llenar autocompletado de partes de forma rápida usando DocumentFragment (tope 250 elementos únicos)
@@ -6304,7 +6327,10 @@
 
       // Inicializar Módulo de Monitoreo & Stock en Sitio
       if (typeof initMonitoringModule === 'function') {
-        initMonitoringModule();
+        initMonitoringModule(true);
+      }
+      if (typeof refreshMonitoringAnalysis === 'function') {
+        refreshMonitoringAnalysis();
       }
 
       // Sincronizar estado limpio de pestañas de la suite
@@ -6438,16 +6464,15 @@
           renderBoletaModule();
         }, 0);
       } else if (tabId === 'monitoreo') {
-        if (isDirty || (typeof isMonitoringInitialized !== 'undefined' && !isMonitoringInitialized)) {
-          pendingTabTaskTimeout = setTimeout(() => {
-            if (typeof initMonitoringModule === 'function') {
-              initMonitoringModule();
-            } else if (typeof refreshMonitoringAnalysis === 'function') {
-              refreshMonitoringAnalysis();
-            }
-            suiteTabsDirty.monitoreo = false;
-          }, 0);
-        }
+        pendingTabTaskTimeout = setTimeout(() => {
+          if (typeof initMonitoringModule === 'function') {
+            initMonitoringModule(true);
+          }
+          if (typeof refreshMonitoringAnalysis === 'function') {
+            refreshMonitoringAnalysis();
+          }
+          suiteTabsDirty.monitoreo = false;
+        }, 0);
       }
     }
 
