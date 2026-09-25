@@ -2300,6 +2300,14 @@
     };
     const defaultPalette = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#3b82f6'];
 
+    // OPTIMIZACIÓN DE RENDIMIENTO GRÁFICO (Chart.js):
+    // Desactiva animaciones pesadas de 1000ms al alternar pestañas para que el cambio de vista sea inmediato a 60fps
+    if (typeof Chart !== 'undefined' && Chart.defaults) {
+      Chart.defaults.animation = false;
+      Chart.defaults.responsive = true;
+      Chart.defaults.maintainAspectRatio = false;
+    }
+
     // ALMACÉN DE ESTADO POR HOJA (MEMORIA INDEPENDIENTE ENTRE PESTAÑAS)
     let sheetStateMap = {};
 
@@ -2368,10 +2376,22 @@
 
     // PROTECCIÓN CONTRA SALIDA ACCIDENTAL (EVITA PERDER FILTROS Y DATOS)
     function setupExitProtection() {
+      // 1. Sembrar estado en el historial para interceptar gestos táctiles y botón de retroceso en teléfonos móviles
+      try {
+        if (!window.history.state || !window.history.state.iexcaRoot) {
+          window.history.replaceState({ iexcaRoot: true, tab: 'dashboard' }, '');
+          window.history.pushState({ iexcaApp: true, tab: 'dashboard' }, '');
+        }
+      } catch (e) {}
+
+      // 2. Proteger contra cierre de pestaña o recarga involuntaria en navegadores móviles y de escritorio
       window.addEventListener('beforeunload', (e) => {
-        if (originalData && originalData.length > 0) {
+        const hasData = (originalData && originalData.length > 0) ||
+                        (typeof sheetStore !== 'undefined' && Object.keys(sheetStore).length > 0) ||
+                        (typeof monitoringData !== 'undefined' && Object.keys(monitoringData).length > 0);
+        if (hasData) {
           e.preventDefault();
-          e.returnValue = 'Tienes datos y filtros activos en el dashboard. ¿Estás seguro de que deseas salir?';
+          e.returnValue = 'Tienes datos y operaciones activas en la Suite IEXCA. ¿Estás seguro de que deseas salir?';
           return e.returnValue;
         }
       });
@@ -6005,10 +6025,38 @@
       if (typeof initMonitoringModule === 'function') {
         initMonitoringModule();
       }
+
+      // Sincronizar estado limpio de pestañas de la suite
+      suiteTabsDirty = { salidas: false, tickets: false, rdi: false, monitoreo: false, dashboard: false };
     }
 
-    // ALTERNAR PESTAÑAS DE LA SUITE
+    let currentActiveSuiteTab = 'dashboard';
+    let suiteTabsDirty = {
+      salidas: false,
+      tickets: false,
+      rdi: false,
+      monitoreo: false,
+      dashboard: false
+    };
+    let pendingTabTaskTimeout = null;
+
+    // ALTERNAR PESTAÑAS DE LA SUITE (OPTIMIZADO PARA RESPUESTA INMEDIATA < 16MS)
     function switchSuiteTab(tabId) {
+      if (tabId === 'ods') tabId = 'tickets';
+      if (tabId === 'folios') tabId = 'salidas';
+
+      // Si ya está en la pestaña solicitada y visible, evitar trabajo redundante
+      const targetView = document.getElementById(tabId + 'ViewModule');
+      if (currentActiveSuiteTab === tabId && targetView && !targetView.classList.contains('hidden')) {
+        return;
+      }
+
+      // Cancelar cualquier tarea pesada pendiente si el usuario pulsó otra pestaña rápidamente
+      if (pendingTabTaskTimeout) {
+        clearTimeout(pendingTabTaskTimeout);
+        pendingTabTaskTimeout = null;
+      }
+
       const views = {
         'dashboard': document.getElementById('dashboardViewModule'),
         'salidas': document.getElementById('salidasViewModule'),
@@ -6047,6 +6095,7 @@
         if (sheetsTabBar) sheetsTabBar.classList.add('hidden');
       }
 
+      // 1. DESACOPLAMIENTO VISUAL INSTANTÁNEO (< 16ms, sin bloqueo de UI)
       Object.keys(views).forEach(key => {
         if (views[key]) views[key].classList.add('hidden');
       });
@@ -6064,25 +6113,52 @@
         buttons[tabId].classList.add('bg-brand-600', 'text-white', 'shadow-xs');
       }
 
-      // Desplazamiento suave al tope en móvil para que el contenido sea inmediatamente visible
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      currentActiveSuiteTab = tabId;
+
+      // Desplazamiento instantáneo al tope (auto en vez de smooth para no secuestrar frames táctiles en móvil)
+      window.scrollTo({ top: 0, behavior: 'auto' });
+
+      // 2. EJECUCIÓN ASÍNCRONA DESACOPLADA (Solo si la pestaña está sucia o requiere primer render)
+      const isDirty = suiteTabsDirty[tabId];
 
       if (tabId === 'salidas') {
-        updateSalidasKPIs();
-        filterSalidasTable();
+        if (isDirty) {
+          pendingTabTaskTimeout = setTimeout(() => {
+            updateSalidasKPIs();
+            filterSalidasTable();
+            suiteTabsDirty.salidas = false;
+          }, 0);
+        }
       } else if (tabId === 'tickets') {
-        updateOdsKPIs();
-        filterOdsTable();
+        if (isDirty) {
+          pendingTabTaskTimeout = setTimeout(() => {
+            updateOdsKPIs();
+            filterOdsTable();
+            suiteTabsDirty.tickets = false;
+          }, 0);
+        }
       } else if (tabId === 'rdi') {
-        updateRdiKPIs();
-        filterRdiTable();
+        if (isDirty) {
+          pendingTabTaskTimeout = setTimeout(() => {
+            updateRdiKPIs();
+            filterRdiTable();
+            suiteTabsDirty.rdi = false;
+          }, 0);
+        }
       } else if (tabId === 'boleta') {
-        renderBoletaModule();
+        pendingTabTaskTimeout = setTimeout(() => {
+          renderBoletaModule();
+        }, 0);
       } else if (tabId === 'monitoreo') {
-        if (typeof initMonitoringModule === 'function') {
-          initMonitoringModule();
-        } else if (typeof refreshMonitoringAnalysis === 'function') {
-          refreshMonitoringAnalysis();
+        if (isDirty || (typeof isMonitoringInitialized !== 'undefined' && !isMonitoringInitialized)) {
+          pendingTabTaskTimeout = setTimeout(() => {
+            if (typeof initMonitoringModule === 'function') {
+              initMonitoringModule();
+            } else if (typeof refreshMonitoringAnalysis === 'function') {
+              refreshMonitoringAnalysis();
+            }
+            suiteTabsDirty.monitoreo = false;
+          }, 0);
         }
       }
     }
@@ -6547,14 +6623,37 @@
       }
     }
 
-    // Listener universal para el botón físico/virtual Atrás del navegador o móvil Android
+    // Listener universal para el botón físico/virtual Atrás del navegador o gestos táctiles en teléfonos
     window.addEventListener('popstate', (e) => {
       if (isPoppingModalProgrammatically) {
         isPoppingModalProgrammatically = false;
         return;
       }
+
+      // 1. Si hay modales abiertos en la pila, cerrar el modal superior protegiendo datos modificados
       if (modalStack.length > 0) {
         popModalFromHistory(null, false);
+        return;
+      }
+
+      // 2. Si no hay modales pero estamos en otra pestaña secundaria (Monitoreo, Salidas, Tickets, etc.),
+      // regresar al Dashboard principal en lugar de expulsar al usuario de la aplicación
+      if (typeof currentActiveSuiteTab !== 'undefined' && currentActiveSuiteTab !== 'dashboard') {
+        switchSuiteTab('dashboard');
+        try {
+          window.history.pushState({ iexcaApp: true, tab: 'dashboard' }, '');
+        } catch (err) {}
+        return;
+      }
+
+      // 3. Si ya estamos en el Dashboard raíz en móvil y se pulsa atrás, alertar y confirmar antes de salir por completo
+      const confirmExit = window.confirm("¿Deseas salir por completo de la Suite IEXCA?\nAsegúrate de haber guardado o exportado tus cambios.");
+      if (confirmExit) {
+        window.history.back();
+      } else {
+        try {
+          window.history.pushState({ iexcaApp: true, tab: 'dashboard' }, '');
+        } catch (err) {}
       }
     });
 
@@ -6654,6 +6753,9 @@
       saveToIndexedDB();
       updateSalidasKPIs();
       filterSalidasTable();
+      if (typeof refreshMonitoringAnalysis === 'function') {
+        refreshMonitoringAnalysis();
+      }
       showToast("Registro eliminado de FOLIOS exitosamente.");
     }
 

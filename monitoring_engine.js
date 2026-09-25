@@ -16,10 +16,12 @@ let monitoringFilterStatus = 'ALL';
 let monitoringFilterSupply = 'ALL';
 let monitoringFilterPercent = 'ALL';
 let monitoringCurrentPage = 1;
-let monitoringPageSize = 50;
+let monitoringPageSize = (typeof window !== 'undefined' && window.innerWidth < 768) ? 25 : 50;
 let monitoringProcessedList = [];
 let monitoringFilteredList = [];
 let monitoringViewMode = 'auto'; // 'auto' (cards en móvil <768px, tabla en desktop), 'cards', 'table'
+let isMonitoringInitialized = false;
+let isMonitoringLoadingDB = false;
 
 function setMonitoringViewMode(mode) {
   monitoringViewMode = mode;
@@ -50,6 +52,11 @@ function setMonitoringViewMode(mode) {
     if (cardsCont) cardsCont.classList.add('hidden');
     if (tableCont) tableCont.classList.remove('hidden');
     if (swipeBanner) swipeBanner.classList.remove('hidden');
+  }
+
+  // Renderizar la vista seleccionada si hay datos listos
+  if (monitoringFilteredList && monitoringFilteredList.length > 0) {
+    renderMonitoringTable();
   }
 }
 
@@ -397,7 +404,12 @@ function tryLoadFromLocalStorage(callback) {
 }
 
 // Inicialización del módulo
-function initMonitoringModule() {
+function initMonitoringModule(force = false) {
+  if (isMonitoringInitialized && !force) {
+    return;
+  }
+  isMonitoringInitialized = true;
+
   // Inicialización síncrona inmediata si aún no hay datos en memoria
   if ((!monitoringData || Object.keys(monitoringData).length === 0) && typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
     monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
@@ -411,41 +423,44 @@ function initMonitoringModule() {
 
   refreshMonitoringAnalysis();
 
-  // Carga asíncrona desde IndexedDB
-  loadMonitoringFromIndexedDB((loaded) => {
-    if (!loaded) {
-      if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
-        monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
-      }
-    } else {
-      // Si ya existían datos en IndexedDB, integrar cualquier snapshot nuevo de DEFAULT_MONITORING_DATA sin duplicar
-      if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
-        const def = window.DEFAULT_MONITORING_DATA;
-        let hasNew = false;
-        Object.keys(def).forEach(clientKey => {
-          if (!monitoringData[clientKey] || monitoringData[clientKey].length === 0) {
-            monitoringData[clientKey] = JSON.parse(JSON.stringify(def[clientKey]));
-            hasNew = true;
-          } else {
-            const currentSnaps = monitoringData[clientKey];
-            const defSnaps = def[clientKey] || [];
-            defSnaps.forEach(ds => {
-              const exists = currentSnaps.some(s => s.fileName === ds.fileName);
-              if (!exists) {
-                currentSnaps.push(JSON.parse(JSON.stringify(ds)));
-                hasNew = true;
-              }
-            });
-            currentSnaps.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+  // Carga asíncrona desde IndexedDB una sola vez
+  if (!isMonitoringLoadingDB) {
+    isMonitoringLoadingDB = true;
+    loadMonitoringFromIndexedDB((loaded) => {
+      if (!loaded) {
+        if ((!monitoringData || Object.keys(monitoringData).length === 0) && typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
+          monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
+        }
+      } else {
+        // Si ya existían datos en IndexedDB, integrar cualquier snapshot nuevo de DEFAULT_MONITORING_DATA sin duplicar
+        if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
+          const def = window.DEFAULT_MONITORING_DATA;
+          let hasNew = false;
+          Object.keys(def).forEach(clientKey => {
+            if (!monitoringData[clientKey] || monitoringData[clientKey].length === 0) {
+              monitoringData[clientKey] = JSON.parse(JSON.stringify(def[clientKey]));
+              hasNew = true;
+            } else {
+              const currentSnaps = monitoringData[clientKey];
+              const defSnaps = def[clientKey] || [];
+              defSnaps.forEach(ds => {
+                const exists = currentSnaps.some(s => s.fileName === ds.fileName);
+                if (!exists) {
+                  currentSnaps.push(JSON.parse(JSON.stringify(ds)));
+                  hasNew = true;
+                }
+              });
+              currentSnaps.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+            }
+          });
+          if (hasNew) {
+            saveMonitoringToIndexedDB();
           }
-        });
-        if (hasNew) {
-          saveMonitoringToIndexedDB();
         }
       }
-    }
-    refreshMonitoringAnalysis();
-  });
+      refreshMonitoringAnalysis();
+    });
+  }
 }
 
 // EVALUACIÓN DE STOCK EN SITIO POR FOLIO Y SERIE DE SUMINISTRO
@@ -487,15 +502,54 @@ function evaluateFolioStockStatus(folio, currentInstalledSerie) {
 
 // MOTOR DE DIAGNÓSTICO INTELIGENTE & CRUCE CON FOLIOS Y RDI
 function refreshMonitoringAnalysis() {
-  // 1. Indexar Folios por Serie de Equipo
+  // 1. Indexar y clasificar Folios por Serie de Equipo O(N) una sola vez
   const foliosBySerie = new Map();
   const allFolios = (typeof sheetStore !== 'undefined' && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'] : [];
+
+  // Asegurar indexación de metadatos numéricos _ts y _folioNum para comparación rápida
+  if (typeof indexFoliosMetadata === 'function') {
+    indexFoliosMetadata(allFolios);
+  }
+
   allFolios.forEach(f => {
     const ser = (f['SERIE'] || '').toString().trim().toUpperCase();
-    if (ser) {
-      if (!foliosBySerie.has(ser)) foliosBySerie.set(ser, []);
-      foliosBySerie.get(ser).push(f);
+    if (!ser) return;
+    let entry = foliosBySerie.get(ser);
+    if (!entry) {
+      entry = { all: [], tnr: [], udi: [], kmt: [] };
+      foliosBySerie.set(ser, entry);
     }
+    entry.all.push(f);
+
+    const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
+    const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
+
+    if (t === 'TNR' || t.includes('TONER') || t.includes('TNR') || d.includes('TONER') || d.includes('TNR')) {
+      entry.tnr.push(f);
+    }
+    if (t === 'UDI' || t.includes('IMAGEN') || t.includes('DRUM') || t.includes('UDI') || d.includes('IMAGEN') || d.includes('DRUM') || d.includes('UDI')) {
+      entry.udi.push(f);
+    }
+    if (t === 'KMT' || t.includes('MANT') || t.includes('FUSOR') || t.includes('KMT') || d.includes('MANTENIMIENTO') || d.includes('FUSOR') || d.includes('KMT')) {
+      entry.kmt.push(f);
+    }
+  });
+
+  // Ordenar cada lista de cada serie una sola vez usando comparación numérica directa
+  const sortFoliosFn = (a, b) => {
+    const tsA = a._ts !== undefined ? a._ts : (typeof getRowDateTimestamp === 'function' ? getRowDateTimestamp(a) : 0);
+    const tsB = b._ts !== undefined ? b._ts : (typeof getRowDateTimestamp === 'function' ? getRowDateTimestamp(b) : 0);
+    if (tsB !== tsA) return tsB - tsA;
+    const numA = a._folioNum !== undefined ? a._folioNum : (parseInt(String(a['FOLIO'] || a['FOLIO '] || '').replace(/\D/g, ''), 10) || 0);
+    const numB = b._folioNum !== undefined ? b._folioNum : (parseInt(String(b['FOLIO'] || b['FOLIO '] || '').replace(/\D/g, ''), 10) || 0);
+    return numB - numA;
+  };
+
+  foliosBySerie.forEach(entry => {
+    entry.all.sort(sortFoliosFn);
+    entry.tnr.sort(sortFoliosFn);
+    entry.udi.sort(sortFoliosFn);
+    entry.kmt.sort(sortFoliosFn);
   });
 
   // 2. Determinar Clientes a Evaluar
@@ -592,36 +646,12 @@ function refreshMonitoringAnalysis() {
                        (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 5);
       const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 3);
 
-      // Salidas registradas en FOLIOS para este equipo ordenadas cronológicamente (más recientes al inicio)
-      const equipFolios = foliosBySerie.get(serieUpper) || [];
-      const sortedFolios = [...equipFolios].sort((a, b) => {
-        const tsA = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(a) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(a['FECHA'])?.getTime() : 0) || (a['FECHA'] ? new Date(a['FECHA']).getTime() : 0) || 0);
-        const tsB = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(b) : ((typeof parseFlexibleDate === 'function' ? parseFlexibleDate(b['FECHA'])?.getTime() : 0) || (b['FECHA'] ? new Date(b['FECHA']).getTime() : 0) || 0);
-        if (tsB !== tsA) return tsB - tsA;
-        const numA = parseInt(String(a['FOLIO'] || a['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
-        const numB = parseInt(String(b['FOLIO'] || b['FOLIO '] || '').replace(/\D/g, ''), 10) || 0;
-        if (numB !== numA) return numB - numA;
-        return 0;
-      });
-
-      // Filtrar folios exclusivos por tipo de suministro (TNR vs UDI vs KMT)
-      const tnrFolios = sortedFolios.filter(f => {
-        const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
-        const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
-        return t === 'TNR' || t.includes('TONER') || t.includes('TNR') || d.includes('TONER') || d.includes('TNR');
-      });
-
-      const udiFolios = sortedFolios.filter(f => {
-        const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
-        const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
-        return t === 'UDI' || t.includes('IMAGEN') || t.includes('DRUM') || t.includes('UDI') || d.includes('IMAGEN') || d.includes('DRUM') || d.includes('UDI');
-      });
-
-      const kmtFolios = sortedFolios.filter(f => {
-        const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
-        const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
-        return t === 'KMT' || t.includes('MANT') || t.includes('FUSOR') || t.includes('KMT') || d.includes('MANTENIMIENTO') || d.includes('FUSOR') || d.includes('KMT');
-      });
+      // Salidas registradas en FOLIOS pre-clasificadas y pre-ordenadas cronológicamente O(1)
+      const equipEntry = foliosBySerie.get(serieUpper) || { all: [], tnr: [], udi: [], kmt: [] };
+      const sortedFolios = equipEntry.all;
+      const tnrFolios = equipEntry.tnr;
+      const udiFolios = equipEntry.udi;
+      const kmtFolios = equipEntry.kmt;
 
       const lastTnrFolio = tnrFolios[0] || null;
       const lastUdiFolio = udiFolios[0] || null;
@@ -1267,7 +1297,7 @@ function dispatchTicketFromAlert(serie, modelo, cliente, ubicacion) {
   if (typeof openNewOdsModal === 'function') {
     openNewOdsModal({ serie, modelo, cliente, ubicacion });
   } else if (typeof switchSuiteTab === 'function') {
-    switchSuiteTab('ods');
+    switchSuiteTab('tickets');
     if (typeof showToast === 'function') {
       showToast(`Creando Ticket ODS para equipo ${serie}...`);
     }
@@ -1357,8 +1387,12 @@ function renderMonitoringTable() {
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-  const cardsFragment = document.createDocumentFragment();
+  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 1024;
+  const renderCards = monitoringViewMode === 'cards' || (monitoringViewMode === 'auto' && isMobileScreen);
+  const renderTable = monitoringViewMode === 'table' || (monitoringViewMode === 'auto' && !isMobileScreen);
+
+  const fragment = renderTable ? document.createDocumentFragment() : null;
+  const cardsFragment = renderCards ? document.createDocumentFragment() : null;
 
   pageRows.forEach((r, idx) => {
     // Barra de Tóner
@@ -1467,7 +1501,7 @@ function renderMonitoringTable() {
     }
 
     // 1. RENDERIZADO EN TABLA (Escritorio / Tablet)
-    if (tbody) {
+    if (tbody && renderTable) {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-rose-50/40 dark:hover:bg-slate-700/60 active:bg-rose-100/50 transition border-b border-slate-100 dark:border-slate-800 cursor-pointer touch-manipulation select-none';
       tr.setAttribute('role', 'button');
@@ -1580,7 +1614,7 @@ function renderMonitoringTable() {
     }
 
     // 2. RENDERIZADO EN TARJETAS MÓVILES (Smartphone Friendly)
-    if (cardsContainer) {
+    if (cardsContainer && renderCards) {
       const card = document.createElement('div');
       card.className = 'bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-500 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] active:bg-rose-50/20 dark:active:bg-slate-700/60 transition touch-manipulation select-none';
       card.setAttribute('role', 'button');
@@ -1721,8 +1755,8 @@ function renderMonitoringTable() {
     }
   });
 
-  if (tbody) tbody.appendChild(fragment);
-  if (cardsContainer) cardsContainer.appendChild(cardsFragment);
+  if (tbody && fragment) tbody.appendChild(fragment);
+  if (cardsContainer && cardsFragment) cardsContainer.appendChild(cardsFragment);
 }
 
 // Acción Rápida: Despachar Salida Precargada en FOLIOS
