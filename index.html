@@ -2408,6 +2408,13 @@
     let dateCols = [];
     let isDashboardAnalysisActive = false;
 
+    // ALIAS DE SEGURIDAD PARA ALTERNAR PESTAÑAS
+    function switchTab(tabId) {
+      if (typeof switchSuiteTab === 'function') {
+        return switchSuiteTab(tabId);
+      }
+    }
+
     // Estado del Filtro de Fechas
     const SPANISH_MONTH_NAMES = [
       'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
@@ -2474,7 +2481,8 @@
     let sheetStateMap = {};
 
     // INICIALIZACIÓN
-    document.addEventListener('DOMContentLoaded', async () => {
+    async function initApplication() {
+      console.log("[INIT] initApplication started. readyState:", document.readyState);
       setupExitProtection();
       setupDragAndDrop();
       setupFileInputs();
@@ -2497,9 +2505,11 @@
 
       // 1. Intentar cargar desde Base de Datos Local Permanente (IndexedDB) con carrera de tiempo (máx 2.5s)
       try {
+        console.log("[INIT] Step 1: Checking IndexedDB...");
         const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2500));
         const savedState = await Promise.race([loadFromIndexedDB(), timeoutPromise]);
         if (savedState && savedState.sheetStore && Object.keys(savedState.sheetStore).length > 0) {
+          console.log("[INIT] Restoring from IndexedDB...");
           const restored = restoreSuiteFromSavedState(savedState);
           if (restored) {
             showToast(`🟢 Base local restaurada (${new Date(savedState.timestamp).toLocaleTimeString()}).`);
@@ -2512,28 +2522,59 @@
 
       // 2. Intentar auto-cargar SUITE.xlsm local si está en la misma carpeta
       try {
+        console.log("[INIT] Step 2: Fetching SUITE.xlsm...");
         const resp = await fetch('./SUITE.xlsm?v=' + Date.now());
         if (resp.ok) {
+          console.log("[INIT] SUITE.xlsm fetched successfully, parsing...");
           const ab = await resp.arrayBuffer();
           const wb = XLSX.read(ab, { type: 'array', cellDates: true, raw: false });
           rawWorkbook = wb;
           sheetStateMap = {};
           sheetStore = {};
-          currentSheetName = rawWorkbook.SheetNames[0];
+          currentSheetName = rawWorkbook.SheetNames.includes('ODS') ? 'ODS' : rawWorkbook.SheetNames[0];
+
+          document.getElementById('activeFileName').textContent = "SUITE.xlsm";
+          document.getElementById('activeFileSize').textContent = formatBytes(ab.byteLength);
+          document.getElementById('fileTypeBadge').textContent = "XLSM (MACROS)";
+
+          const sheetSelect = document.getElementById('sheetSelect');
+          if (sheetSelect) {
+            sheetSelect.innerHTML = '';
+            rawWorkbook.SheetNames.forEach(name => {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              sheetSelect.appendChild(opt);
+            });
+            sheetSelect.value = currentSheetName;
+            document.getElementById('sheetSelectorContainer')?.classList.remove('hidden');
+          }
+
           initSuiteModules();
           populateDashboardSheetsSelector();
-          updateDashboardDemandStarterUI();
+          switchSuiteTab('dashboard');
+          runDashboardAnalysisOnDemand(currentSheetName);
           saveToIndexedDB();
           showToast(`⚡ SUITE.xlsm preparado (${wb.SheetNames.length} hojas listas).`);
           return;
         }
       } catch (e) {
-        // Normal en file:// si no hay servidor local
+        console.error("Error al cargar SUITE.xlsm:", e);
       }
 
       // 3. Si no hay datos guardados aún, cargar la Suite Integral IEXCA por defecto
-      loadSuiteIEXCADemo();
-    });
+      try {
+        loadSuiteIEXCADemo();
+      } catch (errDemo) {
+        console.error("Error en demo de respaldo:", errDemo);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApplication);
+    } else {
+      initApplication();
+    }
 
     // PROTECCIÓN CONTRA SALIDA ACCIDENTAL (EVITA PERDER FILTROS Y DATOS)
     function setupExitProtection() {
@@ -2790,7 +2831,8 @@
           currentSheetName = rawWorkbook.SheetNames[0];
           initSuiteModules();
           populateDashboardSheetsSelector();
-          updateDashboardDemandStarterUI();
+          switchSuiteTab('dashboard');
+          runDashboardAnalysisOnDemand(currentSheetName);
 
           // Sincronizar de inmediato con la Base de Datos Local Permanente
           saveToIndexedDB();
@@ -6344,7 +6386,8 @@
       // Inicializar módulos de la Suite pasando skipSheetParsing = true para máxima velocidad
       initSuiteModules(true);
       populateDashboardSheetsSelector();
-      updateDashboardDemandStarterUI();
+      switchSuiteTab('dashboard');
+      runDashboardAnalysisOnDemand(currentSheetName);
 
       updateStorageUI('loaded', state.timestamp);
       return true;
@@ -6733,7 +6776,7 @@
       });
 
       if (datalistTec) { const f = document.createDocumentFragment(); tecnicosSet.forEach(t => { const o = document.createElement('option'); o.value = t; f.appendChild(o); }); datalistTec.appendChild(f); }
-      if (datalistFal) { const f = document.createDocumentFragment(); fallasSet.forEach(t => { const o = document.createElement('option'); o.value = f; f.appendChild(o); }); datalistFal.appendChild(f); }
+      if (datalistFal) { const f = document.createDocumentFragment(); fallasSet.forEach(t => { const o = document.createElement('option'); o.value = t; f.appendChild(o); }); datalistFal.appendChild(f); }
       if (datalistCli) { const f = document.createDocumentFragment(); clientesSet.forEach(c => { const o = document.createElement('option'); o.value = c; f.appendChild(o); }); datalistCli.appendChild(f); }
 
       // Actualizar Badges y Contadores
@@ -8269,6 +8312,7 @@
 
       list.forEach((item, idx) => {
         const rawSerie = (item['SERIE'] || item['Serie'] || item['serie'] || '').toString().trim();
+        if (rawSerie) {
           let mod = (item['MOD'] || item['MODELO'] || item['Modelo'] || item['Mod'] || '').toString().trim();
           if (typeof normalizeMarkVisionModel === 'function' && mod) {
             mod = normalizeMarkVisionModel(mod);
@@ -8927,7 +8971,8 @@
       sheetSelect.value = "ODS";
       initSuiteModules();
       populateDashboardSheetsSelector();
-      updateDashboardDemandStarterUI();
+      switchSuiteTab('dashboard');
+      runDashboardAnalysisOnDemand("ODS");
 
       // Guardar en la Base de Datos Local Permanente
       saveToIndexedDB();
