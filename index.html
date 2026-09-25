@@ -2070,26 +2070,26 @@
         </div>
       </div>
 
-      <!-- Barra de Acciones Inferior -->
-      <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-        <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-          <button type="button" onclick="copyAppSheetOrderToClipboard()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition" title="Copiar resumen con etiquetas en mayúsculas">
-            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-            <span>📋 Copiar Resumen</span>
-          </button>
-          <button type="button" onclick="copyAppSheetOrderRowTabbed()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition" title="Copiar 20 columnas separadas por tabulador (para pegar directo en filas de Excel o AppSheet)">
-            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            <span>📑 Copiar Fila Tabulada</span>
-          </button>
-        </div>
+      <!-- Barra de Acciones Inferior Optimizada para Móviles -->
+      <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <!-- Botón Principal Abrir en AppSheet (Máxima prominencia y área táctil de 48px+ en móvil) -->
+        <button type="button" onclick="launchAppSheetOrder(event)" class="w-full sm:w-auto order-first sm:order-last inline-flex items-center justify-center gap-2 px-5 py-3.5 sm:py-2.5 text-sm sm:text-xs font-black bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl shadow-md active:scale-[0.98] transition touch-manipulation cursor-pointer select-none min-h-[48px]" title="Abrir AppSheet con los datos precargados">
+          <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          <span class="pointer-events-none">🚀 Abrir Pedido en AppSheet</span>
+        </button>
 
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-          <button type="button" onclick="dispatchDirectToFoliosFromModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3.5 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl transition" title="Registrar también en hoja interna FOLIOS">
+        <!-- Botones Secundarios: FOLIOS, Copiar Resumen, Fila Tabulada -->
+        <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+          <button type="button" onclick="dispatchDirectToFoliosFromModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-2.5 sm:py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl transition min-h-[40px] touch-manipulation" title="Registrar también en hoja interna FOLIOS">
             <span>📦 Registrar en FOLIOS</span>
           </button>
-          <button type="button" onclick="launchAppSheetOrder()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition" title="Abrir AppSheet con los datos precargados">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-            <span>🚀 Abrir Pedido en AppSheet</span>
+          <button type="button" onclick="copyAppSheetOrderToClipboard()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition min-h-[40px] touch-manipulation" title="Copiar resumen con etiquetas en mayúsculas">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span>📋 Resumen</span>
+          </button>
+          <button type="button" onclick="copyAppSheetOrderRowTabbed()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition min-h-[40px] touch-manipulation" title="Copiar 20 columnas separadas por tabulador">
+            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>📑 Fila Tab</span>
           </button>
         </div>
       </div>
@@ -7763,14 +7763,24 @@
       showToast("Registro eliminado de FOLIOS exitosamente.");
     }
 
+    function formatSupplySerie(raw) {
+      if (!raw) return '';
+      let s = String(raw).trim().toUpperCase();
+      if (!s || s === 'SIN DATO' || s === 'N/A' || s === 'NULL' || s === 'NO DISPONIBLE' || s === '-' || s === 'N/D') return '';
+      if (s.startsWith('S')) return s;
+      if (/^[A-Z0-9]{3,}/i.test(s)) return 'S' + s;
+      return s;
+    }
+
     function saveSalidaFolios(e) {
       e.preventDefault();
       const editIdx = parseInt(document.getElementById('salidaEditIndex').value, 10);
       const folioVal = parseInt(document.getElementById('salidaFolioInput').value, 10) || getNextFolioNumber();
       const fechaVal = document.getElementById('salidaFecha').value;
       const fDate = new Date(fechaVal);
-      const mesName = SPANISH_FULL_MONTHS[fDate.getMonth()] || '01 - Enero';
+      const mesName = (SPANISH_FULL_MONTHS[fDate.getMonth()] || '01 - Enero').toUpperCase();
       const anioNum = fDate.getFullYear();
+      const rawSerieSum = document.getElementById('salidaSerieSum').value.trim();
 
       const newRow = {
         'FOLIO': folioVal,
@@ -7778,18 +7788,18 @@
         'FECHA': fechaVal,
         'MES': mesName,
         'AÑO': anioNum,
-        'SERIE SUM': document.getElementById('salidaSerieSum').value.trim(),
-        'NUMPART': document.getElementById('salidaNumPart').value.trim(),
-        'DESCRIPCION': document.getElementById('salidaDescripcion').value.trim(),
-        'TIPO SUM': document.getElementById('salidaTipoSum').value,
+        'SERIE SUM': formatSupplySerie(rawSerieSum),
+        'NUMPART': document.getElementById('salidaNumPart').value.trim().toUpperCase(),
+        'DESCRIPCION': document.getElementById('salidaDescripcion').value.trim().toUpperCase(),
+        'TIPO SUM': document.getElementById('salidaTipoSum').value.toUpperCase(),
         'CANT': parseFloat(document.getElementById('salidaCant').value) || 1,
-        'SERIE': document.getElementById('salidaSerieEquipo').value.trim(),
-        'MODELO': document.getElementById('salidaModelo').value.trim(),
-        'UBICACIÓN': document.getElementById('salidaDestino').value.trim(),
-        'DET': document.getElementById('salidaDet').value.trim(),
-        'DESTINO': document.getElementById('salidaDestino').value.trim(),
-        'CLIENTE': document.getElementById('salidaCliente').value.trim(),
-        'ESTADO SUM': document.getElementById('salidaEstadoSum').value
+        'SERIE': document.getElementById('salidaSerieEquipo').value.trim().toUpperCase(),
+        'MODELO': document.getElementById('salidaModelo').value.trim().toUpperCase(),
+        'UBICACIÓN': document.getElementById('salidaDestino').value.trim().toUpperCase(),
+        'DET': document.getElementById('salidaDet').value.trim().toUpperCase(),
+        'DESTINO': document.getElementById('salidaDestino').value.trim().toUpperCase(),
+        'CLIENTE': document.getElementById('salidaCliente').value.trim().toUpperCase(),
+        'ESTADO SUM': document.getElementById('salidaEstadoSum').value.toUpperCase()
       };
 
       if (!sheetStore['FOLIOS']) sheetStore['FOLIOS'] = [];
@@ -7810,15 +7820,15 @@
 
       // Auto-registro o actualización en Catálogo RDI si está marcado
       const checkSaveRdi = document.getElementById('salidaCheckSaveRdi')?.checked;
-      const serieEq = document.getElementById('salidaSerieEquipo').value.trim();
+      const serieEq = document.getElementById('salidaSerieEquipo').value.trim().toUpperCase();
       if (checkSaveRdi && serieEq) {
         registerOrUpdateRdiEquipment({
           SERIE: serieEq,
-          MOD: document.getElementById('salidaModelo').value.trim(),
-          CLIENTE: document.getElementById('salidaCliente').value.trim(),
-          TIENDA: document.getElementById('salidaDestino').value.trim(),
-          DET: document.getElementById('salidaDet').value.trim(),
-          DIRECCION: document.getElementById('salidaDestino').value.trim(),
+          MOD: document.getElementById('salidaModelo').value.trim().toUpperCase(),
+          CLIENTE: document.getElementById('salidaCliente').value.trim().toUpperCase(),
+          TIENDA: document.getElementById('salidaDestino').value.trim().toUpperCase(),
+          DET: document.getElementById('salidaDet').value.trim().toUpperCase(),
+          DIRECCION: document.getElementById('salidaDestino').value.trim().toUpperCase(),
           PROPIEDAD: 'IEXCA'
         }, false);
       }
@@ -8224,26 +8234,26 @@
       const modeloVal = document.getElementById('ticketModelo').value.trim();
 
       const newRow = {
-        'ID TICKET': ticketId,
+        'ID TICKET': ticketId.toUpperCase(),
         'FECHA': fechaVal,
-        'MEDIO DE REPORTE': document.getElementById('ticketMedioReporte').value,
-        'ESTADO': document.getElementById('ticketEstado').value,
-        'PROBLEMA REPORTADO': document.getElementById('ticketProblema').value.trim(),
-        'CONTACTO': document.getElementById('ticketContacto').value.trim(),
-        'TIPO ASISTENCIA': document.getElementById('ticketTipoAsistencia').value,
-        'SERIE': serieEquipo,
-        'MOD': modeloVal,
-        'IP': document.getElementById('ticketIp').value.trim(),
-        'DET': document.getElementById('ticketDet').value.trim(),
-        'TIENDA': tiendaVal,
-        'FORMATO': document.getElementById('ticketFormato').value.trim(),
-        'CLIENTE': clienteVal,
-        'PROPIEDAD': document.getElementById('ticketPropiedad').value.trim(),
-        'DIRECCIÓN': document.getElementById('ticketDireccion').value.trim(),
-        'TECNICO1': document.getElementById('ticketTecnico1').value.trim(),
-        'TECNICO2': document.getElementById('ticketTecnico2').value.trim(),
-        'SERVICIO REALIZADO': document.getElementById('ticketServicioRealizado').value.trim(),
-        'DESCRIPCIÓN DEL SERVICIO': document.getElementById('ticketDescripcion').value.trim()
+        'MEDIO DE REPORTE': document.getElementById('ticketMedioReporte').value.toUpperCase(),
+        'ESTADO': document.getElementById('ticketEstado').value.toUpperCase(),
+        'PROBLEMA REPORTADO': document.getElementById('ticketProblema').value.trim().toUpperCase(),
+        'CONTACTO': document.getElementById('ticketContacto').value.trim().toUpperCase(),
+        'TIPO ASISTENCIA': document.getElementById('ticketTipoAsistencia').value.toUpperCase(),
+        'SERIE': serieEquipo.toUpperCase(),
+        'MOD': modeloVal.toUpperCase(),
+        'IP': document.getElementById('ticketIp').value.trim().toUpperCase(),
+        'DET': document.getElementById('ticketDet').value.trim().toUpperCase(),
+        'TIENDA': tiendaVal.toUpperCase(),
+        'FORMATO': document.getElementById('ticketFormato').value.trim().toUpperCase(),
+        'CLIENTE': clienteVal.toUpperCase(),
+        'PROPIEDAD': document.getElementById('ticketPropiedad').value.trim().toUpperCase(),
+        'DIRECCIÓN': document.getElementById('ticketDireccion').value.trim().toUpperCase(),
+        'TECNICO1': document.getElementById('ticketTecnico1').value.trim().toUpperCase(),
+        'TECNICO2': document.getElementById('ticketTecnico2').value.trim().toUpperCase(),
+        'SERVICIO REALIZADO': document.getElementById('ticketServicioRealizado').value.trim().toUpperCase(),
+        'DESCRIPCIÓN DEL SERVICIO': document.getElementById('ticketDescripcion').value.trim().toUpperCase()
       };
 
       if (!sheetStore['ODS']) sheetStore['ODS'] = [];
@@ -8264,25 +8274,25 @@
       const matNumPart = document.getElementById('ticketMaterialNumPart')?.value.trim();
       if (autoFolios && matNumPart) {
         const matSerie = document.getElementById('ticketMaterialSerieSum')?.value.trim();
-        const matDesc = document.getElementById('ticketMaterialDesc')?.value.trim() || 'Suministro utilizado en ' + ticketId;
+        const matDesc = (document.getElementById('ticketMaterialDesc')?.value.trim() || 'SUMINISTRO UTILIZADO EN ' + ticketId).toUpperCase();
         const fDate = new Date(fechaVal);
         const autoFolioNum = getNextFolioNumber();
         const autoSalida = {
           'FOLIO': autoFolioNum,
           'FOLIO ': autoFolioNum,
           'FECHA': fechaVal,
-          'MES': SPANISH_FULL_MONTHS[fDate.getMonth()] || '',
+          'MES': (SPANISH_FULL_MONTHS[fDate.getMonth()] || '').toUpperCase(),
           'AÑO': fDate.getFullYear(),
-          'SERIE SUM': matSerie,
-          'NUMPART': matNumPart,
+          'SERIE SUM': formatSupplySerie(matSerie),
+          'NUMPART': matNumPart.toUpperCase(),
           'DESCRIPCION': matDesc,
           'TIPO SUM': 'TNR',
           'CANT': 1,
-          'SERIE': serieEquipo,
-          'MODELO': modeloVal,
-          'DESTINO': tiendaVal,
-          'CLIENTE': clienteVal,
-          'DET': document.getElementById('ticketDet').value.trim(),
+          'SERIE': serieEquipo.toUpperCase(),
+          'MODELO': modeloVal.toUpperCase(),
+          'DESTINO': tiendaVal.toUpperCase(),
+          'CLIENTE': clienteVal.toUpperCase(),
+          'DET': document.getElementById('ticketDet').value.trim().toUpperCase(),
           'ESTADO SUM': 'INSTALADO'
         };
         if (!sheetStore['FOLIOS']) sheetStore['FOLIOS'] = [];
@@ -8299,15 +8309,15 @@
       const checkSaveRdi = document.getElementById('ticketCheckSaveRdi')?.checked;
       if (checkSaveRdi && serieEquipo) {
         registerOrUpdateRdiEquipment({
-          SERIE: serieEquipo,
-          MOD: modeloVal,
-          CLIENTE: clienteVal,
-          TIENDA: tiendaVal,
-          FORMATO: document.getElementById('ticketFormato').value.trim(),
-          DET: document.getElementById('ticketDet').value.trim(),
-          IP: document.getElementById('ticketIp').value.trim(),
-          PROPIEDAD: document.getElementById('ticketPropiedad').value.trim() || 'IEXCA',
-          DIRECCION: document.getElementById('ticketDireccion').value.trim()
+          SERIE: serieEquipo.toUpperCase(),
+          MOD: modeloVal.toUpperCase(),
+          CLIENTE: clienteVal.toUpperCase(),
+          TIENDA: tiendaVal.toUpperCase(),
+          FORMATO: document.getElementById('ticketFormato').value.trim().toUpperCase(),
+          DET: document.getElementById('ticketDet').value.trim().toUpperCase(),
+          IP: document.getElementById('ticketIp').value.trim().toUpperCase(),
+          PROPIEDAD: (document.getElementById('ticketPropiedad').value.trim() || 'IEXCA').toUpperCase(),
+          DIRECCION: document.getElementById('ticketDireccion').value.trim().toUpperCase()
         }, false);
       }
 
@@ -8636,16 +8646,16 @@
 
       const cleanObj = {
         'SERIE': serie,
-        'MOD': (equipmentData.MOD || equipmentData.MODELO || '').toString().trim(),
-        'CLIENTE': (equipmentData.CLIENTE || '').toString().trim(),
-        'TIENDA': (equipmentData.TIENDA || '').toString().trim(),
-        'FORMATO': (equipmentData.FORMATO || 'CORPORATIVO').toString().trim(),
-        'DET': (equipmentData.DET || equipmentData['CECO/DET'] || '').toString().trim(),
-        'DEPTO': (equipmentData.DEPTO || '').toString().trim(),
-        'IP': (equipmentData.IP || 'PENDIENTE').toString().trim(),
-        'PROPIEDAD': (equipmentData.PROPIEDAD || 'IEXCA').toString().trim(),
-        'DIRECCIÓN': (equipmentData.DIRECCION || equipmentData['DIRECCIÓN'] || '').toString().trim(),
-        'PAÍS': (equipmentData.PAIS || equipmentData['PAÍS'] || 'El Salvador').toString().trim()
+        'MOD': (equipmentData.MOD || equipmentData.MODELO || '').toString().trim().toUpperCase(),
+        'CLIENTE': (equipmentData.CLIENTE || '').toString().trim().toUpperCase(),
+        'TIENDA': (equipmentData.TIENDA || '').toString().trim().toUpperCase(),
+        'FORMATO': (equipmentData.FORMATO || 'CORPORATIVO').toString().trim().toUpperCase(),
+        'DET': (equipmentData.DET || equipmentData['CECO/DET'] || '').toString().trim().toUpperCase(),
+        'DEPTO': (equipmentData.DEPTO || '').toString().trim().toUpperCase(),
+        'IP': (equipmentData.IP || 'PENDIENTE').toString().trim().toUpperCase(),
+        'PROPIEDAD': (equipmentData.PROPIEDAD || 'IEXCA').toString().trim().toUpperCase(),
+        'DIRECCIÓN': (equipmentData.DIRECCION || equipmentData['DIRECCIÓN'] || '').toString().trim().toUpperCase(),
+        'PAÍS': (equipmentData.PAIS || equipmentData['PAÍS'] || 'EL SALVADOR').toString().trim().toUpperCase()
       };
 
       const existingIdx = sheetStore['RDI'].findIndex(r => {

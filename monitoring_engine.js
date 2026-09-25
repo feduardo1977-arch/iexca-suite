@@ -147,6 +147,28 @@ function extractDateFromFileName(fileName) {
 }
 
 
+// Formateo y estandarización de Series de Suministros (Tóner, UDI, KMT)
+// Antepone 'S' a las series de suministros si falta (ej: CAB... -> SCAB..., CAD... -> SCAD...)
+function formatSupplySerie(raw) {
+  if (!raw) return '';
+  let s = String(raw).trim().toUpperCase();
+  if (!s || s === 'SIN DATO' || s === 'N/A' || s === 'NULL' || s === 'NO DISPONIBLE' || s === '-' || s === 'N/D') {
+    return '';
+  }
+  // Si ya comienza con 'S' (ej. SCAB, SCAD, S...), se mantiene tal cual
+  if (s.startsWith('S')) {
+    return s;
+  }
+  // Si comienza con letras o dígitos (ej. CAB..., CAD...), anteponer 'S' según especificación
+  if (/^[A-Z0-9]{3,}/i.test(s)) {
+    return 'S' + s;
+  }
+  return s;
+}
+if (typeof window !== 'undefined') {
+  window.formatSupplySerie = formatSupplySerie;
+}
+
 // Normalización de modelos reconocidos por MarkVision Fleet Manager
 function normalizeMarkVisionModel(rawModel, serie) {
   const sUpper = (serie || '').toString().trim().toUpperCase();
@@ -267,22 +289,22 @@ function parseLexmarkFleetCsv(csvText, fileName) {
     if (!serie) continue;
 
     const rawMod = modIdx >= 0 ? cols[modIdx] : '';
-    const cleanMod = normalizeMarkVisionModel(rawMod, serie);
+    const cleanMod = (normalizeMarkVisionModel(rawMod, serie) || '').toUpperCase();
 
     rows.push({
       ip: cleanIpAddress(ipIdx >= 0 ? cols[ipIdx] : ''),
-      ubicacion: kwIdx >= 0 ? cols[kwIdx] : '',
+      ubicacion: (kwIdx >= 0 ? cols[kwIdx] : '').trim().toUpperCase(),
       modelo: cleanMod,
       serie: serie,
       tnrNivel: tnrNivelIdx >= 0 ? parseNivel(cols[tnrNivelIdx]) : null,
-      tnrSerie: (tnrSerieIdx >= 0 && cols[tnrSerieIdx] ? cols[tnrSerieIdx] : '').trim().toUpperCase(),
+      tnrSerie: formatSupplySerie(tnrSerieIdx >= 0 && cols[tnrSerieIdx] ? cols[tnrSerieIdx] : ''),
       paginasCarro: pagCarroIdx >= 0 ? cols[pagCarroIdx] : '',
       capacidadTnr: capTnrIdx >= 0 ? cols[capTnrIdx] : '',
       fechaInstalacionTnr: fecInstIdx >= 0 ? cols[fecInstIdx] : '',
       udiNivel: udiNivelIdx >= 0 ? parseNivel(cols[udiNivelIdx]) : null,
-      udiSerie: (udiSerieIdx >= 0 && cols[udiSerieIdx] ? cols[udiSerieIdx] : '').trim().toUpperCase(),
+      udiSerie: formatSupplySerie(udiSerieIdx >= 0 && cols[udiSerieIdx] ? cols[udiSerieIdx] : ''),
       kmtNivel: kmtNivelIdx >= 0 ? parseNivel(cols[kmtNivelIdx]) : null,
-      estadoSuministro: estadoIdx >= 0 ? cols[estadoIdx] : 'Aceptar'
+      estadoSuministro: (estadoIdx >= 0 ? cols[estadoIdx] : 'Aceptar').trim().toUpperCase()
     });
   }
 
@@ -555,7 +577,8 @@ function evaluateFolioStockStatus(folio, currentInstalledSerie) {
   if (!folio) return { inStock: false, inTransit: false, consumed: false, status: 'NONE' };
 
   const est = (folio['ESTADO SUM'] || folio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
-  const folSerie = (folio['SERIE SUM'] || folio['SERIE_SUM'] || folio['SERIE SUMINISTRO'] || '').toString().trim().toUpperCase();
+  const folSerie = formatSupplySerie(folio['SERIE SUM'] || folio['SERIE_SUM'] || folio['SERIE SUMINISTRO'] || '');
+  const currentInstalled = formatSupplySerie(currentInstalledSerie);
   const folNum = getFolioNumber(folio);
 
   // 1. Estados explícitos de STOCK disponible en sitio (Reserva no consumida en tienda)
@@ -579,7 +602,7 @@ function evaluateFolioStockStatus(folio, currentInstalledSerie) {
   // 4. ENTREGADO / RECIBIDO:
   // Si la serie del cartucho despachado coincide con la serie del cartucho actualmente instalado en el impresor,
   // significa que ya fue colocado y se encuentra en uso (y si el nivel está bajo <= 15%, está agotándose).
-  if (folSerie && currentInstalledSerie && folSerie === currentInstalledSerie.toString().trim().toUpperCase()) {
+  if (folSerie && currentInstalled && folSerie === currentInstalled) {
     return { inStock: false, inTransit: false, consumed: true, status: 'INSTALLED_MATCH', folio, folNum, folSerie, est };
   }
 
@@ -691,13 +714,13 @@ function refreshMonitoringAnalysis() {
 
       // Datos RDI
       const rdiInfo = (typeof rdiMapBySerie !== 'undefined') ? rdiMapBySerie.get(serieUpper) : null;
-      const rdiModelo = rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || rdiInfo.Modelo || '').toString().trim() : '';
-      const displayModelo = (rdiModelo && !/^(SIN DATO|SIN MODELO|S\/N|N\/D)$/i.test(rdiModelo))
+      const rdiModelo = rdiInfo ? (rdiInfo.MOD || rdiInfo.MODELO || rdiInfo.Modelo || '').toString().trim().toUpperCase() : '';
+      const displayModelo = ((rdiModelo && !/^(SIN DATO|SIN MODELO|S\/N|N\/D)$/i.test(rdiModelo))
         ? rdiModelo
-        : (normalizeMarkVisionModel(row.modelo, serieUpper) || 'N/D');
-      const displayUbicacion = row.ubicacion || (rdiInfo ? `${rdiInfo.TIENDA} - ${rdiInfo.DET}` : '') || 'N/D';
-      const displayCliente = clientName || (rdiInfo ? rdiInfo.CLIENTE : '') || 'N/D';
-      const displayDet = (rdiInfo && rdiInfo.DET) ? rdiInfo.DET : '';
+        : (normalizeMarkVisionModel(row.modelo, serieUpper) || 'N/D')).toUpperCase();
+      const displayUbicacion = (row.ubicacion || (rdiInfo ? `${rdiInfo.TIENDA} - ${rdiInfo.DET}` : '') || 'N/D').toUpperCase();
+      const displayCliente = (clientName || (rdiInfo ? rdiInfo.CLIENTE : '') || 'N/D').toUpperCase();
+      const displayDet = ((rdiInfo && rdiInfo.DET) ? rdiInfo.DET : '').toUpperCase();
 
       // Cálculo de Deltas y Detección de Reemplazo
       let deltaTnr = null;
@@ -945,7 +968,7 @@ function refreshMonitoringAnalysis() {
         det: displayDet,
         ip: cleanIpAddress(row.ip || (rdiInfo ? rdiInfo.IP : '')),
         tnrNivel: row.tnrNivel,
-        tnrSerie: row.tnrSerie,
+        tnrSerie: formatSupplySerie(row.tnrSerie),
         paginasCarro: row.paginasCarro,
         deltaTnr,
         tnrReplaced,
@@ -953,7 +976,7 @@ function refreshMonitoringAnalysis() {
         reasonTnr,
         isTnrLow,
         udiNivel: row.udiNivel,
-        udiSerie: row.udiSerie,
+        udiSerie: formatSupplySerie(row.udiSerie),
         deltaUdi,
         udiReplaced,
         diagUdi,
@@ -1977,7 +2000,12 @@ function renderMonitoringTable() {
           <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
             <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
           </div>
-          <p class="text-[10px] font-mono text-slate-400 mt-1 truncate" title="Serie TNR instalada: ${r.tnrSerie}">S: ${r.tnrSerie || 'N/D'}</p>
+          <div class="mt-1 flex items-center gap-1">
+            <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie TNR instalada: ${r.tnrSerie || 'N/D'}">
+              ${r.tnrSerie || 'N/D'}
+            </span>
+            ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.tnrSerie}'); showToast('Serie TNR copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie TNR"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+          </div>
         </td>
         <td class="py-2.5 px-3">
           <div class="flex items-center justify-between gap-1 mb-1">
@@ -1987,7 +2015,12 @@ function renderMonitoringTable() {
           <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
             <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
           </div>
-          <p class="text-[10px] font-mono text-slate-400 mt-1 truncate" title="Serie UDI instalada: ${r.udiSerie}">S: ${r.udiSerie || 'N/D'}</p>
+          <div class="mt-1 flex items-center gap-1">
+            <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie UDI instalada: ${r.udiSerie || 'N/D'}">
+              ${r.udiSerie || 'N/D'}
+            </span>
+            ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.udiSerie}'); showToast('Serie UDI copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie UDI"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+          </div>
         </td>
         <td class="py-2.5 px-3">
           <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
@@ -2089,28 +2122,48 @@ function renderMonitoringTable() {
 
         <!-- Suministros (TNR, UDI, KMT) -->
         <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
-          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
-            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
-              <span>Tóner (TNR)</span>
-              <span class="${r.tnrNivel !== null && r.tnrNivel <= 5 ? 'text-rose-600 font-bold' : (r.tnrNivel !== null && r.tnrNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                <span>Tóner (TNR)</span>
+                <span class="${r.tnrNivel !== null && r.tnrNivel <= 5 ? 'text-rose-600 font-bold' : (r.tnrNivel !== null && r.tnrNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+              </div>
+              <div class="mt-1">${deltaTnrBadge}</div>
             </div>
-            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
-              <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+            <div class="mt-1.5 pt-1 border-t border-slate-200/80 dark:border-slate-700/80">
+              <span class="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">Serie:</span>
+              <div class="flex items-center gap-0.5 mt-0.5">
+                <span class="text-[11px] font-mono font-black text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 block truncate flex-1 shadow-2xs select-all leading-none" title="Serie TNR: ${r.tnrSerie || 'N/D'}">
+                  ${r.tnrSerie || 'N/D'}
+                </span>
+                ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.tnrSerie}'); showToast('Serie TNR copiada'); event.stopPropagation();" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0" title="Copiar"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+              </div>
             </div>
-            <div class="mt-1">${deltaTnrBadge}</div>
-            <p class="text-[9px] font-mono text-slate-400 mt-0.5 truncate" title="Serie: ${r.tnrSerie}">S: ${r.tnrSerie || 'N/D'}</p>
           </div>
 
-          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
-            <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
-              <span>Imagen (UDI)</span>
-              <span class="${r.udiNivel !== null && r.udiNivel <= 5 ? 'text-rose-600 font-bold' : (r.udiNivel !== null && r.udiNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+          <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                <span>Imagen (UDI)</span>
+                <span class="${r.udiNivel !== null && r.udiNivel <= 5 ? 'text-rose-600 font-bold' : (r.udiNivel !== null && r.udiNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
+              </div>
+              <div class="mt-1">${deltaUdiBadge}</div>
             </div>
-            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
-              <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
+            <div class="mt-1.5 pt-1 border-t border-slate-200/80 dark:border-slate-700/80">
+              <span class="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">Serie:</span>
+              <div class="flex items-center gap-0.5 mt-0.5">
+                <span class="text-[11px] font-mono font-black text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 block truncate flex-1 shadow-2xs select-all leading-none" title="Serie UDI: ${r.udiSerie || 'N/D'}">
+                  ${r.udiSerie || 'N/D'}
+                </span>
+                ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.udiSerie}'); showToast('Serie UDI copiada'); event.stopPropagation();" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0" title="Copiar"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+              </div>
             </div>
-            <div class="mt-1">${deltaUdiBadge}</div>
-            <p class="text-[9px] font-mono text-slate-400 mt-0.5 truncate" title="Serie: ${r.udiSerie}">S: ${r.udiSerie || 'N/D'}</p>
           </div>
 
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
@@ -2559,9 +2612,15 @@ function launchAppSheetOrder() {
     fullUrl = `https://www.appsheet.com/start/${APPSHEET_APP_ID}?platform=desktop#appName=${APPSHEET_APP_NAME}&view=${targetView}&defaults=${encodedDefaults}`;
   }
 
-  const win = window.open(fullUrl, '_blank');
-  if (!win || win.closed || typeof win.closed === 'undefined') {
+  if (isMobile) {
+    // En navegadores móviles, usar directamente window.location.href abre de inmediato en la misma pestaña
+    // sin ser bloqueado por filtros de ventanas emergentes (pop-ups) de Chrome/Safari móvil
     window.location.href = fullUrl;
+  } else {
+    const win = window.open(fullUrl, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      window.location.href = fullUrl;
+    }
   }
 
   if (typeof showToast === 'function') {
@@ -2576,18 +2635,18 @@ function dispatchDirectToFoliosFromModal() {
   closeAppSheetModal(true);
 
   const match = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === data.SERIE) : null;
-  const cliente = match ? match.cliente : '';
+  const cliente = (match ? match.cliente : '').toUpperCase();
 
   if (typeof openNewSalidaModal === 'function') {
     openNewSalidaModal({
-      serie: data.SERIE,
-      tipoSum: (document.getElementById('appsheetInputTipoSum')?.value || 'TNR'),
-      numPart: data.NUMPART,
-      modelo: data.MODELO,
+      serie: (data.SERIE || '').toUpperCase(),
+      tipoSum: (document.getElementById('appsheetInputTipoSum')?.value || 'TNR').toUpperCase(),
+      numPart: (data.NUMPART || '').toUpperCase(),
+      modelo: (data.MODELO || '').toUpperCase(),
       cliente: cliente,
-      destino: data.TIENDA,
-      det: data.DET,
-      descripcion: `Despacho de ${data.SOLICITUD} (${data.PORCENTAJE}) - Pedido AppSheet`
+      destino: (data.TIENDA || '').toUpperCase(),
+      det: (data.DET || '').toUpperCase(),
+      descripcion: `DESPACHO DE ${data.SOLICITUD} (${data.PORCENTAJE}) - PEDIDO APPSHEET`.toUpperCase()
     });
   }
 }
