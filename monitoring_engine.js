@@ -1908,10 +1908,16 @@ function renderMonitoringTable() {
       const fSerieSum = r.lastFolio['SERIE SUM'] || r.lastFolio['SERIE_SUM'] || '';
       lastFolioHtml = `
         <div class="leading-tight">
-          <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 hover:underline text-left group" title="Clic para ir a FOLIOS y modificar o consultar estatus">
-            <span>Folio #${fNum}</span>
-            <svg class="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-          </button>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 hover:underline text-left group" title="Clic para ir a FOLIOS y modificar o consultar estatus">
+              <span>Folio #${fNum}</span>
+              <svg class="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); (typeof openFolioInDrive==='function'?openFolioInDrive('${fNum}'):window.open('https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y','_blank'))" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 text-[9px] font-bold text-blue-700 dark:text-blue-300 shadow-2xs transition" title="Ver documento PDF escaneado en Drive">
+              <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+              <span>PDF</span>
+            </button>
+          </div>
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
           <p class="text-[10px] text-slate-600 dark:text-slate-300">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
           <div class="mt-1 flex items-center gap-1.5">
@@ -2187,10 +2193,14 @@ function renderMonitoringTable() {
                   const cardTipo = r.lastFolio['TIPO SUM'] || r.lastFolio['TIPO'] || 'SUM';
                   const cardEst = (r.lastFolio['ESTADO SUM'] || r.lastFolio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
                   return `<div class="leading-tight">
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
                       <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Consultar o modificar folio en ventana emergente">
                         <span>Folio #${cardFolNum}</span>
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                      </button>
+                      <button type="button" onclick="event.stopPropagation(); (typeof openFolioInDrive==='function'?openFolioInDrive('${cardFolNum}'):window.open('https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y','_blank'))" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 text-[9px] font-bold text-blue-700 dark:text-blue-300 shadow-2xs transition" title="Ver documento PDF escaneado en Drive">
+                        <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                        <span>PDF</span>
                       </button>
                       <span class="text-[10px] text-slate-400">(${cardFecha})</span>
                     </div>
@@ -2204,6 +2214,10 @@ function renderMonitoringTable() {
             ${r.lastFolio ? `
               <button type="button" onclick="goToFolioDetail('${getFolioNumber(r.lastFolio)}', '${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus del folio">
                 <span>👁️ Ver Folio</span>
+              </button>
+              <button type="button" onclick="(typeof openFolioInDrive==='function'?openFolioInDrive('${getFolioNumber(r.lastFolio)}'):window.open('https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y','_blank'))" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition" title="Ver documento PDF escaneado en Drive">
+                <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                <span>PDF</span>
               </button>
             ` : ''}
             <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
@@ -2912,7 +2926,15 @@ function openEquipmentHistoryModal(serie) {
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-100 dark:border-slate-800 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40';
         tr.innerHTML = `
-          <td class="py-2 px-3 font-bold font-mono text-slate-900 dark:text-white">Folio #${folNum}</td>
+          <td class="py-2 px-3 font-bold font-mono text-slate-900 dark:text-white">
+            <div class="flex items-center gap-1.5">
+              <span>Folio #${folNum}</span>
+              <button type="button" onclick="event.stopPropagation(); (typeof openFolioInDrive==='function'?openFolioInDrive('${folNum}'):window.open('https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y','_blank'))" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 text-[9px] font-bold text-blue-700 dark:text-blue-300 shadow-2xs transition" title="Ver documento PDF escaneado en Drive">
+                <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                <span>PDF</span>
+              </button>
+            </div>
+          </td>
           <td class="py-2 px-3 text-slate-600 dark:text-slate-300">${fFecha}</td>
           <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">${fTipo}</td>
           <td class="py-2 px-3 text-slate-700 dark:text-slate-300">${fDesc}</td>
@@ -2922,10 +2944,16 @@ function openEquipmentHistoryModal(serie) {
             <span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${badgeIcon}${fEst}</span>
           </td>
           <td class="py-2 px-3 text-center">
-            <button type="button" onclick="goToFolioDetail('${folNum}', '${serieUpper}');" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition" title="Consultar o modificar folio in situ">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-              <span>✏️ Modificar</span>
-            </button>
+            <div class="inline-flex items-center gap-1">
+              <button type="button" onclick="goToFolioDetail('${folNum}', '${serieUpper}');" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition" title="Consultar o modificar folio in situ">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                <span>✏️ Modificar</span>
+              </button>
+              <button type="button" onclick="(typeof openFolioInDrive==='function'?openFolioInDrive('${folNum}'):window.open('https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y','_blank'))" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 shadow-2xs transition" title="Ver documento PDF escaneado en Google Drive">
+                <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                <span>PDF</span>
+              </button>
+            </div>
           </td>
         `;
         foliosBody.appendChild(tr);
@@ -2966,7 +2994,13 @@ function goToFolioDetail(folNum, serieUpper) {
   if (index !== -1 && typeof editSalida === 'function') {
     editSalida(index);
   } else {
-    alert(`No se encontró el Folio #${folNum} en la base de datos de FOLIOS.`);
+    if (confirm(`El Folio #${folNum} no figura en la tabla activa de FOLIOS.\n¿Deseas buscar el documento PDF escaneado en Google Drive?`)) {
+      if (typeof openFolioInDrive === 'function') {
+        openFolioInDrive(folNum);
+      } else {
+        window.open(`https://drive.google.com/drive/search?q=${encodeURIComponent(folClean || folNum)}`, '_blank');
+      }
+    }
   }
 }
 
