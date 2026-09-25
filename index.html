@@ -1734,8 +1734,8 @@
         <div class="flex items-center gap-2">
           <span class="text-lg">🔢</span>
           <div>
-            <h3 id="supplyLevelsPopoverTitle" class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Filtrar Niveles TNR</h3>
-            <p class="text-[11px] text-slate-400">Selecciona casillas de porcentajes exactos</p>
+            <h3 id="supplyLevelsPopoverTitle" class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Filtrar Niveles</h3>
+            <p class="text-[11px] text-slate-400">Selecciona casillas o escribe el porcentaje exacto</p>
           </div>
         </div>
         <button type="button" onclick="closeSupplyLevelsPopover()" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold">✕</button>
@@ -1743,7 +1743,20 @@
 
       <!-- Buscador y Acciones Rápidas -->
       <div class="p-2.5 border-b border-slate-100 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-900/20 space-y-2">
-        <input type="text" id="supplyLevelsSearchInput" oninput="onSupplyLevelsSearchInput(this.value)" placeholder="Buscar nivel (ej. 0, 5, 10)..." class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500">
+        <div class="flex items-center gap-1.5">
+          <input type="text"
+            id="supplyLevelsSearchInput"
+            oninput="onSupplyLevelsSearchInput(this.value)"
+            onkeydown="if(event.key === 'Enter'){ event.preventDefault(); onSupplyLevelsEnterKey(this.value); }"
+            placeholder="Escribe porcentaje (ej. 0, 5, 10)..."
+            class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500 font-semibold">
+          <button type="button"
+            onclick="onSupplyLevelsEnterKey(document.getElementById('supplyLevelsSearchInput').value)"
+            class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-800 dark:hover:bg-white text-xs font-bold shrink-0 transition"
+            title="Seleccionar y filtrar este porcentaje">
+            Enter ↵
+          </button>
+        </div>
         <div class="flex items-center justify-between gap-1 text-[11px]">
           <div class="flex items-center gap-1">
             <button type="button" onclick="selectAllSupplyLevelsInPopover(true)" class="px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 font-semibold text-slate-700 dark:text-slate-200 transition">Todos</button>
@@ -1755,14 +1768,14 @@
       </div>
 
       <!-- Lista con Scroll de Casillas -->
-      <div id="supplyLevelsChecklistContainer" class="p-2 overflow-y-auto max-h-[45vh] space-y-0.5 custom-scrollbar text-xs">
+      <div id="supplyLevelsChecklistContainer" class="p-2 overflow-y-auto max-h-[45vh] space-y-1 custom-scrollbar text-xs">
         <!-- Generado dinámicamente -->
       </div>
 
       <!-- Pie de Acciones -->
       <div class="p-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80">
         <button type="button" onclick="closeSupplyLevelsPopover()" class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition">Cancelar</button>
-        <button type="button" onclick="applySupplyLevelsPopover()" class="px-4 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs transition">Aplicar Filtro</button>
+        <button type="button" onclick="applySupplyLevelsPopover()" class="px-4 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-xs transition">Aceptar / Aplicar Filtro</button>
       </div>
     </div>
   </div>

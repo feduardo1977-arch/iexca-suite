@@ -1111,13 +1111,13 @@ function filterMonitoringTable() {
 
     // 3.b Filtro de Casillas por Cantidades/Niveles Específicos para TNR, UDI y KMT
     if (monitoringSelectedTnrLevels.size > 0) {
-      if (row.tnrNivel === null || !monitoringSelectedTnrLevels.has(row.tnrNivel)) return false;
+      if (row.tnrNivel === null || row.tnrNivel === undefined || !monitoringSelectedTnrLevels.has(Number(row.tnrNivel))) return false;
     }
     if (monitoringSelectedUdiLevels.size > 0) {
-      if (row.udiNivel === null || !monitoringSelectedUdiLevels.has(row.udiNivel)) return false;
+      if (row.udiNivel === null || row.udiNivel === undefined || !monitoringSelectedUdiLevels.has(Number(row.udiNivel))) return false;
     }
     if (monitoringSelectedKmtLevels.size > 0) {
-      if (row.kmtNivel === null || !monitoringSelectedKmtLevels.has(row.kmtNivel)) return false;
+      if (row.kmtNivel === null || row.kmtNivel === undefined || !monitoringSelectedKmtLevels.has(Number(row.kmtNivel))) return false;
     }
 
     // 4. Búsqueda de Texto
@@ -1172,9 +1172,9 @@ function openSupplyLevelsPopover(supplyType, triggerElem) {
   const modal = document.getElementById('supplyLevelsPopoverModal');
   if (!modal) return;
 
-  const titleElem = document.getElementById('popoverSupplyTitle');
+  const titleElem = document.getElementById('supplyLevelsPopoverTitle') || document.getElementById('popoverSupplyTitle');
   const typeBadge = document.getElementById('popoverSupplyTypeBadge');
-  const searchInput = document.getElementById('popoverSearchLevelsInput');
+  const searchInput = document.getElementById('supplyLevelsSearchInput') || document.getElementById('popoverSearchLevelsInput');
 
   const names = {
     'TNR': 'Tóner (TNR)',
@@ -1186,7 +1186,7 @@ function openSupplyLevelsPopover(supplyType, triggerElem) {
   if (typeBadge) typeBadge.textContent = supplyType;
   if (searchInput) {
     searchInput.value = '';
-    setTimeout(() => searchInput.focus(), 50);
+    setTimeout(() => searchInput.focus(), 80);
   }
 
   renderSupplyLevelsChecklist();
@@ -1203,22 +1203,38 @@ function closeSupplyLevelsPopover() {
 }
 
 function renderSupplyLevelsChecklist() {
-  const container = document.getElementById('popoverLevelsChecklist');
+  const container = document.getElementById('supplyLevelsChecklistContainer') || document.getElementById('popoverLevelsChecklist');
   if (!container || !activeSupplyPopoverType) return;
 
   const allLevels = getAvailableLevelsForSupply(activeSupplyPopoverType);
   const selectedSet = getSelectedSetForSupply(activeSupplyPopoverType);
 
+  if (allLevels.length === 0) {
+    container.innerHTML = `
+      <div class="py-8 text-center text-xs text-slate-500 dark:text-slate-400">
+        No hay datos de niveles registrados para este suministro.
+      </div>`;
+    return;
+  }
+
   let filtered = allLevels;
   if (popoverSearchQuery) {
-    const q = popoverSearchQuery.toLowerCase();
-    filtered = allLevels.filter(item => String(item.level).includes(q) || `${item.level}%`.includes(q));
+    const q = popoverSearchQuery.toLowerCase().replace('%', '').trim();
+    filtered = allLevels.filter(item => {
+      const s = String(item.level);
+      return s === q || s.startsWith(q) || s.includes(q);
+    });
   }
 
   if (filtered.length === 0) {
     container.innerHTML = `
-      <div class="col-span-full py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-        No se encontraron niveles con "${popoverSearchQuery}"
+      <div class="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+        No se encontraron niveles con "${popoverSearchQuery}%"
+        <div class="mt-2">
+          <button type="button" onclick="selectAllSupplyLevelsInPopover(true)" class="text-brand-600 dark:text-brand-400 underline font-semibold text-xs">
+            Seleccionar todos los niveles
+          </button>
+        </div>
       </div>`;
     return;
   }
@@ -1236,8 +1252,8 @@ function renderSupplyLevelsChecklist() {
     }
 
     html += `
-      <label class="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors shadow-2xs">
-        <div class="flex items-center gap-2">
+      <label class="flex items-center justify-between p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors shadow-2xs select-none">
+        <div class="flex items-center gap-2.5">
           <input type="checkbox"
             class="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700 cursor-pointer"
             ${isChecked ? 'checked' : ''}
@@ -1248,7 +1264,7 @@ function renderSupplyLevelsChecklist() {
           </span>
         </div>
         <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-          ${count.toLocaleString()} ${count === 1 ? 'eq' : 'eqs'}
+          ${count.toLocaleString()} ${count === 1 ? 'equipo' : 'equipos'}
         </span>
       </label>
     `;
@@ -1305,8 +1321,36 @@ function onSupplyLevelsSearchInput(val) {
   renderSupplyLevelsChecklist();
 }
 
+// Al presionar ENTER en el input de porcentaje o dar clic en Enter/Añadir
+function onSupplyLevelsEnterKey(val) {
+  if (!activeSupplyPopoverType) return;
+  const inputStr = (val || '').trim();
+  const set = getSelectedSetForSupply(activeSupplyPopoverType);
+  const allLevels = getAvailableLevelsForSupply(activeSupplyPopoverType);
+
+  if (inputStr) {
+    const tokens = inputStr.split(/[\s,;]+/).map(t => t.replace('%', '').trim()).filter(Boolean);
+    const nums = tokens.map(Number).filter(n => !isNaN(n));
+
+    if (nums.length > 0) {
+      nums.forEach(num => set.add(num));
+    } else {
+      const q = inputStr.toLowerCase().replace('%', '');
+      allLevels.forEach(item => {
+        if (String(item.level).includes(q)) set.add(item.level);
+      });
+    }
+  }
+
+  popoverSearchQuery = '';
+  const searchInput = document.getElementById('supplyLevelsSearchInput') || document.getElementById('popoverSearchLevelsInput');
+  if (searchInput) searchInput.value = '';
+
+  applySupplyLevelsPopover();
+}
+
 function updateSupplyLevelsSelectionCount() {
-  const badge = document.getElementById('popoverSelectionCountBadge');
+  const badge = document.getElementById('supplyLevelsSelectionCount') || document.getElementById('popoverSelectionCountBadge');
   if (!badge || !activeSupplyPopoverType) return;
 
   const set = getSelectedSetForSupply(activeSupplyPopoverType);
@@ -1322,6 +1366,19 @@ function updateSupplyLevelsSelectionCount() {
 }
 
 function applySupplyLevelsPopover() {
+  if (activeSupplyPopoverType) {
+    const searchInput = document.getElementById('supplyLevelsSearchInput') || document.getElementById('popoverSearchLevelsInput');
+    const inputVal = searchInput ? (searchInput.value || '').trim() : '';
+    if (inputVal) {
+      const tokens = inputVal.split(/[\s,;]+/).map(t => t.replace('%', '').trim()).filter(Boolean);
+      const nums = tokens.map(Number).filter(n => !isNaN(n));
+      const set = getSelectedSetForSupply(activeSupplyPopoverType);
+      if (nums.length > 0) {
+        nums.forEach(num => set.add(num));
+      }
+    }
+  }
+
   closeSupplyLevelsPopover();
   filterMonitoringTable();
 }
@@ -1371,6 +1428,12 @@ function updateSpecificSupplyLevelBadges() {
 
   if (chipsContainer) {
     chipsContainer.innerHTML = '';
+    if (totalSelected > 0) {
+      chipsContainer.classList.remove('hidden');
+    } else {
+      chipsContainer.classList.add('hidden');
+    }
+
     const renderChips = (type, set, label, color) => {
       if (set.size === 0) return;
       const sorted = Array.from(set).sort((a,b) => a - b);
@@ -2543,6 +2606,7 @@ if (typeof window !== 'undefined') {
   window.selectAllSupplyLevelsInPopover = selectAllSupplyLevelsInPopover;
   window.invertSupplyLevelsInPopover = invertSupplyLevelsInPopover;
   window.onSupplyLevelsSearchInput = onSupplyLevelsSearchInput;
+  window.onSupplyLevelsEnterKey = onSupplyLevelsEnterKey;
   window.applySupplyLevelsPopover = applySupplyLevelsPopover;
   window.clearSpecificSupplyLevelType = clearSpecificSupplyLevelType;
   window.clearAllSpecificSupplyLevels = clearAllSpecificSupplyLevels;
@@ -2584,6 +2648,7 @@ if (typeof module !== 'undefined' && module.exports) {
     selectAllSupplyLevelsInPopover,
     invertSupplyLevelsInPopover,
     onSupplyLevelsSearchInput,
+    onSupplyLevelsEnterKey,
     applySupplyLevelsPopover,
     clearSpecificSupplyLevelType,
     clearAllSpecificSupplyLevels,
