@@ -38,6 +38,74 @@ function cleanIpAddress(rawIp) {
   return cleaned;
 }
 
+// HELPER GLOBAL PARA BADGES DE ESTATUS DE SUMINISTRO EN FOLIOS Y MONITOREO
+function getFolioStatusBadge(rawEst) {
+  if (!rawEst) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">Sin Estado</span>`;
+  }
+  const s = String(rawEst).trim().toUpperCase();
+
+  // DESECHADO / BAJA / DAÑADO / DEFECTUOSO / DEVUELTO
+  if (s.includes('DESECH') || s.includes('DESECHO') || s.includes('BAJA') || 
+      s.includes('DAÑ') || s.includes('DAN') || s.includes('DEFECT') || 
+      s.includes('DEVUELT') || s.includes('DEVOLUC') || s.includes('RETIRAD') || 
+      s.includes('AVERIAD') || s.includes('DESCART')) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-2xs" title="Suministro descartado/dañado (Sin stock en tienda)">
+      <span>🗑️ DESECHADO</span>
+    </span>`;
+  }
+
+  // EN USO / USO
+  if (s === 'EN USO' || s.includes('EN USO') || s === 'USO') {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs" title="Instalado actualmente en el equipo (En operación)">
+      <span>⚡ EN USO</span>
+    </span>`;
+  }
+
+  // INSTALADO / COLOCADO / PUESTO
+  if (s.includes('INSTALAD') || s.includes('COLOCAD') || s.includes('PUESTO')) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 shadow-2xs" title="Instalado en el equipo">
+      <span>🔧 INSTALADO</span>
+    </span>`;
+  }
+
+  // EN STOCK / STOCK / DISPONIBLE / RESERVA / NUEVO
+  if (s.includes('STOCK') || s === 'DISPONIBLE' || s === 'RESERVA' || s === 'NUEVO' || s.includes('EN SITIO')) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs" title="Disponible en sitio como reserva">
+      <span>📦 EN STOCK</span>
+    </span>`;
+  }
+
+  // EN TRÁNSITO / ENVIADO / EN RUTA / PENDIENTE
+  if (s.includes('TRANSIT') || s.includes('TRÁNSIT') || s.includes('ENVIAD') || s.includes('EN RUTA') || s.includes('PENDIENT') || s.includes('CAMINO')) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs" title="En camino o pendiente de entrega">
+      <span>🚚 EN TRÁNSITO</span>
+    </span>`;
+  }
+
+  // CONSUMIDO / AGOTADO / GASTADO
+  if (s.includes('CONSUMID') || s.includes('AGOTAD') || s === 'USADO') {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700" title="Consumido o agotado">
+      <span>🪫 CONSUMIDO</span>
+    </span>`;
+  }
+
+  // ENTREGADO / RECIBIDO
+  if (s.includes('ENTREGAD') || s.includes('RECIBID')) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-100 text-teal-800 dark:bg-teal-950/80 dark:text-teal-300 border border-teal-300 dark:border-teal-800 shadow-2xs" title="Entregado en tienda">
+      <span>✅ ENTREGADO</span>
+    </span>`;
+  }
+
+  const safeStr = typeof escapeHtml === 'function' ? escapeHtml(rawEst) : String(rawEst).replace(/[&<>"']/g, '');
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+    <span>${safeStr}</span>
+  </span>`;
+}
+if (typeof window !== 'undefined') {
+  window.getFolioStatusBadge = getFolioStatusBadge;
+}
+
 function setMonitoringViewMode(mode) {
   monitoringViewMode = mode;
   const btnCards = document.getElementById('btnMonitoringViewCards');
@@ -574,40 +642,62 @@ function getFolioSerie(folio) {
 
 // EVALUACIÓN DE STOCK EN SITIO POR FOLIO Y SERIE DE SUMINISTRO
 function evaluateFolioStockStatus(folio, currentInstalledSerie) {
-  if (!folio) return { inStock: false, inTransit: false, consumed: false, status: 'NONE' };
+  if (!folio) return { inStock: false, inTransit: false, consumed: false, discarded: false, status: 'NONE' };
 
-  const est = (folio['ESTADO SUM'] || folio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+  const rawEst = (folio['ESTADO SUM'] || folio['ESTADO_SUM'] || folio['ESTADO'] || folio['STATUS'] || folio['ESTATUS'] || 'ENTREGADO').toString().trim();
+  const est = rawEst.toUpperCase();
   const folSerie = formatSupplySerie(folio['SERIE SUM'] || folio['SERIE_SUM'] || folio['SERIE SUMINISTRO'] || '');
   const currentInstalled = formatSupplySerie(currentInstalledSerie);
   const folNum = getFolioNumber(folio);
 
-  // 1. Estados explícitos de STOCK disponible en sitio (Reserva no consumida en tienda)
+  // 1. Estados de DESECHO / BAJA / DAÑADO (El suministro fue descartado, NO hay stock en sitio)
+  if (est.includes('DESECH') || est.includes('DESECHO') || est.includes('BAJA') || 
+      est.includes('DAÑ') || est.includes('DAN') || est.includes('DEFECT') || 
+      est.includes('DEVUELT') || est.includes('DEVOLUC') || est.includes('RETIRAD') || 
+      est.includes('AVERIAD') || est.includes('DESCART') || est.includes('INUTIL') ||
+      est.includes('ROTO') || est.includes('MERMA')) {
+    return { inStock: false, inTransit: false, consumed: false, discarded: true, status: 'DISCARDED', folio, folNum, folSerie, est: rawEst };
+  }
+
+  // 2. Estados EN USO / INSTALADO (El suministro ya está puesto y operando en el equipo, no es reserva disponible)
+  if (est === 'EN USO' || est.includes('EN USO') || est === 'USO' || 
+      est.includes('INSTALAD') || est.includes('COLOCAD') || est.includes('PUESTO') || est.includes('EN_USO')) {
+    return { inStock: false, inTransit: false, consumed: true, discarded: false, status: 'IN_USE', folio, folNum, folSerie, est: rawEst };
+  }
+
+  // 3. Estados CONSUMIDOS / AGOTADOS
+  if (est.includes('CONSUMID') || est.includes('AGOTAD') || est === 'USADO' || est.includes('VACIO') || est.includes('VACÍO')) {
+    return { inStock: false, inTransit: false, consumed: true, discarded: false, status: 'CONSUMED', folio, folNum, folSerie, est: rawEst };
+  }
+
+  // 4. Estados explícitos de STOCK disponible en sitio (Reserva no consumida en tienda)
   if (est === 'EN STOCK' || est === 'STOCK' || est === 'EN SITIO' || est === 'EN_STOCK' || 
-      est === 'STOCK EN SITIO' || est === 'DISPONIBLE' || est === 'RESERVA' || est === 'NUEVO') {
-    return { inStock: true, inTransit: false, consumed: false, status: 'STOCK', folio, folNum, folSerie, est };
+      est === 'STOCK EN SITIO' || est === 'DISPONIBLE' || est === 'RESERVA' || est === 'NUEVO' ||
+      est.includes('EN STOCK') || est.includes('EN SITIO') || est.includes('DISPONIBLE')) {
+    return { inStock: true, inTransit: false, consumed: false, discarded: false, status: 'STOCK', folio, folNum, folSerie, est: rawEst };
   }
 
-  // 2. Estados en tránsito / camino
-  if (est === 'EN TRANSITO' || est === 'EN TRÁNSITO' || est === 'ENVIADO' || est === 'EN RUTA' || 
-      est === 'PENDIENTE' || est === 'POR ENTREGAR' || est === 'DESPACHADO') {
-    return { inStock: false, inTransit: true, consumed: false, status: 'TRANSIT', folio, folNum, folSerie, est };
+  // 5. Estados en tránsito / camino
+  if (est.includes('TRANSIT') || est.includes('TRÁNSIT') || est.includes('ENVIAD') || 
+      est.includes('EN RUTA') || est.includes('PENDIENT') || est.includes('POR ENTREGAR') || 
+      est.includes('DESPACHAD') || est.includes('CAMINO')) {
+    return { inStock: false, inTransit: true, consumed: false, discarded: false, status: 'TRANSIT', folio, folNum, folSerie, est: rawEst };
   }
 
-  // 3. Estados consumidos o ya instalados en el equipo (reserva agotada)
-  if (est === 'INSTALADO' || est === 'CONSUMIDO' || est === 'COLOCADO' || est === 'AGOTADO' || 
-      est === 'USADO' || est === 'PUESTO' || est === 'AGOTADA') {
-    return { inStock: false, inTransit: false, consumed: true, status: 'CONSUMED', folio, folNum, folSerie, est };
-  }
-
-  // 4. ENTREGADO / RECIBIDO:
+  // 6. ENTREGADO / RECIBIDO:
   // Si la serie del cartucho despachado coincide con la serie del cartucho actualmente instalado en el impresor,
   // significa que ya fue colocado y se encuentra en uso (y si el nivel está bajo <= 15%, está agotándose).
   if (folSerie && currentInstalled && folSerie === currentInstalled) {
-    return { inStock: false, inTransit: false, consumed: true, status: 'INSTALLED_MATCH', folio, folNum, folSerie, est };
+    return { inStock: false, inTransit: false, consumed: true, discarded: false, status: 'INSTALLED_MATCH', folio, folNum, folSerie, est: rawEst };
   }
 
-  // Si no coincide con la serie instalada o no tiene serie, se asume que está entregado en sitio como reserva disponible.
-  return { inStock: true, inTransit: false, consumed: false, status: 'DELIVERED_SPARE', folio, folNum, folSerie, est };
+  // Si dice ENTREGADO o RECIBIDO explícitamente y no coincide con la serie en uso:
+  if (est.includes('ENTREGAD') || est.includes('RECIBID') || est.includes('LLEGADO')) {
+    return { inStock: true, inTransit: false, consumed: false, discarded: false, status: 'DELIVERED_SPARE', folio, folNum, folSerie, est: rawEst };
+  }
+
+  // Fallback seguro para cualquier otro estatus desconocido: NO asumir stock a ciegas
+  return { inStock: false, inTransit: false, consumed: false, discarded: false, status: 'UNKNOWN', folio, folNum, folSerie, est: rawEst };
 }
 
 // MOTOR DE DIAGNÓSTICO INTELIGENTE & CRUCE CON FOLIOS Y RDI
@@ -770,44 +860,66 @@ function refreshMonitoringAnalysis() {
       const lastUdiFolio = udiFolios[0] || null;
       const lastKmtFolio = kmtFolios[0] || null;
 
-      // Evaluar stock disponible por tipo
-      // 1. TNR: Buscar si tiene algún folio con stock disponible para TNR
+      // Evaluar stock disponible por tipo dando prioridad al último folio registrado
+      // 1. TNR: El último movimiento registrado define la condición actual en tienda
       let stockTnrEvaluation = null;
-      for (const f of tnrFolios) {
-        const ev = evaluateFolioStockStatus(f, row.tnrSerie);
-        if (ev.inStock || ev.inTransit) {
-          stockTnrEvaluation = ev;
-          break;
+      if (lastTnrFolio) {
+        const lastEv = evaluateFolioStockStatus(lastTnrFolio, row.tnrSerie);
+        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'INSTALLED_MATCH' || lastEv.status === 'IN_USE') {
+          // El último movimiento fue desechado, consumido o instalado -> la tienda NO tiene reserva
+          stockTnrEvaluation = lastEv;
+        } else if (lastEv.inStock || lastEv.inTransit) {
+          stockTnrEvaluation = lastEv;
+        } else {
+          for (const f of tnrFolios) {
+            const ev = evaluateFolioStockStatus(f, row.tnrSerie);
+            if (ev.inStock || ev.inTransit) {
+              stockTnrEvaluation = ev;
+              break;
+            }
+          }
+          if (!stockTnrEvaluation) stockTnrEvaluation = lastEv;
         }
       }
-      if (!stockTnrEvaluation && lastTnrFolio) {
-        stockTnrEvaluation = evaluateFolioStockStatus(lastTnrFolio, row.tnrSerie);
-      }
 
-      // 2. UDI: Buscar si tiene algún folio con stock disponible para UDI
+      // 2. UDI: El último movimiento registrado define la condición actual en tienda
       let stockUdiEvaluation = null;
-      for (const f of udiFolios) {
-        const ev = evaluateFolioStockStatus(f, row.udiSerie);
-        if (ev.inStock || ev.inTransit) {
-          stockUdiEvaluation = ev;
-          break;
+      if (lastUdiFolio) {
+        const lastEv = evaluateFolioStockStatus(lastUdiFolio, row.udiSerie);
+        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'INSTALLED_MATCH' || lastEv.status === 'IN_USE') {
+          stockUdiEvaluation = lastEv;
+        } else if (lastEv.inStock || lastEv.inTransit) {
+          stockUdiEvaluation = lastEv;
+        } else {
+          for (const f of udiFolios) {
+            const ev = evaluateFolioStockStatus(f, row.udiSerie);
+            if (ev.inStock || ev.inTransit) {
+              stockUdiEvaluation = ev;
+              break;
+            }
+          }
+          if (!stockUdiEvaluation) stockUdiEvaluation = lastEv;
         }
-      }
-      if (!stockUdiEvaluation && lastUdiFolio) {
-        stockUdiEvaluation = evaluateFolioStockStatus(lastUdiFolio, row.udiSerie);
       }
 
-      // 3. KMT: Buscar si tiene algún folio con stock disponible para KMT
+      // 3. KMT: Evaluar kit de mantenimiento
       let stockKmtEvaluation = null;
-      for (const f of kmtFolios) {
-        const ev = evaluateFolioStockStatus(f, null);
-        if (ev.inStock || ev.inTransit) {
-          stockKmtEvaluation = ev;
-          break;
+      if (lastKmtFolio) {
+        const lastEv = evaluateFolioStockStatus(lastKmtFolio, null);
+        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'IN_USE') {
+          stockKmtEvaluation = lastEv;
+        } else if (lastEv.inStock || lastEv.inTransit) {
+          stockKmtEvaluation = lastEv;
+        } else {
+          for (const f of kmtFolios) {
+            const ev = evaluateFolioStockStatus(f, null);
+            if (ev.inStock || ev.inTransit) {
+              stockKmtEvaluation = ev;
+              break;
+            }
+          }
+          if (!stockKmtEvaluation) stockKmtEvaluation = lastEv;
         }
-      }
-      if (!stockKmtEvaluation && lastKmtFolio) {
-        stockKmtEvaluation = evaluateFolioStockStatus(lastKmtFolio, null);
       }
 
       // DIAGNÓSTICO TNR
@@ -819,8 +931,10 @@ function refreshMonitoringAnalysis() {
       } else if (isTnrLow) {
         if (!stockTnrEvaluation || (!stockTnrEvaluation.inStock && !stockTnrEvaluation.inTransit)) {
           diagTnr = 'DESPACHO_REQUERIDO';
-          if (stockTnrEvaluation && stockTnrEvaluation.consumed) {
-            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/agotado. Requiere nuevo despacho.`;
+          if (stockTnrEvaluation && stockTnrEvaluation.discarded) {
+            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Último suministro (Folio #${stockTnrEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
+          } else if (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE')) {
+            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/en uso. Requiere nuevo despacho.`;
           } else {
             reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Sin registro de tóner en stock en FOLIOS.`;
           }
@@ -842,8 +956,10 @@ function refreshMonitoringAnalysis() {
       } else if (isUdiLow) {
         if (!stockUdiEvaluation || (!stockUdiEvaluation.inStock && !stockUdiEvaluation.inTransit)) {
           diagUdi = 'DESPACHO_REQUERIDO';
-          if (stockUdiEvaluation && stockUdiEvaluation.consumed) {
-            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. UDI de Folio #${stockUdiEvaluation.folNum} ya fue instalada/agotada. Requiere nuevo despacho.`;
+          if (stockUdiEvaluation && stockUdiEvaluation.discarded) {
+            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. Último suministro (Folio #${stockUdiEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
+          } else if (stockUdiEvaluation && (stockUdiEvaluation.consumed || stockUdiEvaluation.status === 'IN_USE')) {
+            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. UDI de Folio #${stockUdiEvaluation.folNum} ya fue instalada/en uso. Requiere nuevo despacho.`;
           } else {
             reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. Sin registro de UDI en stock en FOLIOS.`;
           }
@@ -1921,11 +2037,7 @@ function renderMonitoringTable() {
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
           <p class="text-[10px] text-slate-600 dark:text-slate-300">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
           <div class="mt-1 flex items-center gap-1.5">
-            <span class="text-[9px] px-1.5 py-0.2 rounded font-semibold ${
-              fEst === 'ENTREGADO' 
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-            }">${fEst}</span>
+            ${getFolioStatusBadge(fEst)}
             <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
               ✏️ Modificar
             </button>
@@ -2202,9 +2314,11 @@ function renderMonitoringTable() {
                         <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
                         <span>PDF</span>
                       </button>
-                      <span class="text-[10px] text-slate-400">(${cardFecha})</span>
+                    <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                      <span class="text-[10px] text-slate-500 font-medium">${cardTipo}:</span>
+                      ${getFolioStatusBadge(cardEst)}
+                      <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">✏️ Modificar</button>
                     </div>
-                    <p class="text-[10px] text-slate-500 mt-0.5">${cardTipo}: <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="font-bold underline text-emerald-600 dark:text-emerald-400">${cardEst} ✏️</button></p>
                   </div>`;
                 })()
               : '<span class="text-[11px] text-slate-400 italic">Sin salidas en FOLIOS</span>'
@@ -2747,13 +2861,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed && matchProcessed.lastTnrFolio ? `
                   <span class="font-mono font-bold text-xs text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrFolio['FOLIO'] || matchProcessed.lastTnrFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrFolio['FECHA']) : ''})</span>
-                  <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                    (matchProcessed.lastTnrFolio['ESTADO SUM'] || '').includes('STOCK') 
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                      : ((matchProcessed.lastTnrFolio['ESTADO SUM'] || '') === 'ENTREGADO'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300')
-                  }">${matchProcessed.lastTnrFolio['ESTADO SUM'] || 'ENTREGADO'}</span>
+                  ${getFolioStatusBadge(matchProcessed.lastTnrFolio['ESTADO SUM'] || matchProcessed.lastTnrFolio['ESTADO'] || 'ENTREGADO')}
                 ` : `
                   <span class="text-[11px] text-slate-400 italic">Sin folio de TNR registrado</span>
                 `}
@@ -2783,13 +2891,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed && matchProcessed.lastUdiFolio ? `
                   <span class="font-mono font-bold text-xs text-slate-900 dark:text-white">Folio #${matchProcessed.lastUdiFolio['FOLIO'] || matchProcessed.lastUdiFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastUdiFolio['FECHA'] ? formatDateShort(matchProcessed.lastUdiFolio['FECHA']) : ''})</span>
-                  <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                    (matchProcessed.lastUdiFolio['ESTADO SUM'] || '').includes('STOCK') 
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                      : ((matchProcessed.lastUdiFolio['ESTADO SUM'] || '') === 'ENTREGADO'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300')
-                  }">${matchProcessed.lastUdiFolio['ESTADO SUM'] || 'ENTREGADO'}</span>
+                  ${getFolioStatusBadge(matchProcessed.lastUdiFolio['ESTADO SUM'] || matchProcessed.lastUdiFolio['ESTADO'] || 'ENTREGADO')}
                 ` : `
                   <span class="text-[11px] text-slate-400 italic">Sin folio de UDI registrado</span>
                 `}

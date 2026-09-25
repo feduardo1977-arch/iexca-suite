@@ -828,6 +828,9 @@
           <div class="relative h-64 w-full flex items-center justify-center">
             <canvas id="chartCanvas3"></canvas>
           </div>
+
+          <!-- Desglose Visual de Porcentajes y Diferencias de Participación -->
+          <div id="chart3PercentageTable" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60"></div>
         </div>
 
         <!-- GRÁFICO 4 / TABLA DE COMPARATIVA MENSUAL INTERANUAL -->
@@ -990,6 +993,16 @@
               <option value="IMP">Impresores (IMP)</option>
               <option value="REP">Repuestos (REP)</option>
             </select>
+            <select id="filterSalidasEstado" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 font-medium">
+              <option value="">Todos los Estatus</option>
+              <option value="EN STOCK">📦 En Stock (Disponible)</option>
+              <option value="EN USO">⚡ En Uso (Operando)</option>
+              <option value="DESECHADO">🗑️ Desechado (Dañado/Baja)</option>
+              <option value="ENTREGADO">✅ Entregado</option>
+              <option value="INSTALADO">🔧 Instalado</option>
+              <option value="EN TRANSITO">🚚 En Tránsito / Pendiente</option>
+              <option value="CONSUMIDO">🪫 Consumido</option>
+            </select>
             <span id="salidasCountSummary" class="text-xs text-slate-500 font-medium">0 registros</span>
           </div>
         </div>
@@ -1034,6 +1047,7 @@
                 <span class="text-[11px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">⚡ Último Registro / Salida Más Reciente:</span>
                 <span id="salidaRecentFolioBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-600 text-white shadow-2xs">#---</span>
                 <span id="salidaRecentFechaBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-100"></span>
+                <span id="salidaRecentEstadoBadge"></span>
                 <span id="salidaRecentSerieBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800"></span>
               </div>
               <p id="salidaRecentDetails" class="text-xs text-slate-700 dark:text-slate-300 font-medium mt-0.5 truncate"></p>
@@ -1059,6 +1073,7 @@
                 <th class="py-2 px-2.5 text-center w-10">#</th>
                 <th class="py-2 px-2.5 w-24">Folio (ID)</th>
                 <th class="py-2 px-2.5 w-24">Fecha</th>
+                <th class="py-2 px-2.5 w-28 text-center">Estatus</th>
                 <th class="py-2 px-2.5 w-32">Serie Sum</th>
                 <th class="py-2 px-2.5 w-28">NumPart</th>
                 <th class="py-2 px-2.5 max-w-[200px]">Descripción</th>
@@ -2274,6 +2289,8 @@
               <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Estado Movimiento / Suministro:</label>
               <select id="salidaEstadoSum" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
                 <option value="EN STOCK">📦 EN STOCK (En sitio / Disponible)</option>
+                <option value="EN USO">⚡ EN USO (Instalado / En operación)</option>
+                <option value="DESECHADO">🗑️ DESECHADO (Dañado / Baja / Descarte)</option>
                 <option value="ENTREGADO">✅ ENTREGADO (En tienda)</option>
                 <option value="EN TRANSITO">🚚 EN TRÁNSITO / ENVIADO</option>
                 <option value="INSTALADO">🔧 INSTALADO EN EQUIPO</option>
@@ -5856,7 +5873,7 @@
       }
     }
 
-    // GRÁFICO 3: PARTICIPACIÓN / DONA
+    // GRÁFICO 3: PARTICIPACIÓN / DONA CON PORCENTAJES Y PORCENTAJES DE DIFERENCIA
     function renderChart3() {
       const ctx = document.getElementById('chartCanvas3');
       if (!ctx) return;
@@ -5880,15 +5897,92 @@
         values = top.map(item => item.val).concat([othersVal]);
       }
 
+      // 1. Total y Porcentajes de Participación
+      const totalVal = values.reduce((acc, v) => acc + (Number(v) || 0), 0);
+      const percentages = values.map(v => totalVal > 0 ? (v / totalVal) * 100 : 0);
+
+      // 2. Identificar el Líder (#1 con mayor valor)
+      let leaderVal = 0;
+      let leaderIdx = 0;
+      values.forEach((v, idx) => {
+        if (v > leaderVal) {
+          leaderVal = v;
+          leaderIdx = idx;
+        }
+      });
+      const leaderLabel = labels[leaderIdx] || 'Líder';
+      const leaderPct = percentages[leaderIdx] || 0;
+
+      // 3. Diferencias vs Líder (#1)
+      // - diffPoints: Diferencia en Puntos Porcentuales (pp)
+      // - relDiffs: Porcentaje de Diferencia Relativa (%) respecto al líder
+      const diffPoints = percentages.map(p => p - leaderPct);
+      const relDiffs = values.map(v => leaderVal > 0 ? ((v - leaderVal) / leaderVal) * 100 : 0);
+
+      // 4. Comparación Interanual (si hay 2 o más años seleccionados)
+      const activeYears = typeof selectedYears !== 'undefined' ? Array.from(selectedYears).sort() : [];
+      const hasInterannual = isCompareYearsMode && activeDateCol && activeYears.length >= 2;
+      const y1 = hasInterannual ? activeYears[0] : null;
+      const y2 = hasInterannual ? activeYears[activeYears.length - 1] : null;
+      
+      const interannualGrowth = {};
+      if (hasInterannual) {
+        labels.forEach(lbl => {
+          let y1Sum = 0, y1Count = 0, y1Valid = 0;
+          let y2Sum = 0, y2Count = 0, y2Valid = 0;
+          filteredData.forEach(r => {
+            let key = r[dim];
+            if (key === undefined || key === null || key === '') key = '(En blanco)';
+            if (key instanceof Date) key = formatDateShort(key);
+            if (lbl !== 'Otros' && String(key).trim() !== String(lbl).trim()) return;
+
+            const d = r[activeDateCol];
+            if (!(d instanceof Date) || isNaN(d.getTime())) return;
+            const yr = d.getFullYear();
+            const valNum = Number(r[metric]);
+
+            if (yr === y1) {
+              y1Count++;
+              if (!isNaN(valNum) && valNum !== null) { y1Sum += valNum; y1Valid++; }
+            } else if (yr === y2) {
+              y2Count++;
+              if (!isNaN(valNum) && valNum !== null) { y2Sum += valNum; y2Valid++; }
+            }
+          });
+
+          const semType = getColumnSemanticType(metric);
+          const isCnt = metric === '__COUNT__' || agg === 'count' || semType === 'TICKET_ID' || semType === 'CATEGORY';
+          const valY1 = isCnt ? y1Count : (agg === 'avg' ? (y1Valid > 0 ? y1Sum / y1Valid : 0) : y1Sum);
+          const valY2 = isCnt ? y2Count : (agg === 'avg' ? (y2Valid > 0 ? y2Sum / y2Valid : 0) : y2Sum);
+          const delta = valY1 > 0 ? ((valY2 - valY1) / valY1) * 100 : (valY2 > 0 ? 100 : 0);
+          interannualGrowth[lbl] = { valY1, valY2, delta };
+        });
+      }
+
       const theme = getChartThemeColors();
+      const sem = getColumnSemanticType(metric);
+      const isCount = metric === '__COUNT__' || agg === 'count' || sem === 'TICKET_ID' || sem === 'CATEGORY';
+      const isSLA = sem === 'TIME_SLA';
+      const isCurrency = sem === 'CURRENCY';
+
+      function formatVal(val) {
+        if (val === null || val === undefined) return '0';
+        if (isCount) return Math.round(val).toLocaleString('es-ES');
+        if (isSLA) return formatDurationHours(val);
+        if (isCurrency) return `$ ${formatNumber(val)}`;
+        return formatNumber(val);
+      }
+
+      const sliceColors = defaultPalette.slice(0, labels.length);
+      const displayLabels = labels.map((l, i) => `${l} (${percentages[i].toFixed(1)}%)`);
 
       chartInstance3 = new Chart(ctx, {
         type: type,
         data: {
-          labels: labels,
+          labels: displayLabels,
           datasets: [{
             data: values,
-            backgroundColor: defaultPalette.slice(0, labels.length),
+            backgroundColor: sliceColors,
             borderWidth: 2,
             borderColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff'
           }]
@@ -5899,12 +5993,129 @@
           plugins: {
             legend: {
               position: 'bottom',
-              labels: { color: theme.textColor, font: { size: 10 }, boxWidth: 12 }
+              labels: { 
+                color: theme.textColor, 
+                font: { size: 10, weight: '500' }, 
+                boxWidth: 12,
+                padding: 10
+              }
             },
-            tooltip: getChartTooltipConfig(metric, agg)
+            tooltip: {
+              cornerRadius: 8,
+              padding: 10,
+              callbacks: {
+                title: function(items) {
+                  if (!items.length) return '';
+                  const idx = items[0].dataIndex;
+                  return labels[idx] || '';
+                },
+                label: function(context) {
+                  const idx = context.dataIndex;
+                  const v = context.raw;
+                  const pct = percentages[idx];
+                  return ` Valor: ${formatVal(v)} (${pct.toFixed(1)}% del total)`;
+                },
+                afterLabel: function(context) {
+                  const idx = context.dataIndex;
+                  const lines = [];
+                  if (idx === leaderIdx) {
+                    lines.push(` 🥇 Segmento Líder (#1 con mayor participación)`);
+                  } else {
+                    const dPp = diffPoints[idx];
+                    const rD = relDiffs[idx];
+                    lines.push(` 📉 Dif. vs Líder (${leaderLabel}): ${dPp >= 0 ? '+' : ''}${dPp.toFixed(1)} pp (${rD >= 0 ? '+' : ''}${rD.toFixed(1)}%)`);
+                  }
+                  if (hasInterannual && interannualGrowth[labels[idx]]) {
+                    const ig = interannualGrowth[labels[idx]];
+                    lines.push(` 📅 Var. ${y1} vs ${y2}: ${ig.delta >= 0 ? '▲ +' : '▼ '}${ig.delta.toFixed(1)}%`);
+                  }
+                  return lines;
+                }
+              }
+            }
           }
         }
       });
+
+      // 5. Renderizar Desglose Visual Inferior: Tabla/Tarjetas de Porcentajes y Diferencias
+      const tableCont = document.getElementById('chart3PercentageTable');
+      if (tableCont) {
+        if (labels.length === 0 || totalVal === 0) {
+          tableCont.innerHTML = '';
+          return;
+        }
+
+        let breakdownHtml = `
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <span class="flex items-center gap-1.5">
+                <span>📊 Porcentajes y Diferencias de Participación</span>
+                <span class="text-[10px] font-normal text-slate-400 dark:text-slate-500">(Total: ${formatVal(totalVal)})</span>
+              </span>
+              ${hasInterannual ? `<span class="text-[10px] font-semibold text-purple-600 dark:text-purple-400">Var. ${y1} vs ${y2}</span>` : ''}
+            </div>
+            <div class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+        `;
+
+        labels.forEach((lbl, i) => {
+          const val = values[i];
+          const pct = percentages[i];
+          const isLeader = (i === leaderIdx);
+          const color = sliceColors[i] || '#cbd5e1';
+          const dPp = diffPoints[i];
+          const rD = relDiffs[i];
+          const ig = hasInterannual ? interannualGrowth[lbl] : null;
+
+          breakdownHtml += `
+            <div class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 transition border border-slate-100 dark:border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color}"></span>
+                    <span class="font-semibold text-slate-800 dark:text-slate-200 truncate" title="${lbl}">${lbl}</span>
+                    ${isLeader ? '<span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">🥇 Líder</span>' : ''}
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="font-mono text-slate-600 dark:text-slate-300 font-bold">${formatVal(val)}</span>
+                    <span class="font-mono font-extrabold text-slate-900 dark:text-white px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">${pct.toFixed(1)}%</span>
+                  </div>
+                </div>
+                <!-- Mini barra de progreso de cuota -->
+                <div class="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-500" style="width: ${Math.min(pct, 100)}%; background-color: ${color}"></div>
+                </div>
+              </div>
+
+              <!-- Badges de Diferencia -->
+              <div class="flex items-center gap-1.5 shrink-0 justify-end pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/60">
+                ${isLeader ? `
+                  <span class="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Cuota Máx.</span>
+                ` : `
+                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-200/70 text-slate-700 dark:bg-slate-800 dark:text-slate-300" title="Diferencia en puntos porcentuales vs Líder">
+                    <span>${dPp.toFixed(1)} pp</span>
+                    <span class="text-[9px] text-slate-400">(${rD.toFixed(1)}%)</span>
+                  </span>
+                `}
+                ${ig ? `
+                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                    ig.delta > 0 
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
+                      : (ig.delta < 0 ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400')
+                  }" title="Variación interanual ${y1} vs ${y2}">
+                    <span>${ig.delta > 0 ? '▲ +' : (ig.delta < 0 ? '▼ ' : '= ')}${ig.delta.toFixed(1)}%</span>
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        breakdownHtml += `
+            </div>
+          </div>
+        `;
+        tableCont.innerHTML = breakdownHtml;
+      }
     }
 
     // PANEL 4: MATRIZ DE COMPARACIÓN MENSUAL AÑO VS AÑO (TABLA COMPARATIVA DETALLADA)
@@ -7833,15 +8044,54 @@
       window.filterDriveCatalogByYear = filterDriveCatalogByYear;
     }
 
+    function getFolioStatusBadge(rawEst) {
+      if (typeof window.getFolioStatusBadge === 'function' && window.getFolioStatusBadge !== getFolioStatusBadge) {
+        return window.getFolioStatusBadge(rawEst);
+      }
+      const st = (rawEst || 'ENTREGADO').toString().trim().toUpperCase();
+      if (st.includes('DESECH') || st.includes('DESECHO') || st.includes('BAJA') || st.includes('DAÑ') || st.includes('DEFECT') || st.includes('DEVUELT') || st.includes('RETIRAD') || st.includes('SCRAP')) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-2xs" title="Suministro descartado / desechado">🗑️ DESECHADO</span>`;
+      }
+      if (st === 'EN USO' || st.includes('EN USO') || st === 'USO') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-2xs" title="Suministro operando actualmente">⚡ EN USO</span>`;
+      }
+      if (st.includes('INSTALAD') || st === 'COLOCADO') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 shadow-2xs">🔧 INSTALADO</span>`;
+      }
+      if (st.includes('STOCK') || st === 'DISPONIBLE' || st === 'RESERVA' || st === 'NUEVO') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs" title="Disponible en sitio">📦 EN STOCK</span>`;
+      }
+      if (st.includes('TRANSIT') || st.includes('TRÁNSIT') || st === 'ENVIADO' || st === 'EN RUTA' || st.includes('PENDIENT')) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">🚚 EN TRÁNSITO</span>`;
+      }
+      if (st.includes('CONSUMID') || st === 'AGOTADO' || st === 'FINALIZADO') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">🪫 CONSUMIDO</span>`;
+      }
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-800 shadow-2xs">✅ ${st}</span>`;
+    }
+
     function filterSalidasTable() {
       const query = (document.getElementById('searchSalidasInput')?.value || '').trim().toLowerCase();
       const tipoFilter = (document.getElementById('filterSalidasTipo')?.value || '').trim().toUpperCase();
+      const estadoFilter = (document.getElementById('filterSalidasEstado')?.value || '').trim().toUpperCase();
       const folios = sheetStore['FOLIOS'] || [];
 
       salidasFilteredData = folios.filter(row => {
         if (tipoFilter) {
           const rowTipo = (row['TIPO SUM'] || row['TIPO'] || '').toString().trim().toUpperCase();
           if (rowTipo !== tipoFilter) return false;
+        }
+        if (estadoFilter) {
+          const rowEst = (row['ESTADO SUM'] || row['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+          if (estadoFilter === 'EN STOCK') {
+            if (!rowEst.includes('STOCK') && rowEst !== 'DISPONIBLE' && rowEst !== 'RESERVA') return false;
+          } else if (estadoFilter === 'EN USO') {
+            if (!rowEst.includes('EN USO') && rowEst !== 'USO') return false;
+          } else if (estadoFilter === 'DESECHADO') {
+            if (!rowEst.includes('DESECH') && !rowEst.includes('BAJA') && !rowEst.includes('DAÑ') && !rowEst.includes('DEFECT')) return false;
+          } else if (!rowEst.includes(estadoFilter)) {
+            return false;
+          }
         }
         if (query) {
           const folVal = (row._folioStr || getRowFolio(row)).toLowerCase();
@@ -7883,6 +8133,9 @@
           const fBadge = document.getElementById('salidaRecentFechaBadge');
           if (fBadge) fBadge.textContent = formatDateShort(mostRecent['FECHA'] || mostRecent['Fecha']);
 
+          const estBadge = document.getElementById('salidaRecentEstadoBadge');
+          if (estBadge) estBadge.innerHTML = getFolioStatusBadge(mostRecent['ESTADO SUM'] || mostRecent['ESTADO'] || 'ENTREGADO');
+
           const sBadge = document.getElementById('salidaRecentSerieBadge');
           if (sBadge) sBadge.textContent = mostRecent['SERIE'] ? `Equipo: ${mostRecent['SERIE']}` : (mostRecent['SERIE SUM'] || 'S/N');
 
@@ -7918,7 +8171,7 @@
       const pageData = salidasFilteredData.slice(start, start + salidasPageSize);
 
       if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="py-8 text-center text-xs text-slate-400">No hay registros de salidas que coincidan con la búsqueda.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14" class="py-8 text-center text-xs text-slate-400">No hay registros de salidas que coincidan con la búsqueda.</td></tr>`;
       } else {
         pageData.forEach((row, i) => {
           const realIdx = (sheetStore['FOLIOS'] || []).indexOf(row);
@@ -7949,6 +8202,7 @@
               </div>
             </td>
             <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-medium">${formatDateShort(row['FECHA'] || row['Fecha'])}</td>
+            <td class="py-1.5 px-2.5 text-center">${getFolioStatusBadge(row['ESTADO SUM'] || row['ESTADO'] || 'ENTREGADO')}</td>
             <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || '-'}</td>
             <td class="py-1.5 px-2.5 font-mono text-slate-600 dark:text-slate-300">${row['NUMPART'] || '-'}</td>
             <td class="py-1.5 px-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate" title="${row['DESCRIPCION'] || ''}">${row['DESCRIPCION'] || '-'}</td>
@@ -8270,7 +8524,11 @@
       const rawEst = (row['ESTADO SUM'] || 'ENTREGADO').toString().trim().toUpperCase();
       const selEstado = document.getElementById('salidaEstadoSum');
       if (selEstado) {
-        if (rawEst.includes('STOCK') || rawEst === 'EN STOCK' || rawEst === 'NUEVO') {
+        if (rawEst.includes('DESECH') || rawEst.includes('BAJA') || rawEst.includes('DAÑ') || rawEst.includes('DEFECT') || rawEst.includes('DEVUELT') || rawEst.includes('RETIRAD')) {
+          selEstado.value = 'DESECHADO';
+        } else if (rawEst === 'EN USO' || rawEst.includes('EN USO') || rawEst === 'USO') {
+          selEstado.value = 'EN USO';
+        } else if (rawEst.includes('STOCK') || rawEst === 'EN STOCK' || rawEst === 'NUEVO') {
           selEstado.value = 'EN STOCK';
         } else if (rawEst.includes('TRANSIT') || rawEst.includes('TRÁNSIT') || rawEst === 'ENVIADO' || rawEst === 'EN RUTA') {
           selEstado.value = 'EN TRANSITO';
