@@ -2997,8 +2997,10 @@ function goToFolioDetail(folNum, serieUpper) {
     if (confirm(`El Folio #${folNum} no figura en la tabla activa de FOLIOS.\n¿Deseas buscar el documento PDF escaneado en Google Drive?`)) {
       if (typeof openFolioInDrive === 'function') {
         openFolioInDrive(folNum);
+      } else if (typeof openDriveFoliosFinder === 'function') {
+        openDriveFoliosFinder(folNum);
       } else {
-        window.open(`https://drive.google.com/drive/search?q=${encodeURIComponent(folClean || folNum)}`, '_blank');
+        window.open('https://drive.google.com/drive/folders/1RODKFPm34JCowLfWQWzTc79nMMzmtxs0', '_blank');
       }
     }
   }

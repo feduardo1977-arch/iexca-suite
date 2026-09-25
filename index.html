@@ -2306,7 +2306,130 @@
     </div>
   </div>
 
-  <!-- MODAL: NUEVA / EDITAR ORDEN DE SERVICIO (ODS) -->
+    <!-- MODAL: BUSCADOR Y VISOR DE FOLIOS ESCANEADOS (GOOGLE DRIVE) -->
+  <div id="modalDriveFoliosFinder" class="hidden fixed inset-0 z-[80] overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-3xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
+      
+      <!-- Encabezado del Modal -->
+      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="p-2.5 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 shrink-0">
+            <svg class="w-5 h-5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Buscador de Folios Escaneados (Drive)</h3>
+            <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Localiza el tomo PDF mensual o carpeta según el número de folio</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 transition" title="Abrir raíz de Drive">
+            <span>📁 Ver Raíz Drive</span>
+          </a>
+          <button type="button" onclick="closeDriveFoliosFinder()" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition" title="Cerrar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo del Modal con Scroll -->
+      <div class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-w-0 w-full">
+        
+        <!-- Buscador por número de folio en vivo -->
+        <div class="bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-3">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+            🔍 Buscar Folio por Número:
+          </label>
+          <div class="flex items-center gap-2">
+            <div class="relative flex-1">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-sm">#</span>
+              <input type="text" id="driveFolioSearchInput" oninput="onDriveFolioSearchInput(this.value)" placeholder="Ingresa No. Folio (ej. 7250, 7924, 6150...)" class="w-full pl-8 pr-3 py-2.5 text-sm sm:text-base font-mono font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden">
+            </div>
+            <button type="button" onclick="clearDriveFolioSearch()" class="px-3 py-2.5 text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-200 transition shrink-0">
+              Limpiar
+            </button>
+          </div>
+
+          <!-- Resultado Dinámico de la Búsqueda -->
+          <div id="driveFolioSearchResult" class="min-w-0 transition-all">
+            <!-- Inyectado dinámicamente por renderDriveFolioResult() -->
+          </div>
+        </div>
+
+        <!-- Acceso Rápido por Año -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Carpetas por Año en Google Drive</span>
+            <span class="text-[11px] text-slate-400">Clic para abrir en Drive</span>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <a href="https://drive.google.com/drive/folders/1RODKFPm34JCowLfWQWzTc79nMMzmtxs0" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition flex flex-col items-center text-center group">
+              <span class="text-xs font-bold text-blue-700 dark:text-blue-300 group-hover:scale-105 transition-transform">📁 2026</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">7122 al 7578+</span>
+            </a>
+            <a href="https://drive.google.com/drive/folders/1mfXnzDkH7_YXYifZ2UvCQp9O0f2X5WXF" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition flex flex-col items-center text-center group">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:scale-105 transition-transform">📁 2025</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">5844 al 7126</span>
+            </a>
+            <a href="https://drive.google.com/drive/folders/1UQaxJp0Xm9cRYseeILkS4J_-LAgw7G0r" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition flex flex-col items-center text-center group">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:scale-105 transition-transform">📁 2024</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Período 2024</span>
+            </a>
+            <a href="https://drive.google.com/drive/folders/1Um4pwybMoHwwZy5wNjvHLot2cqlMOsba" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition flex flex-col items-center text-center group">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:scale-105 transition-transform">📁 2023</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">3461 al 4742</span>
+            </a>
+            <a href="https://drive.google.com/drive/folders/1Hr1f4biX_ThQqPeaL_KcUCHlmm_sj4H5" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition flex flex-col items-center text-center group">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:scale-105 transition-transform">📁 2022</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">2574 al 3460</span>
+            </a>
+            <a href="https://drive.google.com/drive/folders/11bx4mNWFDRqUbPAr-uvl39gYH7rBPcN9" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition flex flex-col items-center text-center group">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:scale-105 transition-transform">📁 2021</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">12 Tomos</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Directorio de Tomos Digitalizados (Filtro) -->
+        <div class="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+          <div class="p-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <span>📚 Directorio de Tomos PDF Digitalizados</span>
+              <span id="driveFinderTomosCountBadge" class="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-[10px] font-bold text-slate-700 dark:text-slate-300">53 Tomos</span>
+            </span>
+            <!-- Filtros de Año -->
+            <div class="flex items-center gap-1 overflow-x-auto py-0.5" id="driveFinderYearPills">
+              <button type="button" onclick="filterDriveCatalogByYear('ALL')" class="drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-600 text-white shadow-2xs" data-year="ALL">Todos</button>
+              <button type="button" onclick="filterDriveCatalogByYear('2026')" class="drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition" data-year="2026">2026</button>
+              <button type="button" onclick="filterDriveCatalogByYear('2025')" class="drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition" data-year="2025">2025</button>
+              <button type="button" onclick="filterDriveCatalogByYear('2023')" class="drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition" data-year="2023">2023</button>
+              <button type="button" onclick="filterDriveCatalogByYear('2022')" class="drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition" data-year="2022">2022</button>
+              <button type="button" onclick="filterDriveCatalogByYear('2021')" class="drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition" data-year="2021">2021</button>
+            </div>
+          </div>
+
+          <!-- Lista de Tomos con Scroll interno -->
+          <div class="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60 bg-white dark:bg-slate-800" id="driveFinderTomosList">
+            <!-- Inyectado por renderDriveCatalogTable() -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal -->
+      <div class="p-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <a href="https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-200 transition">
+          <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+          <span>Abrir Carpeta Raíz de Folios en Drive</span>
+        </a>
+        <button type="button" onclick="closeDriveFoliosFinder()" class="w-full sm:w-auto px-5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition">
+          Entendido / Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+<!-- MODAL: NUEVA / EDITAR ORDEN DE SERVICIO (ODS) -->
   <div id="modalTicketODS" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
     <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-3xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
       <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
@@ -7339,28 +7462,351 @@
     const GOOGLE_DRIVE_FOLIOS_URL = "https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y";
     const GOOGLE_DRIVE_FOLIOS_FOLDER_ID = "1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y";
 
-    function openFolioInDrive(folioNum) {
-      const cleanNum = folioNum ? String(folioNum).replace(/[^0-9A-Za-z]/g, '').trim() : '';
-      if (!cleanNum || cleanNum === '-' || cleanNum === '---') {
-        window.open(GOOGLE_DRIVE_FOLIOS_URL, '_blank');
-        if (typeof showToast === 'function') {
-          showToast('📁 Abriendo repositorio de Folios escaneados en Google Drive...');
+    // Catálogo indexado de Tomos de Folios Escaneados en Google Drive
+    const FOLIOS_DRIVE_CATALOG = {
+      rootUrl: "https://drive.google.com/drive/folders/1vVRt53_4k-_2S-fFv8T2cN9J8ImThe1Y",
+      folders: {
+        "2026": { name: "FOLIOS 2026", id: "1RODKFPm34JCowLfWQWzTc79nMMzmtxs0", url: "https://drive.google.com/drive/folders/1RODKFPm34JCowLfWQWzTc79nMMzmtxs0", rangeDesc: "7122 al 7578+" },
+        "2025": { name: "FOLIOS 2025", id: "1mfXnzDkH7_YXYifZ2UvCQp9O0f2X5WXF", url: "https://drive.google.com/drive/folders/1mfXnzDkH7_YXYifZ2UvCQp9O0f2X5WXF", rangeDesc: "5844 al 7126" },
+        "2024": { name: "FOLIOS 2024", id: "1UQaxJp0Xm9cRYseeILkS4J_-LAgw7G0r", url: "https://drive.google.com/drive/folders/1UQaxJp0Xm9cRYseeILkS4J_-LAgw7G0r", rangeDesc: "Período 2024" },
+        "2023": { name: "FOLIOS 2023", id: "1Um4pwybMoHwwZy5wNjvHLot2cqlMOsba", url: "https://drive.google.com/drive/folders/1Um4pwybMoHwwZy5wNjvHLot2cqlMOsba", rangeDesc: "3461 al 4742" },
+        "2022": { name: "FOLIOS 2022", id: "1Hr1f4biX_ThQqPeaL_KcUCHlmm_sj4H5", url: "https://drive.google.com/drive/folders/1Hr1f4biX_ThQqPeaL_KcUCHlmm_sj4H5", rangeDesc: "2574 al 3460" },
+        "2021": { name: "FOLIOS 2021", id: "11bx4mNWFDRqUbPAr-uvl39gYH7rBPcN9", url: "https://drive.google.com/drive/folders/11bx4mNWFDRqUbPAr-uvl39gYH7rBPcN9", rangeDesc: "12 Tomos (Anteriores a 2574)" }
+      },
+      files: [{"folder": "FOLIOS 2021", "title": "01 ENE 2021.pdf", "id": "191SAFofnt2xXuXx6RjevDb6cXe1Xqadc", "url": "https://drive.google.com/file/d/191SAFofnt2xXuXx6RjevDb6cXe1Xqadc/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "02 FEB 2021.pdf", "id": "1d5_0uEpp9tQq9gRH0ccPyJeHqfjfBpV9", "url": "https://drive.google.com/file/d/1d5_0uEpp9tQq9gRH0ccPyJeHqfjfBpV9/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "03 MAR 2021.pdf", "id": "19Sgo4Sx7CYyKG-YJn5vKw9ggx9kuQb1m", "url": "https://drive.google.com/file/d/19Sgo4Sx7CYyKG-YJn5vKw9ggx9kuQb1m/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "04 ABR 2021.pdf", "id": "1ak2gCZAPZId3Z_tE6ACjxXShMEVbIACi", "url": "https://drive.google.com/file/d/1ak2gCZAPZId3Z_tE6ACjxXShMEVbIACi/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "05 MAY 2021.pdf", "id": "1CH2dkp2BNexfOK8-qsZFrDvjQeHmNhm5", "url": "https://drive.google.com/file/d/1CH2dkp2BNexfOK8-qsZFrDvjQeHmNhm5/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "06 JUN 2021.pdf", "id": "1iGh1ozppYpv-LBeZTVU_aYUsGbDXMUDj", "url": "https://drive.google.com/file/d/1iGh1ozppYpv-LBeZTVU_aYUsGbDXMUDj/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "07 JUL 2021.pdf", "id": "16T9f98TRJxiBazoXPiu9OKwZj0wH2uMo", "url": "https://drive.google.com/file/d/16T9f98TRJxiBazoXPiu9OKwZj0wH2uMo/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "08 AGO 2021.pdf", "id": "1VR-6v6bau5EJNoI6uVQzoTw0FxTfn_YX", "url": "https://drive.google.com/file/d/1VR-6v6bau5EJNoI6uVQzoTw0FxTfn_YX/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "09 SEP 2021.pdf", "id": "1DBVuZTdZa8vz_HJRFdx9BruSE8j3n4_B", "url": "https://drive.google.com/file/d/1DBVuZTdZa8vz_HJRFdx9BruSE8j3n4_B/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "10 OCT 2021.pdf", "id": "18P-j0EubQaGPlyg_N9StZICDWeLWKeqw", "url": "https://drive.google.com/file/d/18P-j0EubQaGPlyg_N9StZICDWeLWKeqw/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "11 NOV 2021.pdf", "id": "1RiuBJn8bQrsjQd8uMwRMHL4VFf__jQFu", "url": "https://drive.google.com/file/d/1RiuBJn8bQrsjQd8uMwRMHL4VFf__jQFu/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2021", "title": "12 DIC 2021.pdf", "id": "1UBg4gvxlMWwgxOpMOKwBOeaa3i20Eri_", "url": "https://drive.google.com/file/d/1UBg4gvxlMWwgxOpMOKwBOeaa3i20Eri_/view?usp=drive_web", "start": null, "end": null}, {"folder": "FOLIOS 2022", "title": "01 ENERO 2022 (2574 AL 2635).pdf", "id": "1M4R932aBAtIL9TaKErye_ZS3GPcsP0lu", "url": "https://drive.google.com/file/d/1M4R932aBAtIL9TaKErye_ZS3GPcsP0lu/view?usp=drive_web", "start": 2574, "end": 2635}, {"folder": "FOLIOS 2022", "title": "02 FEBRERO 2022 (2636 AL 2700).pdf", "id": "1zwc7XEkHD1ukgNr8IYVa0hsSvVW4ASFh", "url": "https://drive.google.com/file/d/1zwc7XEkHD1ukgNr8IYVa0hsSvVW4ASFh/view?usp=drive_web", "start": 2636, "end": 2700}, {"folder": "FOLIOS 2022", "title": "03 MARZO 2022 (2701 AL 2754).pdf", "id": "1zEspIS29uDcRnVFbMck537mLODFrn8fp", "url": "https://drive.google.com/file/d/1zEspIS29uDcRnVFbMck537mLODFrn8fp/view?usp=drive_web", "start": 2701, "end": 2754}, {"folder": "FOLIOS 2022", "title": "04 ABRIL 2022 (2755 AL 2787).pdf", "id": "14D0-LlJfEZGUjVhuSvPQjiAI62r48Nqy", "url": "https://drive.google.com/file/d/14D0-LlJfEZGUjVhuSvPQjiAI62r48Nqy/view?usp=drive_web", "start": 2755, "end": 2787}, {"folder": "FOLIOS 2022", "title": "05 MAYO 2022 (2788 AL 2875).pdf", "id": "148d1bmIBkO-2m18eIX8Zsi7OMGIUeCPH", "url": "https://drive.google.com/file/d/148d1bmIBkO-2m18eIX8Zsi7OMGIUeCPH/view?usp=drive_web", "start": 2788, "end": 2875}, {"folder": "FOLIOS 2022", "title": "06 JUNIO 2022 (2876 AL 2854).pdf", "id": "10uvOEtfRhacHurTrgk14XiMBgvCyfWDU", "url": "https://drive.google.com/file/d/10uvOEtfRhacHurTrgk14XiMBgvCyfWDU/view?usp=drive_web", "start": 2854, "end": 2876}, {"folder": "FOLIOS 2022", "title": "07 JULIO 2022 (2955 AL 3067).pdf", "id": "1QNGB8Ek8Qgk1W_Yj8YJ-zLoMuDRszMCo", "url": "https://drive.google.com/file/d/1QNGB8Ek8Qgk1W_Yj8YJ-zLoMuDRszMCo/view?usp=drive_web", "start": 2955, "end": 3067}, {"folder": "FOLIOS 2022", "title": "08 AGOSTO 2022 (3043 AL 3140).pdf", "id": "1B1LW_zb06aKayW_jKwyen-sVc1LIhVQW", "url": "https://drive.google.com/file/d/1B1LW_zb06aKayW_jKwyen-sVc1LIhVQW/view?usp=drive_web", "start": 3043, "end": 3140}, {"folder": "FOLIOS 2022", "title": "09 SEPTIEMBRE 2022 (3142 AL 3203).pdf", "id": "1EIVyFSnoiDcCiDsTceMjh-JIjvVInbIx", "url": "https://drive.google.com/file/d/1EIVyFSnoiDcCiDsTceMjh-JIjvVInbIx/view?usp=drive_web", "start": 3142, "end": 3203}, {"folder": "FOLIOS 2022", "title": "10 OCTUBRE 2022 (3280 AL 3342).pdf", "id": "1fAqK-bONFzrF7SUZRuPQuUxdvTcNpKiN", "url": "https://drive.google.com/file/d/1fAqK-bONFzrF7SUZRuPQuUxdvTcNpKiN/view?usp=drive_web", "start": 3280, "end": 3342}, {"folder": "FOLIOS 2022", "title": "11 NOVIEMBRE 2022 (3280 AL 3394).pdf", "id": "1_1h2gGwfnoMznZEJcdPX0fLjtwYegInT", "url": "https://drive.google.com/file/d/1_1h2gGwfnoMznZEJcdPX0fLjtwYegInT/view?usp=drive_web", "start": 3280, "end": 3394}, {"folder": "FOLIOS 2022", "title": "12 DICIEMBRE 2022 (3395 AL 3460).pdf", "id": "18ucL8NpU2q5k43NBWuz7idYF0oR6Llzs", "url": "https://drive.google.com/file/d/18ucL8NpU2q5k43NBWuz7idYF0oR6Llzs/view?usp=drive_web", "start": 3395, "end": 3460}, {"folder": "FOLIOS 2023", "title": "01 ENE 2023 (3461 AL 3559).pdf", "id": "1OQgCLjC0DrcRhdJVOl6IRjPhT6TeCcby", "url": "https://drive.google.com/file/d/1OQgCLjC0DrcRhdJVOl6IRjPhT6TeCcby/view?usp=drive_web", "start": 3461, "end": 3559}, {"folder": "FOLIOS 2023", "title": "02 FEB 2023 (3567 AL 3670).pdf", "id": "1upUuqSFvbPjZY1drQhXxZoQtVXQhGnAw", "url": "https://drive.google.com/file/d/1upUuqSFvbPjZY1drQhXxZoQtVXQhGnAw/view?usp=drive_web", "start": 3567, "end": 3670}, {"folder": "FOLIOS 2023", "title": "03 MAR 2023 (3671 AL 3791).pdf", "id": "1zv-YLN3Jv7HBGQFvXP9E4kUV_AWbgfO5", "url": "https://drive.google.com/file/d/1zv-YLN3Jv7HBGQFvXP9E4kUV_AWbgfO5/view?usp=drive_web", "start": 3671, "end": 3791}, {"folder": "FOLIOS 2023", "title": "04 ABR 2023 (3792 AL 3896).pdf", "id": "1XhSO9VMz_yPZ9hmpGsDwwKQYcNIMbLmw", "url": "https://drive.google.com/file/d/1XhSO9VMz_yPZ9hmpGsDwwKQYcNIMbLmw/view?usp=drive_web", "start": 3792, "end": 3896}, {"folder": "FOLIOS 2023", "title": "05 MAY 2023 (3897 AL 4056).pdf", "id": "16bDRDm9SVgPfW6nYhvEQ4tf2OX7duz3V", "url": "https://drive.google.com/file/d/16bDRDm9SVgPfW6nYhvEQ4tf2OX7duz3V/view?usp=drive_web", "start": 3897, "end": 4056}, {"folder": "FOLIOS 2023", "title": "06 JUN 2023 (4057 AL 4170).pdf", "id": "1c6p95V_zxo6PufMF8OCpDIfo40sGJ-5K", "url": "https://drive.google.com/file/d/1c6p95V_zxo6PufMF8OCpDIfo40sGJ-5K/view?usp=drive_web", "start": 4057, "end": 4170}, {"folder": "FOLIOS 2023", "title": "07 JUL 2023 (4171 AL 4250).pdf", "id": "16TnNFF4N6NBZtzcM_idv-a1Za0jT94NF", "url": "https://drive.google.com/file/d/16TnNFF4N6NBZtzcM_idv-a1Za0jT94NF/view?usp=drive_web", "start": 4171, "end": 4250}, {"folder": "FOLIOS 2023", "title": "08 AGO 2023 (4251 AL 4352).pdf", "id": "1V7BPOgao3oR9hjlJ7Gbwivq61jvalEAb", "url": "https://drive.google.com/file/d/1V7BPOgao3oR9hjlJ7Gbwivq61jvalEAb/view?usp=drive_web", "start": 4251, "end": 4352}, {"folder": "FOLIOS 2023", "title": "09 SEP 2023 (4353 AL 4470).pdf", "id": "10Y_VjA9U2G9BhYQbBhcrk5bHo1NzslSs", "url": "https://drive.google.com/file/d/10Y_VjA9U2G9BhYQbBhcrk5bHo1NzslSs/view?usp=drive_web", "start": 4353, "end": 4470}, {"folder": "FOLIOS 2023", "title": "10 OCT 2023 (4471 AL 4558).pdf", "id": "1Yc1-Nrm5nqo-tAk0oqiwLn6YO89xIIyf", "url": "https://drive.google.com/file/d/1Yc1-Nrm5nqo-tAk0oqiwLn6YO89xIIyf/view?usp=drive_web", "start": 4471, "end": 4558}, {"folder": "FOLIOS 2023", "title": "11 NOV 2023 (4559 AL 4663).pdf", "id": "1o_-0T-TU1TFb2_XgzUR-jk136T736DB4", "url": "https://drive.google.com/file/d/1o_-0T-TU1TFb2_XgzUR-jk136T736DB4/view?usp=drive_web", "start": 4559, "end": 4663}, {"folder": "FOLIOS 2023", "title": "12 DIC 2023 (4664 AL 4742).pdf", "id": "16icNQvPl1NOaAJPhUXXV8cyGooXdjg7X", "url": "https://drive.google.com/file/d/16icNQvPl1NOaAJPhUXXV8cyGooXdjg7X/view?usp=drive_web", "start": 4664, "end": 4742}, {"folder": "FOLIOS 2025", "title": "01 - ENE 2025 ( 5844 AL 5952 ).pdf", "id": "1kf3yX1MlokBIsjMxCOuvhdLNnD8Eqkat", "url": "https://drive.google.com/file/d/1kf3yX1MlokBIsjMxCOuvhdLNnD8Eqkat/view?usp=drive_web", "start": 5844, "end": 5952}, {"folder": "FOLIOS 2025", "title": "02 - FEB 2025 ( 5950 AL 6036 ).pdf", "id": "1j8C_y_q_--pKFsBLyv4FUcWGLcHGKQpL", "url": "https://drive.google.com/file/d/1j8C_y_q_--pKFsBLyv4FUcWGLcHGKQpL/view?usp=drive_web", "start": 5950, "end": 6036}, {"folder": "FOLIOS 2025", "title": "03 - MAR 2025 ( 6037 AL 6149 ).pdf", "id": "1l1x5co_GEKCVO-djH0DVrsiDxwJwKEe5", "url": "https://drive.google.com/file/d/1l1x5co_GEKCVO-djH0DVrsiDxwJwKEe5/view?usp=drive_web", "start": 6037, "end": 6149}, {"folder": "FOLIOS 2025", "title": "04 - ABR 2025 ( 6150 AL 6244 ).pdf", "id": "1GJD1jnuPKOmRTGhakSH7tKZKjg1kNxVP", "url": "https://drive.google.com/file/d/1GJD1jnuPKOmRTGhakSH7tKZKjg1kNxVP/view?usp=drive_web", "start": 6150, "end": 6244}, {"folder": "FOLIOS 2025", "title": "05 - MAY 2025 ( 6245 AL 6350 ).pdf", "id": "1NtH0LrCy_dcIZj2es14v7J0O60NgrBZp", "url": "https://drive.google.com/file/d/1NtH0LrCy_dcIZj2es14v7J0O60NgrBZp/view?usp=drive_web", "start": 6245, "end": 6350}, {"folder": "FOLIOS 2025", "title": "06 - JUN 2025 ( 6351 AL 6439 ).pdf", "id": "1OihD4hpGpD9yIJZFlubCXcH8wUxg-dqs", "url": "https://drive.google.com/file/d/1OihD4hpGpD9yIJZFlubCXcH8wUxg-dqs/view?usp=drive_web", "start": 6351, "end": 6439}, {"folder": "FOLIOS 2025", "title": "07 - JUL 2025 ( 6440 AL 6563 ).pdf", "id": "1nrfGl11biNzOtJh0EbQlh7RcjaEk8V_R", "url": "https://drive.google.com/file/d/1nrfGl11biNzOtJh0EbQlh7RcjaEk8V_R/view?usp=drive_web", "start": 6440, "end": 6563}, {"folder": "FOLIOS 2025", "title": "08 - AGO 2025 ( 6564 AL 6658 ).pdf", "id": "1gIPw5cLX_Vrec9wGvb3_nA2yHn2O-I_7", "url": "https://drive.google.com/file/d/1gIPw5cLX_Vrec9wGvb3_nA2yHn2O-I_7/view?usp=drive_web", "start": 6564, "end": 6658}, {"folder": "FOLIOS 2025", "title": "09 - SEP 2025 ( 6659 AL 6760 ).pdf", "id": "1NNjw98HD9RBZ6XkUyW8aRYGq6MV1DcRk", "url": "https://drive.google.com/file/d/1NNjw98HD9RBZ6XkUyW8aRYGq6MV1DcRk/view?usp=drive_web", "start": 6659, "end": 6760}, {"folder": "FOLIOS 2025", "title": "10 - OCT 2025 ( 6761 AL 6905 ).pdf", "id": "149YU5R3IXPvC-9L7qQFqavlK_IDNCrKK", "url": "https://drive.google.com/file/d/149YU5R3IXPvC-9L7qQFqavlK_IDNCrKK/view?usp=drive_web", "start": 6761, "end": 6905}, {"folder": "FOLIOS 2025", "title": "11 - NOV 2025 ( 6906 AL 7028 ).pdf", "id": "1Dv7dkuIfRurx3zJRDjlUTMDPJihLLMiB", "url": "https://drive.google.com/file/d/1Dv7dkuIfRurx3zJRDjlUTMDPJihLLMiB/view?usp=drive_web", "start": 6906, "end": 7028}, {"folder": "FOLIOS 2025", "title": "12 - DIC 2025 ( 7029 AL 7126 ).pdf", "id": "1XVr-DixXIlEDYUoP-XKAI1AtdWUrATu7", "url": "https://drive.google.com/file/d/1XVr-DixXIlEDYUoP-XKAI1AtdWUrATu7/view?usp=drive_web", "start": 7029, "end": 7126}, {"folder": "FOLIOS 2026", "title": "01 - ENE 2026 ( 7122 AL 7216 ).pdf", "id": "1K4fScLVu-gXBjU93otAG0K7lkt7zqQBO", "url": "https://drive.google.com/file/d/1K4fScLVu-gXBjU93otAG0K7lkt7zqQBO/view?usp=drive_web", "start": 7122, "end": 7216}, {"folder": "FOLIOS 2026", "title": "02 - FEB 2026 ( 7217 AL 7298 ).pdf", "id": "1Vu6KXdqQh_tsTs4S5PIZLm3Fy5kpKqS5", "url": "https://drive.google.com/file/d/1Vu6KXdqQh_tsTs4S5PIZLm3Fy5kpKqS5/view?usp=drive_web", "start": 7217, "end": 7298}, {"folder": "FOLIOS 2026", "title": "03 - MAR 2026 ( 7299 AL 7402 ).pdf", "id": "1pOsFX0lyFD3i0k0HxArXFkLj697z47kI", "url": "https://drive.google.com/file/d/1pOsFX0lyFD3i0k0HxArXFkLj697z47kI/view?usp=drive_web", "start": 7299, "end": 7402}, {"folder": "FOLIOS 2026", "title": "04 - ABR 2026 ( 7403 AL 7481 ).pdf", "id": "1U5HvFv7sJUNd_vj1PVS0IsXtOuvUmLPb", "url": "https://drive.google.com/file/d/1U5HvFv7sJUNd_vj1PVS0IsXtOuvUmLPb/view?usp=drive_web", "start": 7403, "end": 7481}, {"folder": "FOLIOS 2026", "title": "05 - MAY 2026 ( 7482 AL 7578 ).pdf", "id": "11k8S6Qs27ZcyVTmuSCHJzb_1tdzekQoE", "url": "https://drive.google.com/file/d/11k8S6Qs27ZcyVTmuSCHJzb_1tdzekQoE/view?usp=drive_web", "start": 7482, "end": 7578}]
+    };
+
+    function findFolioInCatalog(folioNum) {
+      const clean = String(folioNum || '').replace(/[^0-9]/g, '');
+      if (!clean) return null;
+      const num = parseInt(clean, 10);
+      if (isNaN(num)) return null;
+
+      // 1. Coincidencia exacta por rango
+      for (const f of FOLIOS_DRIVE_CATALOG.files) {
+        if (f.start !== null && f.end !== null) {
+          const s = Math.min(f.start, f.end);
+          const e = Math.max(f.start, f.end);
+          if (num >= s && num <= e) {
+            const yearKey = (f.folder.match(/\d{4}/) || [''])[0];
+            const folderObj = FOLIOS_DRIVE_CATALOG.folders[yearKey] || { name: f.folder, url: FOLIOS_DRIVE_CATALOG.rootUrl };
+            return {
+              status: 'exact',
+              folioNum: num,
+              file: f,
+              folder: folderObj,
+              message: `El Folio #${num} se encuentra en el tomo digitalizado: "${f.title}".`
+            };
+          }
         }
+      }
+
+      // 2. Salidas recientes de 2026 (num > 7578)
+      if (num > 7578) {
+        return {
+          status: 'recent_2026',
+          folioNum: num,
+          folder: FOLIOS_DRIVE_CATALOG.folders['2026'],
+          message: `El Folio #${num} corresponde al año 2026 (posterior a Mayo 2026, último tomo digitalizado #7578). Las salidas recientes se ubican en la carpeta oficial de FOLIOS 2026.`
+        };
+      }
+
+      // 3. Período 2024 (4743 <= num < 5844)
+      if (num >= 4743 && num < 5844) {
+        return {
+          status: 'year_2024',
+          folioNum: num,
+          folder: FOLIOS_DRIVE_CATALOG.folders['2024'],
+          message: `El Folio #${num} corresponde al período 2024. Puedes consultar la carpeta de FOLIOS 2024.`
+        };
+      }
+
+      // 4. Período 2021 o anterior (num < 2574)
+      if (num < 2574) {
+        return {
+          status: 'year_2021',
+          folioNum: num,
+          folder: FOLIOS_DRIVE_CATALOG.folders['2021'],
+          message: `El Folio #${num} corresponde al año 2021 o anterior. Puedes consultar los tomos de FOLIOS 2021.`
+        };
+      }
+
+      // 5. Fallback general
+      return {
+        status: 'general',
+        folioNum: num,
+        folder: { name: 'Repositorio General', url: FOLIOS_DRIVE_CATALOG.rootUrl },
+        message: `Folio #${num}. Consulta en el repositorio de Drive.`
+      };
+    }
+
+    let driveFinderActiveYear = 'ALL';
+
+    function openDriveFoliosFinder(initialFolio = '') {
+      const modal = document.getElementById('modalDriveFoliosFinder');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+
+      const input = document.getElementById('driveFolioSearchInput');
+      const cleanNum = initialFolio ? String(initialFolio).replace(/[^0-9]/g, '') : '';
+      if (input) {
+        input.value = cleanNum;
+        setTimeout(() => {
+          input.focus();
+          if (cleanNum) input.select();
+        }, 80);
+      }
+      renderDriveFolioResult(cleanNum);
+      renderDriveCatalogTable();
+    }
+
+    function closeDriveFoliosFinder() {
+      const modal = document.getElementById('modalDriveFoliosFinder');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function clearDriveFolioSearch() {
+      const input = document.getElementById('driveFolioSearchInput');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      renderDriveFolioResult('');
+    }
+
+    function onDriveFolioSearchInput(val) {
+      renderDriveFolioResult(val);
+    }
+
+    function renderDriveFolioResult(val) {
+      const container = document.getElementById('driveFolioSearchResult');
+      if (!container) return;
+
+      const cleanNum = String(val || '').replace(/[^0-9]/g, '');
+      if (!cleanNum) {
+        container.innerHTML = `
+          <div class="p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 text-center">
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              💡 Ingresa un número de folio arriba para ubicar su tomo mensual en PDF o su carpeta correspondiente.
+            </p>
+          </div>
+        `;
         return;
       }
 
-      // Copiar automáticamente el número al portapapeles para conveniencia del usuario
+      const res = findFolioInCatalog(cleanNum);
+      if (!res) return;
+
+      if (res.status === 'exact') {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 shadow-xs space-y-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Folio #${res.folioNum} Localizado
+                </span>
+                <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">${res.file.folder}</span>
+              </div>
+              <span class="text-[11px] font-mono font-bold bg-emerald-200/80 dark:bg-emerald-900 px-2 py-0.5 rounded-md">
+                Rango: #${res.file.start} al #${res.file.end}
+              </span>
+            </div>
+
+            <div>
+              <h4 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <svg class="w-5 h-5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                <span>${res.file.title}</span>
+              </h4>
+              <p class="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                Este tomo escaneado contiene las actas de entrega y salidas del Folio #${res.folioNum}.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <a href="${res.file.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-xs transition">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                <span>Abrir Tomo PDF en Google Drive</span>
+              </a>
+              <a href="${res.folder.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl transition">
+                <span>📁 Ver Carpeta ${res.folder.name}</span>
+              </a>
+            </div>
+          </div>
+        `;
+      } else if (res.status === 'recent_2026') {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl border border-blue-300 dark:border-blue-700/80 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 shadow-xs space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 dark:bg-blue-900/80 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700">
+                ℹ️ Folio #${res.folioNum} - Año 2026 (Reciente)
+              </span>
+            </div>
+            <div>
+              <h4 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                Salida posterior a Mayo 2026
+              </h4>
+              <p class="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                Los tomos consolidados mensuales en Google Drive actualmente abarcan hasta el <strong>Folio #7578</strong> (Mayo 2026). Las salidas posteriores se archivan en la carpeta oficial de <strong>FOLIOS 2026</strong>.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 pt-1">
+              <a href="${res.folder.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition">
+                <span>📁 Abrir Carpeta FOLIOS 2026 en Drive</span>
+              </a>
+              <a href="${FOLIOS_DRIVE_CATALOG.rootUrl}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl transition">
+                <span>📂 Repositorio General de Folios</span>
+              </a>
+            </div>
+          </div>
+        `;
+      } else if (res.status === 'year_2024') {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/80 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 shadow-xs space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+                📁 Folio #${res.folioNum} - Período 2024
+              </span>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              El Folio #${res.folioNum} corresponde al año 2024. Puedes consultar el repositorio del año 2024 en Google Drive.
+            </p>
+            <div class="pt-1">
+              <a href="${res.folder.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition">
+                <span>📁 Abrir Carpeta FOLIOS 2024 en Drive</span>
+              </a>
+            </div>
+          </div>
+        `;
+      } else if (res.status === 'year_2021') {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 shadow-xs space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
+                📁 Folio #${res.folioNum} - Año 2021 o anterior
+              </span>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              El Folio #${res.folioNum} corresponde a los registros históricos del año 2021. Puedes explorar los 12 tomos mensuales en la carpeta de 2021.
+            </p>
+            <div class="pt-1">
+              <a href="${res.folder.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold bg-slate-700 hover:bg-slate-800 text-white rounded-xl shadow-xs transition">
+                <span>📁 Abrir Carpeta FOLIOS 2021 en Drive</span>
+              </a>
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-xs space-y-3">
+            <p class="text-xs text-slate-600 dark:text-slate-300">${res.message}</p>
+            <div class="pt-1">
+              <a href="${res.folder.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition">
+                <span>📂 Abrir Repositorio en Drive</span>
+              </a>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function filterDriveCatalogByYear(year) {
+      driveFinderActiveYear = year;
+      const pills = document.querySelectorAll('#driveFinderYearPills .drive-filter-pill');
+      pills.forEach(p => {
+        if (p.getAttribute('data-year') === year) {
+          p.className = 'drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-600 text-white shadow-2xs';
+        } else {
+          p.className = 'drive-filter-pill px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition';
+        }
+      });
+      renderDriveCatalogTable();
+    }
+
+    function renderDriveCatalogTable() {
+      const container = document.getElementById('driveFinderTomosList');
+      const badge = document.getElementById('driveFinderTomosCountBadge');
+      if (!container) return;
+
+      let filtered = FOLIOS_DRIVE_CATALOG.files;
+      if (driveFinderActiveYear !== 'ALL') {
+        filtered = filtered.filter(f => f.folder.includes(driveFinderActiveYear));
+      }
+
+      if (badge) {
+        badge.textContent = `${filtered.length} Tomo${filtered.length === 1 ? '' : 's'}`;
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 text-center text-xs text-slate-400">
+            No se encontraron tomos para este filtro.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(f => {
+        const rangeText = (f.start !== null && f.end !== null)
+          ? `<span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono text-[10px] font-bold border border-amber-200 dark:border-amber-800">#${f.start} al #${f.end}</span>`
+          : `<span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px]">Sin rango numérico</span>`;
+
+        return `
+          <div class="p-2.5 sm:p-3 flex items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 shrink-0">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">${f.title}</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">${f.folder}</span>
+                  ${rangeText}
+                </div>
+              </div>
+            </div>
+            <a href="${f.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 shrink-0 transition" title="Abrir PDF en Google Drive">
+              <span>📄 Ver PDF</span>
+            </a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openFolioInDrive(folioNum) {
+      const cleanNum = folioNum ? String(folioNum).replace(/[^0-9]/g, '').trim() : '';
+      if (!cleanNum || cleanNum === '-' || cleanNum === '---') {
+        openDriveFoliosFinder('');
+        return;
+      }
+
+      // Copiar automáticamente el número al portapapeles
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(cleanNum).catch(() => {});
       }
 
-      if (typeof showToast === 'function') {
-        showToast(`📄 Buscando Folio #${cleanNum} en Drive (Copiado al portapapeles)`);
+      const res = findFolioInCatalog(cleanNum);
+      if (res && res.status === 'exact') {
+        if (typeof showToast === 'function') {
+          showToast(`📄 Abriendo ${res.file.title} (Folio #${cleanNum})`);
+        }
+        window.open(res.file.url, '_blank');
+      } else if (res && res.status === 'recent_2026') {
+        if (typeof showToast === 'function') {
+          showToast(`📁 Folio #${cleanNum} (2026): Abriendo carpeta FOLIOS 2026...`);
+        }
+        window.open(res.folder.url, '_blank');
+        openDriveFoliosFinder(cleanNum);
+      } else if (res && res.folder && res.folder.url) {
+        if (typeof showToast === 'function') {
+          showToast(`📁 Folio #${cleanNum}: Abriendo carpeta ${res.folder.name}...`);
+        }
+        window.open(res.folder.url, '_blank');
+        openDriveFoliosFinder(cleanNum);
+      } else {
+        window.open(GOOGLE_DRIVE_FOLIOS_URL, '_blank');
+        openDriveFoliosFinder(cleanNum);
       }
-
-      // Búsqueda en Google Drive por número de folio
-      const searchUrl = `https://drive.google.com/drive/search?q=${encodeURIComponent(cleanNum)}`;
-      window.open(searchUrl, '_blank');
     }
 
     function openFoliosDriveFolder() {
@@ -7373,16 +7819,18 @@
     function promptSearchFolioInDrive() {
       const currentSearch = document.getElementById('searchSalidasInput')?.value || '';
       const initialVal = currentSearch.replace(/[^0-9]/g, '');
-      const input = prompt("Ingresa el número de Folio a consultar en Google Drive (PDF escaneado):", initialVal);
-      if (input !== null && input.trim() !== '') {
-        openFolioInDrive(input.trim());
-      }
+      openDriveFoliosFinder(initialVal);
     }
 
     if (typeof window !== 'undefined') {
       window.openFolioInDrive = openFolioInDrive;
       window.openFoliosDriveFolder = openFoliosDriveFolder;
       window.promptSearchFolioInDrive = promptSearchFolioInDrive;
+      window.openDriveFoliosFinder = openDriveFoliosFinder;
+      window.closeDriveFoliosFinder = closeDriveFoliosFinder;
+      window.clearDriveFolioSearch = clearDriveFolioSearch;
+      window.onDriveFolioSearchInput = onDriveFolioSearchInput;
+      window.filterDriveCatalogByYear = filterDriveCatalogByYear;
     }
 
     function filterSalidasTable() {
