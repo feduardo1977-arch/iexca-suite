@@ -279,6 +279,32 @@ function normalizeMarkVisionModel(rawModel, serie) {
   return m;
 }
 
+// Detección estricta de equipos de color vs monocromáticos:
+// - Equipos de color: Comienzan con CX o CS (ej: CX725, CX522, CX625, CS521, CS820)
+// - Equipos monocromáticos: Comienzan con MS o MX (ej: MS811, MX711, MS823, MX622, MS521, MS317, etc.)
+// SOLO a los equipos que comienzan con CX o CS se les toman en cuenta los colores (Y, C, M, Desecho).
+function isColorPrinterModel(modelStr) {
+  if (!modelStr) return false;
+  let m = String(modelStr).trim().toUpperCase();
+  // Quitar prefijo Lexmark si viene presente
+  m = m.replace(/^LEXMARK\s+/, '').trim();
+
+  // Si comienza con MS o MX, es ESTRICTAMENTE MONOCROMÁTICO
+  if (m.startsWith('MS') || m.startsWith('MX')) {
+    return false;
+  }
+
+  // Si comienza con CX o CS, es COLOR
+  if (m.startsWith('CX') || m.startsWith('CS')) {
+    return true;
+  }
+
+  return false;
+}
+if (typeof window !== 'undefined') {
+  window.isColorPrinterModel = isColorPrinterModel;
+}
+
 // Parseo robusto de CSV Fleet Manager
 function parseLexmarkFleetCsv(csvText, fileName) {
   if (!csvText || typeof csvText !== 'string') return [];
@@ -387,11 +413,7 @@ function parseLexmarkFleetCsv(csvText, fileName) {
 
     const desechoNivel = desechoIdx >= 0 ? parseNivel(cols[desechoIdx]) : null;
 
-    const isColor = Boolean(
-      cleanMod.startsWith('CX') || cleanMod.includes('COLOR') ||
-      tnrYNivel !== null || tnrCNivel !== null || tnrMNivel !== null ||
-      Boolean(tnrYSerie) || Boolean(tnrCSerie) || Boolean(tnrMSerie)
-    );
+    const isColor = isColorPrinterModel(cleanMod);
 
     rows.push({
       ip: cleanIpAddress(ipIdx >= 0 ? cols[ipIdx] : ''),
@@ -401,13 +423,13 @@ function parseLexmarkFleetCsv(csvText, fileName) {
       isColor: isColor,
       tnrKNivel: tnrKNivel,
       tnrKSerie: tnrKSerie,
-      tnrYNivel: tnrYNivel,
-      tnrYSerie: tnrYSerie,
-      tnrCNivel: tnrCNivel,
-      tnrCSerie: tnrCSerie,
-      tnrMNivel: tnrMNivel,
-      tnrMSerie: tnrMSerie,
-      desechoNivel: desechoNivel,
+      tnrYNivel: isColor ? tnrYNivel : null,
+      tnrYSerie: isColor ? tnrYSerie : '',
+      tnrCNivel: isColor ? tnrCNivel : null,
+      tnrCSerie: isColor ? tnrCSerie : '',
+      tnrMNivel: isColor ? tnrMNivel : null,
+      tnrMSerie: isColor ? tnrMSerie : '',
+      desechoNivel: isColor ? desechoNivel : null,
       // Retrocompatibilidad con equipo monocromático
       tnrNivel: tnrKNivel,
       tnrSerie: tnrKSerie,
@@ -900,29 +922,21 @@ function refreshMonitoringAnalysis() {
       const displayCliente = (clientName || (rdiInfo ? rdiInfo.CLIENTE : '') || 'N/D').toUpperCase();
       const displayDet = ((rdiInfo && rdiInfo.DET) ? rdiInfo.DET : '').toUpperCase();
 
-      // Detección de Equipo de Color vs Monocromático
-      const isColor = Boolean(
-        row.isColor ||
-        displayModelo.startsWith('CX') ||
-        displayModelo.includes('COLOR') ||
-        (row.modelo && (row.modelo.startsWith('CX') || row.modelo.includes('COLOR'))) ||
-        row.tnrYNivel !== null ||
-        row.tnrCNivel !== null ||
-        row.tnrMNivel !== null ||
-        Boolean(row.tnrYSerie) ||
-        Boolean(row.tnrCSerie) ||
-        Boolean(row.tnrMSerie)
-      );
+      // Detección estricta de Equipo de Color vs Monocromático:
+      // - Equipos de color: Comienzan con CX o CS (ej: CX725, CX522, CX625, CS521, CS820)
+      // - Equipos monocromáticos: Comienzan con MS o MX (ej: MS811, MX711, MS823, MX622, etc.)
+      // SOLO a los equipos que comienzan con CX o CS se les toman en cuenta los colores (Y, C, M, Desecho).
+      const isColor = isColorPrinterModel(displayModelo) || isColorPrinterModel(row.modelo);
 
       const tnrKNivel = row.tnrKNivel !== undefined && row.tnrKNivel !== null ? row.tnrKNivel : row.tnrNivel;
       const tnrKSerie = formatSupplySerie(row.tnrKSerie || row.tnrSerie);
-      const tnrYNivel = row.tnrYNivel !== undefined ? row.tnrYNivel : null;
-      const tnrYSerie = formatSupplySerie(row.tnrYSerie);
-      const tnrCNivel = row.tnrCNivel !== undefined ? row.tnrCNivel : null;
-      const tnrCSerie = formatSupplySerie(row.tnrCSerie);
-      const tnrMNivel = row.tnrMNivel !== undefined ? row.tnrMNivel : null;
-      const tnrMSerie = formatSupplySerie(row.tnrMSerie);
-      const desechoNivel = row.desechoNivel !== undefined ? row.desechoNivel : null;
+      const tnrYNivel = isColor && row.tnrYNivel !== undefined ? row.tnrYNivel : null;
+      const tnrYSerie = isColor ? formatSupplySerie(row.tnrYSerie) : '';
+      const tnrCNivel = isColor && row.tnrCNivel !== undefined ? row.tnrCNivel : null;
+      const tnrCSerie = isColor ? formatSupplySerie(row.tnrCSerie) : '';
+      const tnrMNivel = isColor && row.tnrMNivel !== undefined ? row.tnrMNivel : null;
+      const tnrMSerie = isColor ? formatSupplySerie(row.tnrMSerie) : '';
+      const desechoNivel = isColor && row.desechoNivel !== undefined ? row.desechoNivel : null;
 
       // Cálculo de Deltas y Detección de Reemplazo (Mono y Color)
       let deltaTnr = null;
@@ -1004,10 +1018,10 @@ function refreshMonitoringAnalysis() {
       const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 3);
 
       const isTnrKLow = isTnrLow;
-      const isTnrYLow = (tnrYNivel !== null && tnrYNivel <= 15);
-      const isTnrCLow = (tnrCNivel !== null && tnrCNivel <= 15);
-      const isTnrMLow = (tnrMNivel !== null && tnrMNivel <= 15);
-      const isWtbCritical = (desechoNivel !== null && desechoNivel >= 85);
+      const isTnrYLow = isColor ? (tnrYNivel !== null && tnrYNivel <= 15) : false;
+      const isTnrCLow = isColor ? (tnrCNivel !== null && tnrCNivel <= 15) : false;
+      const isTnrMLow = isColor ? (tnrMNivel !== null && tnrMNivel <= 15) : false;
+      const isWtbCritical = isColor ? (desechoNivel !== null && desechoNivel >= 85) : false;
 
       // Salidas registradas en FOLIOS pre-clasificadas
       const equipEntry = foliosBySerie.get(serieUpper) || { all: [], tnr: [], udi: [], kmt: [], tnrK: [], tnrY: [], tnrC: [], tnrM: [], wtb: [] };
@@ -3657,6 +3671,36 @@ function openEquipmentHistoryModal(serie) {
   }
 
   // 3. Histórico de Capturas Semanales de Monitoreo
+  const isEquipColor = matchProcessed ? Boolean(matchProcessed.isColor) : isColorPrinterModel(displayModelo);
+  const snapshotsThead = document.getElementById('modalEquipSnapshotsThead');
+  if (snapshotsThead) {
+    if (isEquipColor) {
+      snapshotsThead.innerHTML = `
+        <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+          <th class="py-2 px-3">Fecha Captura</th>
+          <th class="py-2 px-3">Tóner Color (K/Y/C/M)</th>
+          <th class="py-2 px-3">Series Cartuchos</th>
+          <th class="py-2 px-3">Desecho (WTB)</th>
+          <th class="py-2 px-3">KMT %</th>
+          <th class="py-2 px-3">Páginas</th>
+          <th class="py-2 px-3">Estado</th>
+        </tr>
+      `;
+    } else {
+      snapshotsThead.innerHTML = `
+        <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+          <th class="py-2 px-3">Fecha Captura</th>
+          <th class="py-2 px-3">TNR % (Caída)</th>
+          <th class="py-2 px-3">Serie Cartucho TNR</th>
+          <th class="py-2 px-3">UDI %</th>
+          <th class="py-2 px-3">KMT %</th>
+          <th class="py-2 px-3">Páginas Carrito</th>
+          <th class="py-2 px-3">Estado</th>
+        </tr>
+      `;
+    }
+  }
+
   const snapshotsBody = document.getElementById('modalEquipSnapshotsBody');
   if (snapshotsBody) {
     snapshotsBody.innerHTML = '';
@@ -3667,10 +3711,12 @@ function openEquipmentHistoryModal(serie) {
       snaps.forEach(snap => {
         const found = snap.rows.find(r => r.serie.toUpperCase() === serieUpper);
         if (found) {
+          const isRowColor = isColorPrinterModel(found.modelo) || isEquipColor;
           historyRows.push({
             uploadDate: snap.uploadDate,
             fileName: snap.fileName,
-            ...found
+            ...found,
+            isColor: isRowColor
           });
         }
       });

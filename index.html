@@ -180,6 +180,114 @@
       transition: stroke-dasharray 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
+    /* === SISTEMA DE ICONOS INTERACTIVOS INFO-BUBBLE PARA LEYENDAS Y COMENTARIOS FLOTANTES === */
+    .info-bubble {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+    }
+    .info-bubble-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: inherit;
+      font-style: italic;
+      line-height: 1;
+      color: #64748b;
+      background-color: rgba(241, 245, 249, 0.9);
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .dark .info-bubble-btn {
+      color: #94a3b8;
+      background-color: rgba(30, 41, 59, 0.9);
+      border-color: rgba(71, 85, 105, 0.9);
+    }
+    .info-bubble:hover .info-bubble-btn,
+    .info-bubble.active .info-bubble-btn {
+      color: #ffffff;
+      background-color: #6366f1;
+      border-color: #4f46e5;
+      transform: scale(1.15);
+      box-shadow: 0 0 8px rgba(99, 102, 241, 0.45);
+    }
+    .info-bubble-tooltip {
+      visibility: hidden;
+      opacity: 0;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      min-width: 180px;
+      max-width: 270px;
+      width: max-content;
+      background: rgba(15, 23, 42, 0.94);
+      color: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.35;
+      text-align: left;
+      pointer-events: none;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s;
+      white-space: normal;
+      word-break: normal;
+    }
+    .dark .info-bubble-tooltip {
+      background: rgba(30, 41, 59, 0.96);
+      border-color: rgba(148, 163, 184, 0.25);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.65);
+    }
+    .info-bubble-tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 5px;
+      border-style: solid;
+      border-color: rgba(15, 23, 42, 0.94) transparent transparent transparent;
+    }
+    .dark .info-bubble-tooltip::after {
+      border-color: rgba(30, 41, 59, 0.96) transparent transparent transparent;
+    }
+    .info-bubble:hover .info-bubble-tooltip,
+    .info-bubble.active .info-bubble-tooltip {
+      visibility: visible;
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .info-bubble.align-right .info-bubble-tooltip {
+      left: auto;
+      right: -8px;
+      transform: translateY(4px);
+    }
+    .info-bubble.align-right:hover .info-bubble-tooltip,
+    .info-bubble.align-right.active .info-bubble-tooltip {
+      transform: translateY(0);
+    }
+    .info-bubble.align-right .info-bubble-tooltip::after {
+      left: auto;
+      right: 14px;
+      transform: none;
+    }
+
     @media print {
       body * { visibility: hidden !important; }
       #printableODSBoleta, #printableODSBoleta * { visibility: visible !important; }
@@ -634,13 +742,21 @@
           <!-- Selector de Años -->
           <div class="lg:col-span-4 space-y-1.5">
             <div class="flex items-center justify-between">
-              <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Seleccionar Año(s):</label>
+              <div class="flex items-center gap-1.5">
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Seleccionar Año(s):</label>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Filtro Temporal Dinámico</span>
+                    Al cambiar de año, la cuadrícula de meses se actualiza automáticamente según los registros reales.
+                  </div>
+                </div>
+              </div>
               <button onclick="toggleAllYears()" id="btnToggleAllYears" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">Seleccionar Todos</button>
             </div>
             <div id="yearsButtonContainer" class="flex flex-wrap gap-1.5">
               <!-- Botones de años generados dinámicamente -->
             </div>
-            <p class="text-[10px] text-slate-400 italic">Al cambiar de año, los meses de abajo se actualizan automáticamente según los registros reales.</p>
           </div>
 
           <!-- Selector de Meses Dinámico (SOLO MUESTRA LOS MESES QUE EXISTEN EN EL AÑO SELECCIONADO) -->
@@ -750,11 +866,19 @@
         <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
-              <h3 id="chart1Title" class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block"></span>
-                Comparativa / Distribución
-              </h3>
-              <p id="chart1Subtitle" class="text-xs text-slate-400">Meses comparados por año (series independientes)</p>
+              <div class="flex items-center gap-1.5">
+                <h3 id="chart1Title" class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block"></span>
+                  Comparativa / Distribución
+                </h3>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Comparativa y Distribución</span>
+                    <span id="chart1Subtitle">Meses comparados por año (series independientes).</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-1.5">
               <select id="chart1Type" onchange="renderChart1()" class="text-xs bg-slate-100 dark:bg-slate-700 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 border-none font-medium">
@@ -807,11 +931,19 @@
         <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
-              <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                Evolución Temporal Multiaño
-              </h3>
-              <p class="text-xs text-slate-400">Cada año en su propia línea para comparar el crecimiento mensual</p>
+              <div class="flex items-center gap-1.5">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                  Evolución Temporal Multiaño
+                </h3>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Evolución Multiaño</span>
+                    Cada año en su propia serie para comparar visualmente el crecimiento mensual.
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-1.5">
               <select id="chart2Type" onchange="renderChart2()" class="text-xs bg-slate-100 dark:bg-slate-700 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 border-none font-medium">
@@ -863,11 +995,19 @@
         <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
-              <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
-                Participación y Proporción
-              </h3>
-              <p class="text-xs text-slate-400">Cuota por cliente o segmento en el período filtrado</p>
+              <div class="flex items-center gap-1.5">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                  Participación y Proporción
+                </h3>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Participación y Proporción</span>
+                    Cuota porcentual por cliente o categoría en el período filtrado.
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-1.5">
               <select id="chart3Type" onchange="renderChart3()" class="text-xs bg-slate-100 dark:bg-slate-700 rounded-md px-2 py-1 text-slate-700 dark:text-slate-200 border-none font-medium">
@@ -926,11 +1066,19 @@
         <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div>
-              <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
-                Matriz Comparativa Mes vs Año
-              </h3>
-              <p class="text-xs text-slate-400">Valores exactos desglosados sin sumar años</p>
+              <div class="flex items-center gap-1.5">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block"></span>
+                  Matriz Comparativa Mes vs Año
+                </h3>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Matriz Comparativa</span>
+                    Valores exactos desglosados mes a mes sin sumar los diferentes años.
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="flex items-center gap-1.5">
               <button onclick="toggleTableOrChart4()" id="btnToggleChart4View" class="text-xs px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 font-medium">Ver Ranking</button>
@@ -1658,8 +1806,14 @@
                   <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 </h3>
                 <span id="fleetHealthBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">Auditoría en curso</span>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Índice de Salud de la Flota</span>
+                    <span id="fleetHealthDesc">Porcentaje de impresores en estado óptimo o con suministro de respaldo en sitio.</span>
+                  </div>
+                </div>
               </div>
-              <p id="fleetHealthDesc" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Porcentaje de impresores en estado óptimo o con suministro de respaldo en sitio.</p>
             </div>
           </div>
 
@@ -1705,7 +1859,16 @@
         <div id="slideMonTotal" onclick="filterMonitoringBySlide('ALL')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 shadow-xs flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para ver todos los equipos">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">Parque Monitoreado</span>
+                    Total de impresores reportados en la última captura del cliente o consolidado.
+                  </div>
+                </div>
+              </div>
               <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
             </div>
             <!-- Sparkline decorativo SVG -->
@@ -1720,7 +1883,16 @@
           <div class="absolute right-2 top-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Req.</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Req.</p>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">🚨 Despacho Requerido</span>
+                    Suministro crítico (TNR ≤ 15%, UDI ≤ 5%, KMT ≤ 3% o WTB ≥ 85%) sin repuesto en sitio ni en tránsito. Requiere despacho urgente.
+                  </div>
+                </div>
+              </div>
               <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
             </div>
             <!-- Sparkline de alerta crítica -->
@@ -1728,13 +1900,21 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 13l6-3 6 4 8-10 6 2" />
             </svg>
           </div>
-          <p class="text-[10px] text-rose-500/80 mt-1 truncate">Críticos sin stock</p>
         </div>
 
         <div id="slideMonReponer" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-amber-200 dark:border-amber-900/50 shadow-xs hover:border-amber-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos que ya cambiaron cartucho y requieren reposición">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
+                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">🔄 Reposición de Stock</span>
+                    Cartucho cambiado recientemente en tienda (nivel subió de ≤15% a ≥80% o cambió serie). La reserva local fue consumida; requiere reposición de respaldo.
+                  </div>
+                </div>
+              </div>
               <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
             </div>
             <!-- Sparkline advertencia -->
@@ -1742,13 +1922,21 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 8l7-4 7 7 6-5 6 3" />
             </svg>
           </div>
-          <p class="text-[10px] text-amber-500/80 mt-1 truncate">Cambiado en sitio</p>
         </div>
 
         <div id="slideMonStockSitio" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-blue-200 dark:border-blue-900/50 shadow-xs hover:border-blue-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos protegidos con stock de respaldo">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
+                <div class="info-bubble align-right" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">🛡️ Stock en Sitio</span>
+                    Equipos con consumibles en advertencia pero que ya cuentan con un repuesto entregado y disponible en tienda.
+                  </div>
+                </div>
+              </div>
               <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
             </div>
             <!-- Sparkline de respaldo -->
@@ -1756,13 +1944,21 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 12l6-6 7 4 7-6 6 3" />
             </svg>
           </div>
-          <p class="text-[10px] text-blue-500/80 mt-1 truncate">Con respaldo</p>
         </div>
 
         <div id="slideMonOptimos" onclick="filterMonitoringBySlide('OPTIMO')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-emerald-200 dark:border-emerald-900/50 shadow-xs hover:border-emerald-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos con niveles óptimos (TNR > 15%, UDI > 5%, KMT > 3%)">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
+              <div class="flex items-center gap-1.5">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
+                <div class="info-bubble align-right" onclick="toggleInfoBubble(this, event)">
+                  <span class="info-bubble-btn">i</span>
+                  <div class="info-bubble-tooltip">
+                    <span class="font-bold block mb-0.5">🟢 Niveles Óptimos</span>
+                    Equipos con todos sus consumibles en rangos seguros (TNR > 15%, UDI > 5%, KMT > 3%, WTB &lt; 85%).
+                  </div>
+                </div>
+              </div>
               <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
             </div>
             <!-- Sparkline óptimo -->
@@ -1770,7 +1966,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 14l6-5 6 3 8-9 6 3" />
             </svg>
           </div>
-          <p class="text-[10px] text-emerald-500/80 mt-1 truncate">Suministros óptimos</p>
         </div>
       </div>
 
@@ -1835,8 +2030,8 @@
               <!-- Filtro Tipo de Equipo (Color vs Monocromático) -->
               <select id="filterMonitoringColorSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
                 <option value="ALL">🎨 Color &amp; Mono (Todos)</option>
-                <option value="COLOR">🌈 Solo Color (CX725...)</option>
-                <option value="MONO">⚪ Solo Monocromático (MX...)</option>
+                <option value="COLOR">🌈 Solo Color (CX, CS)</option>
+                <option value="MONO">⚪ Solo Monocromático (MS, MX)</option>
               </select>
 
               <!-- Filtro Suministro en Alerta -->
@@ -2072,7 +2267,7 @@
           </h4>
           <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full max-w-full min-w-0">
             <table class="w-full min-w-[500px] sm:min-w-[580px] text-left text-xs border-collapse">
-              <thead>
+              <thead id="modalEquipSnapshotsThead">
                 <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                   <th class="py-2 px-3">Fecha Captura</th>
                   <th class="py-2 px-3">TNR % (Caída)</th>
@@ -10071,6 +10266,30 @@
         toast.classList.add('opacity-0', 'translate-y-4', 'scale-95', 'pointer-events-none');
         toast.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
       }, 3500);
+    }
+
+    // CONTROL INTERACTIVO DE ICONOS INFO-BUBBLE PARA COMENTARIOS FLOTANTES
+    function toggleInfoBubble(el, e) {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      const isCurrentlyActive = el.classList.contains('active');
+      document.querySelectorAll('.info-bubble.active').forEach(b => {
+        if (b !== el) b.classList.remove('active');
+      });
+      if (!isCurrentlyActive) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.info-bubble')) {
+          document.querySelectorAll('.info-bubble.active').forEach(b => b.classList.remove('active'));
+        }
+      });
     }
 
     // CARGA DE DATA REAL / DEMO IEXCA (ODS, FOLIOS, RDI, SERVICE NOW)
