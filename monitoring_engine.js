@@ -338,45 +338,107 @@ function parseLexmarkFleetCsv(csvText, fileName) {
 
   const rawHeaders = parseCsvLine(lines[0]).map(h => h.replace(/^\uFEFF/, '').trim());
   
-  // Normalizar encabezados
+  // Normalizar encabezados con limpieza robusta de codificación ANSI / UTF-8
   const normHeaders = rawHeaders.map(h => {
-    return h.toLowerCase()
+    return (h || '').toLowerCase()
+      .replace(/\uFFFD/g, '') // Eliminar carácter de reemplazo que corrompe acentos (ej: im\ufffdgenes -> imgenes)
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   });
 
+  function findCol(predicate) {
+    return normHeaders.findIndex(predicate);
+  }
+
   function findColIdx(keywords) {
     return normHeaders.findIndex(h => keywords.some(k => h.includes(k)));
   }
 
-  const ipIdx = findColIdx(['ip', 'direccion ip']);
-  const kwIdx = findColIdx(['palabra clave', 'ubicacion', 'tienda']);
-  const modIdx = findColIdx(['modelo', 'model']);
-  const serIdx = findColIdx(['numero de serie', 'serie', 'serial']);
+  const ipIdx = findCol(h => h.includes('ip') || h.includes('direccion ip'));
+  const kwIdx = findCol(h => h.includes('palabra clave') || h.includes('ubicacion') || h.includes('tienda'));
+  const modIdx = findCol(h => h.includes('modelo') || h.includes('model'));
+  const serIdx = findCol(h => h.includes('numero de serie') || h.includes('serie') || h.includes('serial'));
 
   // Cartuchos de Color (K, Y, C, M) y Monocromático
-  const tnrKNivelIdx = findColIdx(['nivel de cartucho negro', 'cartucho negro', 'toner negro', 'toner']);
-  const tnrKSerieIdx = findColIdx(['numero de serie de cartucho negro', 'serie de cartucho negro', 'serie toner negro', 'serie toner']);
+  const tnrKNivelIdx = findCol(h => {
+    const isTnr = h.includes('cartucho negro') || h.includes('toner negro') || h.includes('black cartridge') ||
+                  h.includes('black toner') || h.includes('cartucho') || h.includes('toner');
+    const isExcl = h.includes('desecho') || h.includes('residual') || h.includes('waste') ||
+                   h.includes('serie') || h.includes('serial') || h.includes('capacidad') ||
+                   h.includes('capacity') || h.includes('paginas') || h.includes('cobertura') ||
+                   h.includes('amarillo') || h.includes('cian') || h.includes('cyan') || h.includes('magenta');
+    return isTnr && !isExcl;
+  });
 
-  const tnrYNivelIdx = findColIdx(['nivel de cartucho amarillo', 'cartucho amarillo', 'toner amarillo']);
-  const tnrYSerieIdx = findColIdx(['numero de serie de cartucho amarillo', 'serie de cartucho amarillo', 'serie toner amarillo']);
+  const tnrKSerieIdx = findCol(h => {
+    const isSerie = h.includes('serie') || h.includes('serial') || h.includes('numero de serie');
+    const isTnr = h.includes('cartucho negro') || h.includes('toner negro') || h.includes('black cartridge') ||
+                  h.includes('black toner') || h.includes('cartucho') || h.includes('toner');
+    const isExcl = h.includes('amarillo') || h.includes('cian') || h.includes('cyan') ||
+                   h.includes('magenta') || h.includes('desecho') || h.includes('residual') ||
+                   h.includes('unidad') || h.includes('imagen') || h.includes('fotoconductor') ||
+                   h.includes('kmt') || h.includes('mantenimiento');
+    return isSerie && isTnr && !isExcl;
+  });
 
-  const tnrCNivelIdx = findColIdx(['nivel de cartucho cian', 'cartucho cian', 'toner cian', 'cartucho cyan', 'toner cyan']);
-  const tnrCSerieIdx = findColIdx(['numero de serie de cartucho cian', 'serie de cartucho cian', 'serie de cartucho cyan']);
+  const tnrYNivelIdx = findCol(h => h.includes('amarillo') && !h.includes('serie') && !h.includes('capacidad'));
+  const tnrYSerieIdx = findCol(h => h.includes('amarillo') && (h.includes('serie') || h.includes('serial')));
 
-  const tnrMNivelIdx = findColIdx(['nivel de cartucho magenta', 'cartucho magenta', 'toner magenta']);
-  const tnrMSerieIdx = findColIdx(['numero de serie de cartucho magenta', 'serie de cartucho magenta', 'serie toner magenta']);
+  const tnrCNivelIdx = findCol(h => (h.includes('cian') || h.includes('cyan')) && !h.includes('serie') && !h.includes('capacidad'));
+  const tnrCSerieIdx = findCol(h => (h.includes('cian') || h.includes('cyan')) && (h.includes('serie') || h.includes('serial')));
 
-  const desechoIdx = findColIdx(['nivel de contenedor de toner de desecho', 'contenedor de desecho', 'toner de desecho', 'desecho', 'residual', 'waste']);
+  const tnrMNivelIdx = findCol(h => h.includes('magenta') && !h.includes('serie') && !h.includes('capacidad'));
+  const tnrMSerieIdx = findCol(h => h.includes('magenta') && (h.includes('serie') || h.includes('serial')));
+
+  const desechoIdx = findCol(h => (h.includes('desecho') || h.includes('residual') || h.includes('waste')) && !h.includes('serie') && !h.includes('capacidad'));
 
   const pagCarroIdx = findColIdx(['paginas en carrito', 'paginas carro']);
-  const capTnrIdx = findColIdx(['capacidad de cartucho negro']);
+  const capTnrIdx = findColIdx(['capacidad de cartucho negro', 'capacidad de cartucho']);
   const fecInstIdx = findColIdx(['fecha de instalacion']);
-  const udiNivelIdx = findColIdx(['nivel de unidad de imagenes', 'unidad de imagenes', 'udi']);
-  const udiSerieIdx = findColIdx(['numero de serie de la unidad de imagen', 'serie de la unidad de imagen', 'serie udi']);
-  const kmtNivelIdx = findColIdx(['nivel de kit de mantenimiento', 'kit de mantenimiento', 'kmt']);
+
+  // Unidad de Imagen (UDI) - Soporte plural, singular, inglés y fragmentos de codificación
+  const udiNivelIdx = findCol(h => {
+    const isUdi = h.includes('unidad de imagen') || h.includes('unidad de imagenes') ||
+                  h.includes('kit de imagen') || h.includes('imaging unit') ||
+                  h.includes('image unit') || h.includes('tambor') || h.includes('drum') ||
+                  h.includes('im genes') || h.includes('udi');
+    const isExcl = h.includes('serie') || h.includes('serial') || h.includes('capacidad') ||
+                   h.includes('capacity') || h.includes('numero');
+    return isUdi && !isExcl;
+  });
+
+  // Fotoconductor (Lexmark Cloud para monocromáticos como MX522, MX722, MS811, MS823)
+  const fotoNivelIdx = findCol(h => {
+    const isFoto = h.includes('fotoconductor') || h.includes('photoconductor');
+    const isExcl = h.includes('serie') || h.includes('serial') || h.includes('capacidad') ||
+                   h.includes('capacity') || h.includes('numero');
+    return isFoto && !isExcl;
+  });
+
+  const udiSerieIdx = findCol(h => {
+    const isSerie = h.includes('serie') || h.includes('serial') || h.includes('numero de serie');
+    const isUdi = h.includes('unidad de imagen') || h.includes('unidad de imagenes') ||
+                  h.includes('kit de imagen') || h.includes('imaging unit') ||
+                  h.includes('im genes') || h.includes('udi');
+    return isSerie && isUdi;
+  });
+
+  const fotoSerieIdx = findCol(h => {
+    const isSerie = h.includes('serie') || h.includes('serial') || h.includes('numero de serie');
+    const isFoto = h.includes('fotoconductor') || h.includes('photoconductor');
+    return isSerie && isFoto;
+  });
+
+  const kmtNivelIdx = findCol(h => {
+    const isKmt = h.includes('kit de mantenimiento') || h.includes('mantenimiento') ||
+                  h.includes('maintenance kit') || h.includes('kmt');
+    const isExcl = h.includes('serie') || h.includes('serial') || h.includes('capacidad') ||
+                   h.includes('capacity') || h.includes('numero');
+    return isKmt && !isExcl;
+  });
+
   const estadoIdx = findColIdx(['estado de suministro', 'estado suministro', 'estado']);
 
   function parseNivel(val) {
@@ -415,6 +477,19 @@ function parseLexmarkFleetCsv(csvText, fileName) {
 
     const isColor = isColorPrinterModel(cleanMod);
 
+    // Unidad de Imagen (UDI): Extracción con fallback a Fotoconductor
+    let udiNivel = udiNivelIdx >= 0 ? parseNivel(cols[udiNivelIdx]) : null;
+    if ((udiNivel === null || isNaN(udiNivel)) && fotoNivelIdx >= 0) {
+      udiNivel = parseNivel(cols[fotoNivelIdx]);
+    }
+
+    let udiSerie = '';
+    if (udiSerieIdx >= 0 && cols[udiSerieIdx]) udiSerie = cols[udiSerieIdx];
+    if (!udiSerie && fotoSerieIdx >= 0 && cols[fotoSerieIdx]) udiSerie = cols[fotoSerieIdx];
+    udiSerie = formatSupplySerie(udiSerie);
+
+    const kmtNivel = kmtNivelIdx >= 0 ? parseNivel(cols[kmtNivelIdx]) : null;
+
     rows.push({
       ip: cleanIpAddress(ipIdx >= 0 ? cols[ipIdx] : ''),
       ubicacion: (kwIdx >= 0 ? cols[kwIdx] : '').trim().toUpperCase(),
@@ -436,9 +511,9 @@ function parseLexmarkFleetCsv(csvText, fileName) {
       paginasCarro: pagCarroIdx >= 0 ? cols[pagCarroIdx] : '',
       capacidadTnr: capTnrIdx >= 0 ? cols[capTnrIdx] : '',
       fechaInstalacionTnr: fecInstIdx >= 0 ? cols[fecInstIdx] : '',
-      udiNivel: udiNivelIdx >= 0 ? parseNivel(cols[udiNivelIdx]) : null,
-      udiSerie: formatSupplySerie(udiSerieIdx >= 0 && cols[udiSerieIdx] ? cols[udiSerieIdx] : ''),
-      kmtNivel: kmtNivelIdx >= 0 ? parseNivel(cols[kmtNivelIdx]) : null,
+      udiNivel: udiNivel,
+      udiSerie: udiSerie,
+      kmtNivel: kmtNivel,
       estadoSuministro: (estadoIdx >= 0 ? cols[estadoIdx] : 'Aceptar').trim().toUpperCase()
     });
   }
@@ -527,6 +602,53 @@ function addMonitoringSnapshot(clientName, fileName, rows) {
     uploadDate,
     rows
   };
+
+  // Complementariedad inteligente de suministros:
+  // Si en este cliente ya existe un snapshot del mismo día (ej. Monitoreo_Color y Monitoreo_Consumibles),
+  // transferir valores no nulos entre filas del mismo impresor (serie) para que ninguna métrica quede vacía.
+  const sameDaySnaps = monitoringData[cleanClient].filter(s => {
+    return s.fileName !== fileName && s.uploadDate && uploadDate && s.uploadDate.split('T')[0] === uploadDate.split('T')[0];
+  });
+  if (sameDaySnaps.length > 0) {
+    sameDaySnaps.forEach(otherSnap => {
+      if (Array.isArray(otherSnap.rows)) {
+        rows.forEach(r => {
+          const match = otherSnap.rows.find(or => or.serie === r.serie);
+          if (match) {
+            // Sincronizar UDI y KMT si r no los tiene y match sí
+            if ((r.udiNivel === null || r.udiNivel === undefined) && match.udiNivel !== null && match.udiNivel !== undefined) {
+              r.udiNivel = match.udiNivel;
+              if (!r.udiSerie && match.udiSerie) r.udiSerie = match.udiSerie;
+            }
+            if ((r.kmtNivel === null || r.kmtNivel === undefined) && match.kmtNivel !== null && match.kmtNivel !== undefined) {
+              r.kmtNivel = match.kmtNivel;
+            }
+            // Sincronizar colores si r es de color y no los tiene
+            if (r.isColor) {
+              if (r.tnrYNivel === null && match.tnrYNivel !== null) { r.tnrYNivel = match.tnrYNivel; r.tnrYSerie = match.tnrYSerie; }
+              if (r.tnrCNivel === null && match.tnrCNivel !== null) { r.tnrCNivel = match.tnrCNivel; r.tnrCSerie = match.tnrCSerie; }
+              if (r.tnrMNivel === null && match.tnrMNivel !== null) { r.tnrMNivel = match.tnrMNivel; r.tnrMSerie = match.tnrMSerie; }
+              if (r.desechoNivel === null && match.desechoNivel !== null) { r.desechoNivel = match.desechoNivel; }
+            }
+            // Y viceversa hacia match para que ambos snapshots estén completos
+            if ((match.udiNivel === null || match.udiNivel === undefined) && r.udiNivel !== null && r.udiNivel !== undefined) {
+              match.udiNivel = r.udiNivel;
+              if (!match.udiSerie && r.udiSerie) match.udiSerie = r.udiSerie;
+            }
+            if ((match.kmtNivel === null || match.kmtNivel === undefined) && r.kmtNivel !== null && r.kmtNivel !== undefined) {
+              match.kmtNivel = r.kmtNivel;
+            }
+            if (match.isColor) {
+              if (match.tnrYNivel === null && r.tnrYNivel !== null) { match.tnrYNivel = r.tnrYNivel; match.tnrYSerie = r.tnrYSerie; }
+              if (match.tnrCNivel === null && r.tnrCNivel !== null) { match.tnrCNivel = r.tnrCNivel; match.tnrCSerie = r.tnrCSerie; }
+              if (match.tnrMNivel === null && r.tnrMNivel !== null) { match.tnrMNivel = r.tnrMNivel; match.tnrMSerie = r.tnrMSerie; }
+              if (match.desechoNivel === null && r.desechoNivel !== null) { match.desechoNivel = r.desechoNivel; }
+            }
+          }
+        });
+      }
+    });
+  }
 
   // Reemplazar si ya existe un snapshot con el mismo nombre de archivo en este cliente
   const existingIdx = monitoringData[cleanClient].findIndex(s => s.fileName === fileName);
@@ -677,10 +799,27 @@ function initMonitoringModule(force = false) {
               const currentSnaps = monitoringData[clientKey];
               const defSnaps = def[clientKey] || [];
               defSnaps.forEach(ds => {
-                const exists = currentSnaps.some(s => s.fileName === ds.fileName);
-                if (!exists) {
+                const matchSnap = currentSnaps.find(s => s.fileName === ds.fileName);
+                if (!matchSnap) {
                   currentSnaps.push(JSON.parse(JSON.stringify(ds)));
                   hasNew = true;
+                } else {
+                  // Reparar UDI o KMT si en IndexedDB venía vacío (null) y en DEFAULT_MONITORING_DATA ya está corregido
+                  if (Array.isArray(matchSnap.rows) && Array.isArray(ds.rows)) {
+                    let repaired = false;
+                    matchSnap.rows.forEach(r => {
+                      if (r.udiNivel === null || r.udiNivel === undefined) {
+                        const targetRow = ds.rows.find(dr => dr.serie === r.serie);
+                        if (targetRow && targetRow.udiNivel !== null && targetRow.udiNivel !== undefined) {
+                          r.udiNivel = targetRow.udiNivel;
+                          if (!r.udiSerie && targetRow.udiSerie) r.udiSerie = targetRow.udiSerie;
+                          if ((r.kmtNivel === null || r.kmtNivel === undefined) && targetRow.kmtNivel !== null) r.kmtNivel = targetRow.kmtNivel;
+                          repaired = true;
+                        }
+                      }
+                    });
+                    if (repaired) hasNew = true;
+                  }
                 }
               });
               currentSnaps.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
@@ -3972,7 +4111,22 @@ function processMonitoringFiles(files) {
   csvFiles.forEach(file => {
     const reader = new FileReader();
     reader.onload = (evt) => {
-      const text = evt.target.result;
+      let text = evt.target.result;
+      if (text && text.includes('\uFFFD')) {
+        // Fallback para archivos Windows-1252 (ANSI) exportados por MarkVision / Excel
+        const readerAnsi = new FileReader();
+        readerAnsi.onload = (evtAnsi) => {
+          const ansiText = evtAnsi.target.result;
+          const rows = parseLexmarkFleetCsv(ansiText, file.name);
+          if (rows && rows.length > 0) {
+            const clientName = detectClientFromCsvRows(rows, file.name);
+            addMonitoringSnapshot(clientName, file.name, rows);
+          }
+          processedCount++;
+        };
+        readerAnsi.readAsText(file, 'windows-1252');
+        return;
+      }
       const rows = parseLexmarkFleetCsv(text, file.name);
       if (rows && rows.length > 0) {
         const clientName = detectClientFromCsvRows(rows, file.name);
