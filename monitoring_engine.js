@@ -1410,6 +1410,112 @@ function renderMonitoringKPIs(kpis) {
       ? 'Todos los clientes (Consolidado)' 
       : `Cliente: ${activeMonitoringClient}`;
   }
+
+  // --- CÁLCULO Y RENDERIZADO DEL ÍNDICE DE SALUD DE LA FLOTA (FLEET HEALTH SCORE) ---
+  const total = kpis.total || 0;
+  let healthScore = 100;
+  let pctOpt = 0, pctSit = 0, pctRep = 0, pctDesp = 0;
+
+  if (total > 0) {
+    pctOpt = Math.round((kpis.optimos / total) * 100);
+    pctSit = Math.round((kpis.stockEnSitio / total) * 100);
+    pctRep = Math.round((kpis.stockConsumido / total) * 100);
+    pctDesp = Math.round((kpis.despachoRequerido / total) * 100);
+
+    // Ponderación de salud operativa: Óptimos (100%), Stock Sitio (95%), Por Reponer (50%), Críticos (0%)
+    const healthyUnits = kpis.optimos + (kpis.stockEnSitio * 0.95) + (kpis.stockConsumido * 0.50);
+    healthScore = Math.min(100, Math.max(0, Math.round((healthyUnits / total) * 100)));
+  }
+
+  // Medidor Circular (SVG Gauge)
+  const circleEl = document.getElementById('fleetHealthCircle');
+  const percentEl = document.getElementById('fleetHealthPercent');
+  const badgeEl = document.getElementById('fleetHealthBadge');
+  const descEl = document.getElementById('fleetHealthDesc');
+
+  if (percentEl) percentEl.textContent = `${healthScore}%`;
+  if (circleEl) {
+    circleEl.setAttribute('stroke-dasharray', `${healthScore}, 100`);
+    circleEl.classList.remove('text-emerald-500', 'text-amber-500', 'text-rose-500');
+    if (healthScore >= 85) {
+      circleEl.classList.add('text-emerald-500');
+    } else if (healthScore >= 70) {
+      circleEl.classList.add('text-amber-500');
+    } else {
+      circleEl.classList.add('text-rose-500');
+    }
+  }
+
+  if (badgeEl) {
+    badgeEl.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full transition-all';
+    if (healthScore >= 85) {
+      badgeEl.textContent = 'Salud Óptima (Excelente)';
+      badgeEl.classList.add('bg-emerald-100', 'text-emerald-800', 'dark:bg-emerald-950/80', 'dark:text-emerald-300');
+    } else if (healthScore >= 70) {
+      badgeEl.textContent = 'Estable (Atención Requerida)';
+      badgeEl.classList.add('bg-amber-100', 'text-amber-800', 'dark:bg-amber-950/80', 'dark:text-amber-300');
+    } else {
+      badgeEl.textContent = 'Crítica (Despacho Urgente)';
+      badgeEl.classList.add('bg-rose-100', 'text-rose-800', 'dark:bg-rose-950/80', 'dark:text-rose-300');
+    }
+  }
+
+  if (descEl) {
+    descEl.textContent = `${kpis.optimos + kpis.stockEnSitio} de ${total} impresores (${Math.round(((kpis.optimos + kpis.stockEnSitio)/Math.max(1, total))*100)}%) operan sin riesgo de parada inmediata.`;
+  }
+
+  // Barra Multivariable Segmentada
+  const barOpt = document.getElementById('healthBarOptimos');
+  const barSit = document.getElementById('healthBarStockSitio');
+  const barRep = document.getElementById('healthBarReponer');
+  const barDesp = document.getElementById('healthBarDespacho');
+
+  if (barOpt) barOpt.style.width = `${pctOpt}%`;
+  if (barSit) barSit.style.width = `${pctSit}%`;
+  if (barRep) barRep.style.width = `${pctRep}%`;
+  if (barDesp) barDesp.style.width = `${pctDesp}%`;
+
+  const txtOpt = document.getElementById('healthPctOptimos');
+  const txtSit = document.getElementById('healthPctStockSitio');
+  const txtRep = document.getElementById('healthPctReponer');
+  const txtDesp = document.getElementById('healthPctDespacho');
+
+  if (txtOpt) txtOpt.textContent = `${pctOpt}% (${kpis.optimos})`;
+  if (txtSit) txtSit.textContent = `${pctSit}% (${kpis.stockEnSitio})`;
+  if (txtRep) txtRep.textContent = `${pctRep}% (${kpis.stockConsumido})`;
+  if (txtDesp) txtDesp.textContent = `${pctDesp}% (${kpis.despachoRequerido})`;
+
+  // Activación Dinámica de Pulso Crítico Luminoso
+  const slideDesp = document.getElementById('slideMonDespacho');
+  if (slideDesp) {
+    if (kpis.despachoRequerido > 0) {
+      slideDesp.classList.add('pulse-critical-red');
+    } else {
+      slideDesp.classList.remove('pulse-critical-red');
+    }
+  }
+
+  const slideRep = document.getElementById('slideMonReponer');
+  if (slideRep) {
+    if (kpis.stockConsumido > 0) {
+      slideRep.classList.add('pulse-critical-amber');
+    } else {
+      slideRep.classList.remove('pulse-critical-amber');
+    }
+  }
+}
+
+// Función global de copia háptica con feedback visual
+function copySupplySerial(serial, label = 'Serie') {
+  if (!serial || serial === 'S/N' || serial === 'N/D') {
+    if (typeof showToast === 'function') showToast(`⚠️ No hay ${label} registrada para copiar.`, 'warning');
+    return;
+  }
+  navigator.clipboard.writeText(serial).then(() => {
+    if (typeof showToast === 'function') showToast(`📋 ${label} copiada: ${serial}`);
+  }).catch(() => {
+    if (typeof showToast === 'function') showToast(`Serie: ${serial}`);
+  });
 }
 
 function renderMonitoringClientPills() {
@@ -2412,7 +2518,10 @@ function renderMonitoringTable() {
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-600' : 'bg-slate-800 dark:bg-slate-300'} h-1 rounded-full" style="width: ${r.tnrKNivel || 0}%"></div>
               </div>
-              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRK: ${r.tnrKSerie || 'S/N'}">${r.tnrKSerie || 'S/N'}</div>
+              <button type="button" onclick="copySupplySerial('${r.tnrKSerie}', 'TNRK')" class="text-[9px] font-mono text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 truncate mt-0.5 w-full flex items-center justify-between hover:bg-slate-200/50 dark:hover:bg-slate-800 px-1 py-0.5 rounded transition" title="Copiar TNRK: ${r.tnrKSerie || 'S/N'}">
+                <span class="truncate">${r.tnrKSerie || 'S/N'}</span>
+                <svg class="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </button>
             </div>
 
             <!-- TNRY (Amarillo) -->
@@ -2424,7 +2533,10 @@ function renderMonitoringTable() {
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-600' : 'bg-amber-400'} h-1 rounded-full" style="width: ${r.tnrYNivel || 0}%"></div>
               </div>
-              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRY: ${r.tnrYSerie || 'S/N'}">${r.tnrYSerie || 'S/N'}</div>
+              <button type="button" onclick="copySupplySerial('${r.tnrYSerie}', 'TNRY')" class="text-[9px] font-mono text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 truncate mt-0.5 w-full flex items-center justify-between hover:bg-amber-200/50 dark:hover:bg-amber-900/40 px-1 py-0.5 rounded transition" title="Copiar TNRY: ${r.tnrYSerie || 'S/N'}">
+                <span class="truncate">${r.tnrYSerie || 'S/N'}</span>
+                <svg class="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </button>
             </div>
 
             <!-- TNRC (Cian) -->
@@ -2436,7 +2548,10 @@ function renderMonitoringTable() {
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-600' : 'bg-cyan-500'} h-1 rounded-full" style="width: ${r.tnrCNivel || 0}%"></div>
               </div>
-              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRC: ${r.tnrCSerie || 'S/N'}">${r.tnrCSerie || 'S/N'}</div>
+              <button type="button" onclick="copySupplySerial('${r.tnrCSerie}', 'TNRC')" class="text-[9px] font-mono text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 truncate mt-0.5 w-full flex items-center justify-between hover:bg-cyan-200/50 dark:hover:bg-cyan-900/40 px-1 py-0.5 rounded transition" title="Copiar TNRC: ${r.tnrCSerie || 'S/N'}">
+                <span class="truncate">${r.tnrCSerie || 'S/N'}</span>
+                <svg class="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </button>
             </div>
 
             <!-- TNRM (Magenta) -->
@@ -2448,7 +2563,10 @@ function renderMonitoringTable() {
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-600' : 'bg-pink-500'} h-1 rounded-full" style="width: ${r.tnrMNivel || 0}%"></div>
               </div>
-              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRM: ${r.tnrMSerie || 'S/N'}">${r.tnrMSerie || 'S/N'}</div>
+              <button type="button" onclick="copySupplySerial('${r.tnrMSerie}', 'TNRM')" class="text-[9px] font-mono text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 truncate mt-0.5 w-full flex items-center justify-between hover:bg-pink-200/50 dark:hover:bg-pink-900/40 px-1 py-0.5 rounded transition" title="Copiar TNRM: ${r.tnrMSerie || 'S/N'}">
+                <span class="truncate">${r.tnrMSerie || 'S/N'}</span>
+                <svg class="w-2.5 h-2.5 opacity-60 shrink-0 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+              </button>
             </div>
           </div>
         </td>
@@ -2616,7 +2734,10 @@ function renderMonitoringTable() {
               </div>
               <div class="mt-1 pt-1 border-t border-slate-200 dark:border-slate-700/60">
                 <span class="block text-[8px] font-bold text-slate-400 uppercase">Serie TNRK:</span>
-                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrKSerie}">${r.tnrKSerie || 'S/N'}</span>
+                <button type="button" onclick="copySupplySerial('${r.tnrKSerie}', 'TNRK')" class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate w-full flex items-center justify-between text-left hover:text-indigo-600 dark:hover:text-indigo-400" title="Copiar Serie: ${r.tnrKSerie}">
+                  <span class="truncate">${r.tnrKSerie || 'S/N'}</span>
+                  <svg class="w-3 h-3 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
               </div>
             </div>
 
@@ -2633,7 +2754,10 @@ function renderMonitoringTable() {
               </div>
               <div class="mt-1 pt-1 border-t border-amber-200 dark:border-amber-800/60">
                 <span class="block text-[8px] font-bold text-amber-600 dark:text-amber-400 uppercase">Serie TNRY:</span>
-                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrYSerie}">${r.tnrYSerie || 'S/N'}</span>
+                <button type="button" onclick="copySupplySerial('${r.tnrYSerie}', 'TNRY')" class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate w-full flex items-center justify-between text-left hover:text-amber-700 dark:hover:text-amber-300" title="Copiar Serie: ${r.tnrYSerie}">
+                  <span class="truncate">${r.tnrYSerie || 'S/N'}</span>
+                  <svg class="w-3 h-3 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
               </div>
             </div>
 
@@ -2650,7 +2774,10 @@ function renderMonitoringTable() {
               </div>
               <div class="mt-1 pt-1 border-t border-cyan-200 dark:border-cyan-800/60">
                 <span class="block text-[8px] font-bold text-cyan-600 dark:text-cyan-400 uppercase">Serie TNRC:</span>
-                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrCSerie}">${r.tnrCSerie || 'S/N'}</span>
+                <button type="button" onclick="copySupplySerial('${r.tnrCSerie}', 'TNRC')" class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate w-full flex items-center justify-between text-left hover:text-cyan-700 dark:hover:text-cyan-300" title="Copiar Serie: ${r.tnrCSerie}">
+                  <span class="truncate">${r.tnrCSerie || 'S/N'}</span>
+                  <svg class="w-3 h-3 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
               </div>
             </div>
 
@@ -2667,7 +2794,10 @@ function renderMonitoringTable() {
               </div>
               <div class="mt-1 pt-1 border-t border-pink-200 dark:border-pink-800/60">
                 <span class="block text-[8px] font-bold text-pink-600 dark:text-pink-400 uppercase">Serie TNRM:</span>
-                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrMSerie}">${r.tnrMSerie || 'S/N'}</span>
+                <button type="button" onclick="copySupplySerial('${r.tnrMSerie}', 'TNRM')" class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate w-full flex items-center justify-between text-left hover:text-pink-700 dark:hover:text-pink-300" title="Copiar Serie: ${r.tnrMSerie}">
+                  <span class="truncate">${r.tnrMSerie || 'S/N'}</span>
+                  <svg class="w-3 h-3 opacity-60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
               </div>
             </div>
           </div>

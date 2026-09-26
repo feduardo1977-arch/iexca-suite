@@ -95,6 +95,91 @@
       box-sizing: border-box !important;
       min-width: 0 !important;
     }
+
+    /* === UI/UX PRO: GLASSMORPHISM, MICRO-ANIMACIONES Y PULSOS MODERNOS === */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.85);
+    }
+    .dark .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dark .glass-card {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+    }
+    .glass-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    }
+    .dark .glass-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Pulsos sutiles de alerta */
+    @keyframes pulseGlowRed {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+        border-color: rgba(239, 68, 68, 0.6);
+      }
+      50% {
+        box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.35);
+        border-color: rgba(239, 68, 68, 1);
+      }
+    }
+    .pulse-critical-red {
+      animation: pulseGlowRed 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    @keyframes pulseGlowAmber {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45);
+        border-color: rgba(245, 158, 11, 0.6);
+      }
+      50% {
+        box-shadow: 0 0 14px 4px rgba(245, 158, 11, 0.3);
+        border-color: rgba(245, 158, 11, 1);
+      }
+    }
+    .pulse-critical-amber {
+      animation: pulseGlowAmber 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    /* Botones y badges interactivos con respuesta háptica */
+    .btn-tactile, button:not(:disabled):not(.no-tactile) {
+      transition-property: color, background-color, border-color, transform, box-shadow;
+      transition-duration: 150ms;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-tactile:active, button:not(:disabled):not(.no-tactile):active {
+      transform: scale(0.97);
+    }
+
+    input:focus, select:focus, textarea:focus {
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    /* Transición suave para medidor circular */
+    .gauge-circle {
+      transition: stroke-dasharray 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
     @media print {
       body * { visibility: hidden !important; }
       #printableODSBoleta, #printableODSBoleta * { visibility: visible !important; }
@@ -116,7 +201,7 @@
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
 
   <!-- BARRA DE NAVEGACIÓN SUPERIOR (RESPONSIVA MÓVIL Y DESKTOP) -->
-  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-xs w-full max-w-full overflow-hidden">
+  <header class="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 sticky top-0 z-30 shadow-xs w-full max-w-full overflow-hidden transition-all duration-300">
     <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-0 sm:h-16 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full min-w-0">
       <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
         <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
@@ -253,7 +338,7 @@
     </div>
 
     <!-- NAVEGACIÓN PRINCIPAL DE LA SUITE IEXCA -->
-    <nav id="suiteNavigation" class="bg-white dark:bg-slate-800 rounded-2xl p-2 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-2">
+    <nav id="suiteNavigation" class="glass-panel bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-2 border border-slate-200/80 dark:border-slate-700/60 shadow-sm flex flex-wrap items-center justify-between gap-2 transition-all">
       <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-1.5 w-full xl:w-auto">
         <button type="button" id="tabNavDashboard" onclick="switchSuiteTab('dashboard')" class="suite-tab-btn active w-full sm:w-auto justify-center sm:justify-start px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-brand-600 text-white shadow-xs whitespace-nowrap sm:whitespace-normal">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
@@ -381,7 +466,7 @@
     <!-- SECCIÓN DE KPIS / INDICADORES CLAVE -->
     <section id="kpiSection" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <!-- KPI 1: Total Registros -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden">
+      <div class="glass-card rounded-2xl p-4 shadow-xs relative overflow-hidden">
         <div class="flex items-center justify-between">
           <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Registros</p>
           <div class="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
@@ -393,7 +478,7 @@
       </div>
 
       <!-- KPI 2: Suma Total / Métrica Activa Dinámica -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden">
+      <div class="glass-card rounded-2xl p-4 shadow-xs relative overflow-hidden">
         <div class="flex items-center justify-between">
           <p id="kpiMetricCardTitle" class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Total / Métrica Activa</p>
           <div id="kpiMetricIconContainer" class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
@@ -405,7 +490,7 @@
       </div>
 
       <!-- KPI 3: Promedio -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden">
+      <div class="glass-card rounded-2xl p-4 shadow-xs relative overflow-hidden">
         <div class="flex items-center justify-between">
           <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Promedio</p>
           <div class="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
@@ -417,7 +502,7 @@
       </div>
 
       <!-- KPI 4: Máximo -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden">
+      <div class="glass-card rounded-2xl p-4 shadow-xs relative overflow-hidden">
         <div class="flex items-center justify-between">
           <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Valor Máximo</p>
           <div class="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
@@ -429,7 +514,7 @@
       </div>
 
       <!-- KPI 5: Mínimo -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-xs relative overflow-hidden">
+      <div class="glass-card rounded-2xl p-4 shadow-xs relative overflow-hidden">
         <div class="flex items-center justify-between">
           <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Valor Mínimo</p>
           <div class="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
@@ -662,7 +747,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- GRÁFICO 1: Distribución / Comparativa por Mes o Categoría -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+        <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
               <h3 id="chart1Title" class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -719,7 +804,7 @@
         </div>
 
         <!-- GRÁFICO 2: Tendencia Año a Año (Líneas Multiaño) -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+        <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
               <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -775,7 +860,7 @@
         </div>
 
         <!-- GRÁFICO 3: Participación / Dona -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+        <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
               <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -827,6 +912,10 @@
 
           <div class="relative h-64 w-full flex items-center justify-center">
             <canvas id="chartCanvas3"></canvas>
+            <div id="chart3CenterText" class="absolute pointer-events-none text-center hidden flex-col items-center justify-center">
+              <span id="chart3CenterVal" class="text-base font-black text-slate-800 dark:text-white leading-none"></span>
+              <span id="chart3CenterLbl" class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1"></span>
+            </div>
           </div>
 
           <!-- Desglose Visual de Porcentajes y Diferencias de Participación -->
@@ -834,7 +923,7 @@
         </div>
 
         <!-- GRÁFICO 4 / TABLA DE COMPARATIVA MENSUAL INTERANUAL -->
-        <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+        <div class="glass-card rounded-2xl p-5 shadow-xs flex flex-col justify-between">
           <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div>
               <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -1517,7 +1606,7 @@
       </div>
 
       <!-- Gestor Multi-Cliente y Zona de Carga Drag & Drop -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+      <div class="glass-panel rounded-2xl p-3.5 sm:p-4 shadow-xs space-y-3">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div class="flex flex-col sm:flex-row sm:items-center gap-2">
             <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex-shrink-0">Clientes Monitoreados:</span>
@@ -1543,45 +1632,143 @@
         </div>
       </div>
 
-      <!-- Tarjetas Resumen KPIs de Auditoría (Slides Interactivos de Filtrado y Navegación Táctil) -->
+      <!-- WIDGET EJECUTIVO: SALUD DEL PARQUE / FLOTA (HEALTH SCORE & DESGLOSE EN TIEMPO REAL) -->
+      <div id="fleetHealthScoreWidget" class="glass-panel rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden backdrop-blur-md transition-all">
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+          <!-- Columna Izquierda: Medidor Circular (Gauge) y Puntuación Global -->
+          <div class="flex items-center gap-4">
+            <div class="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
+              <svg class="w-full h-full -rotate-90 transform" viewBox="0 0 36 36">
+                <!-- Círculo de fondo -->
+                <path class="text-slate-200 dark:text-slate-700/80" stroke-width="3.5" stroke="currentColor" fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <!-- Círculo de progreso animado -->
+                <path id="fleetHealthCircle" class="text-emerald-500 gauge-circle" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span id="fleetHealthPercent" class="text-base sm:text-lg font-black text-slate-800 dark:text-white leading-none">--%</span>
+                <span class="text-[8px] uppercase tracking-wider font-bold text-slate-400 mt-0.5">Salud</span>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span>Índice de Salud de la Flota</span>
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </h3>
+                <span id="fleetHealthBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">Auditoría en curso</span>
+              </div>
+              <p id="fleetHealthDesc" class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Porcentaje de impresores en estado óptimo o con suministro de respaldo en sitio.</p>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Barra Multivariable Segmentada y Mini-Leyenda -->
+          <div class="flex-1 max-w-xl flex flex-col justify-center space-y-2">
+            <!-- Barra de progreso segmentada -->
+            <div class="w-full bg-slate-200 dark:bg-slate-700/80 h-3 rounded-full overflow-hidden flex shadow-inner">
+              <div id="healthBarOptimos" class="bg-emerald-500 h-full transition-all duration-700" style="width: 0%" title="Niveles Óptimos"></div>
+              <div id="healthBarStockSitio" class="bg-blue-500 h-full transition-all duration-700" style="width: 0%" title="Stock en Sitio"></div>
+              <div id="healthBarReponer" class="bg-amber-500 h-full transition-all duration-700" style="width: 0%" title="Reponer Stock (Cambiado)"></div>
+              <div id="healthBarDespacho" class="bg-rose-500 h-full transition-all duration-700" style="width: 0%" title="Despacho Requerido (Crítico)"></div>
+            </div>
+
+            <!-- Mini leyendas con porcentajes y micro-indicadores -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-semibold text-slate-600 dark:text-slate-300 pt-0.5">
+              <div class="flex items-center gap-1.5 truncate">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                <span class="truncate">Óptimos:</span>
+                <span id="healthPctOptimos" class="font-bold text-slate-800 dark:text-slate-100">0%</span>
+              </div>
+              <div class="flex items-center gap-1.5 truncate">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></span>
+                <span class="truncate">En Sitio:</span>
+                <span id="healthPctStockSitio" class="font-bold text-slate-800 dark:text-slate-100">0%</span>
+              </div>
+              <div class="flex items-center gap-1.5 truncate">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+                <span class="truncate">Por Reponer:</span>
+                <span id="healthPctReponer" class="font-bold text-slate-800 dark:text-slate-100">0%</span>
+              </div>
+              <div class="flex items-center gap-1.5 truncate">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+                <span class="truncate">Críticos:</span>
+                <span id="healthPctDespacho" class="font-bold text-rose-600 dark:text-rose-400">0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tarjetas Resumen KPIs de Auditoría (Slides Interactivos de Filtrado con Glassmorphism y Micro-Sparklines) -->
       <div class="flex overflow-x-auto no-scrollbar pb-2 pt-1 gap-2.5 snap-x snap-mandatory lg:grid lg:grid-cols-5 lg:gap-3.5 lg:overflow-visible">
-        <div id="slideMonTotal" onclick="filterMonitoringBySlide('ALL')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 shadow-xs flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para ver todos los equipos">
-          <div>
-            <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
-            <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
+        <div id="slideMonTotal" onclick="filterMonitoringBySlide('ALL')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-slate-200 dark:border-slate-700 shadow-xs flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para ver todos los equipos">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">Total Equipos</p>
+              <p id="kpiMonTotalEquipos" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">0</p>
+            </div>
+            <!-- Sparkline decorativo SVG -->
+            <svg class="w-7 h-4 text-slate-400 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 28 16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 11l6-4 6 5 8-8 6 3" />
+            </svg>
           </div>
           <p class="text-[10px] text-slate-400 mt-1 truncate" id="kpiMonClienteLabel">Parque monitoreado</p>
         </div>
 
-        <div id="slideMonDespacho" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden hover:border-rose-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar solo Alertas Urgentes / Despacho Requerido (TNR ≤ 15%, UDI ≤ 5%, KMT ≤ 3%)">
+        <div id="slideMonDespacho" onclick="filterMonitoringBySlide('DESPACHO_REQUERIDO')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-rose-200 dark:border-rose-900/50 shadow-xs relative overflow-hidden hover:border-rose-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar solo Alertas Urgentes / Despacho Requerido (TNR ≤ 15%, UDI ≤ 5%, KMT ≤ 3%)">
           <div class="absolute right-2 top-2 w-2 h-2 rounded-full bg-rose-500 animate-ping"></div>
-          <div>
-            <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Req.</p>
-            <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 group-hover:underline">🚨 Despacho Req.</p>
+              <p id="kpiMonDespachoRequerido" class="text-xl sm:text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1">0</p>
+            </div>
+            <!-- Sparkline de alerta crítica -->
+            <svg class="w-7 h-4 text-rose-500 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 28 16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 13l6-3 6 4 8-10 6 2" />
+            </svg>
           </div>
           <p class="text-[10px] text-rose-500/80 mt-1 truncate">Críticos sin stock</p>
         </div>
 
-        <div id="slideMonReponer" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-amber-200 dark:border-amber-900/50 shadow-xs hover:border-amber-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos que ya cambiaron cartucho y requieren reposición">
-          <div>
-            <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
-            <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
+        <div id="slideMonReponer" onclick="filterMonitoringBySlide('REPOSICION_STOCK')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-amber-200 dark:border-amber-900/50 shadow-xs hover:border-amber-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos que ya cambiaron cartucho y requieren reposición">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 group-hover:underline">🔄 Reponer Stock</p>
+              <p id="kpiMonStockConsumido" class="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">0</p>
+            </div>
+            <!-- Sparkline advertencia -->
+            <svg class="w-7 h-4 text-amber-500 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 28 16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 8l7-4 7 7 6-5 6 3" />
+            </svg>
           </div>
           <p class="text-[10px] text-amber-500/80 mt-1 truncate">Cambiado en sitio</p>
         </div>
 
-        <div id="slideMonStockSitio" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-blue-200 dark:border-blue-900/50 shadow-xs hover:border-blue-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos protegidos con stock de respaldo">
-          <div>
-            <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
-            <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
+        <div id="slideMonStockSitio" onclick="filterMonitoringBySlide('STOCK_EN_SITIO')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-blue-200 dark:border-blue-900/50 shadow-xs hover:border-blue-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos protegidos con stock de respaldo">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 group-hover:underline">🛡️ Stock en Sitio</p>
+              <p id="kpiMonStockEnSitio" class="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">0</p>
+            </div>
+            <!-- Sparkline de respaldo -->
+            <svg class="w-7 h-4 text-blue-500 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 28 16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 12l6-6 7 4 7-6 6 3" />
+            </svg>
           </div>
           <p class="text-[10px] text-blue-500/80 mt-1 truncate">Con respaldo</p>
         </div>
 
-        <div id="slideMonOptimos" onclick="filterMonitoringBySlide('OPTIMO')" class="cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-4 border-2 border-emerald-200 dark:border-emerald-900/50 shadow-xs hover:border-emerald-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos con niveles óptimos (TNR > 15%, UDI > 5%, KMT > 3%)">
-          <div>
-            <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
-            <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
+        <div id="slideMonOptimos" onclick="filterMonitoringBySlide('OPTIMO')" class="cursor-pointer glass-card rounded-2xl p-3.5 sm:p-4 border-2 border-emerald-200 dark:border-emerald-900/50 shadow-xs hover:border-emerald-500 flex-shrink-0 w-[44%] min-w-[145px] max-w-[180px] snap-start lg:w-auto lg:min-w-0 lg:max-w-none flex flex-col justify-between group" title="Clic para filtrar equipos con niveles óptimos (TNR > 15%, UDI > 5%, KMT > 3%)">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 group-hover:underline">🟢 Niveles Óptimos</p>
+              <p id="kpiMonOptimos" class="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">0</p>
+            </div>
+            <!-- Sparkline óptimo -->
+            <svg class="w-7 h-4 text-emerald-500 mt-1 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 28 16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 14l6-5 6 3 8-9 6 3" />
+            </svg>
           </div>
           <p class="text-[10px] text-emerald-500/80 mt-1 truncate">Suministros óptimos</p>
         </div>
@@ -1612,7 +1799,7 @@
       </div>
 
       <!-- Filtros y Tabla / Tarjetas de Monitoreo -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
+      <div class="glass-panel rounded-2xl shadow-xs overflow-hidden">
         <!-- Barra de Búsqueda y Filtros Adaptativa -->
         <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 bg-slate-50/70 dark:bg-slate-800/80">
           <div class="w-full md:flex-1 md:max-w-md">
@@ -5992,6 +6179,23 @@
 
       const sliceColors = defaultPalette.slice(0, labels.length);
       const displayLabels = labels.map((l, i) => `${l} (${percentages[i].toFixed(1)}%)`);
+      const isDoughnut = (type === 'doughnut');
+
+      // Actualizar centro interactivo de la Dona
+      const centerEl = document.getElementById('chart3CenterText');
+      const centerValEl = document.getElementById('chart3CenterVal');
+      const centerLblEl = document.getElementById('chart3CenterLbl');
+      if (centerEl) {
+        if (isDoughnut && totalVal > 0) {
+          centerEl.classList.remove('hidden');
+          centerEl.classList.add('flex');
+          if (centerValEl) centerValEl.textContent = formatVal(totalVal);
+          if (centerLblEl) centerLblEl.textContent = leaderLabel ? `${leaderLabel.slice(0, 16)} (${leaderPct.toFixed(0)}%)` : 'Total';
+        } else {
+          centerEl.classList.add('hidden');
+          centerEl.classList.remove('flex');
+        }
+      }
 
       chartInstance3 = new Chart(ctx, {
         type: type,
@@ -6005,6 +6209,7 @@
           }]
         },
         options: {
+          cutout: isDoughnut ? '68%' : 0,
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
@@ -9835,22 +10040,36 @@
       showToast(`📥 Catálogo RDI exportado: ${fname}`);
     }
 
-    // NOTIFICACIÓN TOAST
-    function showToast(msg) {
+    // NOTIFICACIÓN TOAST (PRO GLASSMORPHISM & SPRING FEEL)
+    let toastTimeout = null;
+    function showToast(msg, type = 'info') {
       let toast = document.getElementById('suiteToastNotification');
       if (!toast) {
         toast = document.createElement('div');
         toast.id = 'suiteToastNotification';
-        toast.className = 'fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 transition transform duration-300 opacity-0 translate-y-2';
+        toast.className = 'fixed bottom-6 right-6 z-50 glass-panel bg-slate-900/90 dark:bg-slate-950/90 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/60 backdrop-blur-md text-xs font-semibold flex items-center gap-2.5 transition-all duration-300 transform opacity-0 translate-y-4 scale-95 pointer-events-none max-w-sm';
         document.body.appendChild(toast);
       }
+      
+      let iconHtml = '<svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+      if (type === 'warning' || (typeof msg === 'string' && msg.includes('⚠️'))) {
+        iconHtml = '<svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+      } else if (type === 'error' || (typeof msg === 'string' && (msg.includes('❌') || msg.includes('Error')))) {
+        iconHtml = '<svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+      }
+
       toast.innerHTML = `
-        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-        <span>${msg}</span>
+        ${iconHtml}
+        <span class="leading-tight">${msg}</span>
       `;
-      toast.classList.remove('opacity-0', 'translate-y-2');
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-2');
+      
+      toast.classList.remove('opacity-0', 'translate-y-4', 'scale-95', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0', 'scale-100');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-4', 'scale-95', 'pointer-events-none');
+        toast.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
       }, 3500);
     }
 
