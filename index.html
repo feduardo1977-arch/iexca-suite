@@ -1633,8 +1633,8 @@
               </button>
             </div>
 
-            <!-- Filtros en Grid Móvil de 1 a 3 columnas -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-auto">
+            <!-- Filtros en Grid Móvil de 1 a 4 columnas -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full md:w-auto">
               <!-- Filtro Diagnóstico de Stock -->
               <select id="filterMonitoringStatusSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
                 <option value="ALL">Todos los Estados</option>
@@ -1645,12 +1645,24 @@
                 <option value="OPTIMO">🟢 Niveles Óptimos</option>
               </select>
 
+              <!-- Filtro Tipo de Equipo (Color vs Monocromático) -->
+              <select id="filterMonitoringColorSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
+                <option value="ALL">🎨 Color &amp; Mono (Todos)</option>
+                <option value="COLOR">🌈 Solo Color (CX725...)</option>
+                <option value="MONO">⚪ Solo Monocromático (MX...)</option>
+              </select>
+
               <!-- Filtro Suministro en Alerta -->
               <select id="filterMonitoringSupplySelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
                 <option value="ALL">Todos los Suministros</option>
-                <option value="TNR">Tóner (TNR ≤ 15%)</option>
-                <option value="UDI">Imagen (UDI ≤ 5%)</option>
-                <option value="KMT">Mantto (KMT ≤ 3%)</option>
+                <option value="TNR">🖨️ Cualquier Tóner (≤ 15%)</option>
+                <option value="TNRK">⚫ Tóner Negro TNRK (≤ 15%)</option>
+                <option value="TNRY">🟡 Tóner Amarillo TNRY (≤ 15%)</option>
+                <option value="TNRC">🔵 Tóner Cian TNRC (≤ 15%)</option>
+                <option value="TNRM">🔴 Tóner Magenta TNRM (≤ 15%)</option>
+                <option value="WTB">🪣 Desecho WTB (≥ 85%)</option>
+                <option value="UDI">⚙️ Imagen (UDI ≤ 5%)</option>
+                <option value="KMT">🔧 Mantto (KMT ≤ 3%)</option>
               </select>
 
               <!-- Filtro de Porcentajes Relevantes -->
@@ -1730,9 +1742,9 @@
                 <th class="py-2.5 px-3">Serie Impresor</th>
                 <th class="py-2.5 px-3">Modelo &amp; IP</th>
                 <th class="py-2.5 px-3">Tienda / DET</th>
-                <th class="py-2.5 px-3 min-w-[145px]">
+                <th class="py-2.5 px-3 min-w-[170px]">
                   <div class="flex items-center justify-between gap-1">
-                    <span>TNR (Tóner)</span>
+                    <span>Tóner (K/Y/C/M)</span>
                     <button type="button" onclick="openSupplyLevelsPopover('TNR', this)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 transition cursor-pointer" title="Filtrar por casillas de niveles exactos de TNR">
                       <span>🔢</span>
                       <span id="badgeHeaderFilterTNR" class="hidden text-[9px] bg-rose-600 text-white rounded-full px-1">0</span>
@@ -1741,7 +1753,7 @@
                 </th>
                 <th class="py-2.5 px-3 min-w-[135px]">
                   <div class="flex items-center justify-between gap-1">
-                    <span>UDI (Imagen)</span>
+                    <span>UDI / Desecho</span>
                     <button type="button" onclick="openSupplyLevelsPopover('UDI', this)" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-600 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 transition cursor-pointer" title="Filtrar por casillas de niveles exactos de UDI">
                       <span>🔢</span>
                       <span id="badgeHeaderFilterUDI" class="hidden text-[9px] bg-amber-600 text-white rounded-full px-1">0</span>
@@ -2003,7 +2015,12 @@
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">TIPO / SOLICITUD</label>
               <select id="appsheetInputTipoSum" onchange="onAppSheetTipoSumChange(this.value)" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 font-semibold">
-                <option value="TNR">Tóner Negro (TNR)</option>
+                <option value="TNR">Tóner Monocromático (TNR)</option>
+                <option value="TNRK">⚫ Tóner Negro (TNRK)</option>
+                <option value="TNRY">🟡 Tóner Amarillo (TNRY)</option>
+                <option value="TNRC">🔵 Tóner Cian (TNRC)</option>
+                <option value="TNRM">🔴 Tóner Magenta (TNRM)</option>
+                <option value="WTB">🪣 Desecho Residual (WTB)</option>
                 <option value="UDI">Unidad de Imagen (UDI)</option>
                 <option value="KMT">Kit de Mantenimiento (KMT)</option>
               </select>

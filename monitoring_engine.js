@@ -329,8 +329,22 @@ function parseLexmarkFleetCsv(csvText, fileName) {
   const kwIdx = findColIdx(['palabra clave', 'ubicacion', 'tienda']);
   const modIdx = findColIdx(['modelo', 'model']);
   const serIdx = findColIdx(['numero de serie', 'serie', 'serial']);
-  const tnrNivelIdx = findColIdx(['nivel de cartucho negro', 'cartucho negro', 'toner negro', 'toner']);
-  const tnrSerieIdx = findColIdx(['numero de serie de cartucho negro', 'serie de cartucho negro', 'serie toner']);
+
+  // Cartuchos de Color (K, Y, C, M) y Monocromático
+  const tnrKNivelIdx = findColIdx(['nivel de cartucho negro', 'cartucho negro', 'toner negro', 'toner']);
+  const tnrKSerieIdx = findColIdx(['numero de serie de cartucho negro', 'serie de cartucho negro', 'serie toner negro', 'serie toner']);
+
+  const tnrYNivelIdx = findColIdx(['nivel de cartucho amarillo', 'cartucho amarillo', 'toner amarillo']);
+  const tnrYSerieIdx = findColIdx(['numero de serie de cartucho amarillo', 'serie de cartucho amarillo', 'serie toner amarillo']);
+
+  const tnrCNivelIdx = findColIdx(['nivel de cartucho cian', 'cartucho cian', 'toner cian', 'cartucho cyan', 'toner cyan']);
+  const tnrCSerieIdx = findColIdx(['numero de serie de cartucho cian', 'serie de cartucho cian', 'serie de cartucho cyan']);
+
+  const tnrMNivelIdx = findColIdx(['nivel de cartucho magenta', 'cartucho magenta', 'toner magenta']);
+  const tnrMSerieIdx = findColIdx(['numero de serie de cartucho magenta', 'serie de cartucho magenta', 'serie toner magenta']);
+
+  const desechoIdx = findColIdx(['nivel de contenedor de toner de desecho', 'contenedor de desecho', 'toner de desecho', 'desecho', 'residual', 'waste']);
+
   const pagCarroIdx = findColIdx(['paginas en carrito', 'paginas carro']);
   const capTnrIdx = findColIdx(['capacidad de cartucho negro']);
   const fecInstIdx = findColIdx(['fecha de instalacion']);
@@ -340,7 +354,7 @@ function parseLexmarkFleetCsv(csvText, fileName) {
   const estadoIdx = findColIdx(['estado de suministro', 'estado suministro', 'estado']);
 
   function parseNivel(val) {
-    if (!val) return null;
+    if (!val && val !== 0) return null;
     const str = val.toString().trim();
     if (str === '--' || str === '' || str.toLowerCase().includes('desconoc')) return null;
     if (str.toLowerCase().includes('bajo')) return 5;
@@ -359,13 +373,44 @@ function parseLexmarkFleetCsv(csvText, fileName) {
     const rawMod = modIdx >= 0 ? cols[modIdx] : '';
     const cleanMod = (normalizeMarkVisionModel(rawMod, serie) || '').toUpperCase();
 
+    const tnrKNivel = tnrKNivelIdx >= 0 ? parseNivel(cols[tnrKNivelIdx]) : null;
+    const tnrKSerie = formatSupplySerie(tnrKSerieIdx >= 0 && cols[tnrKSerieIdx] ? cols[tnrKSerieIdx] : '');
+
+    const tnrYNivel = tnrYNivelIdx >= 0 ? parseNivel(cols[tnrYNivelIdx]) : null;
+    const tnrYSerie = formatSupplySerie(tnrYSerieIdx >= 0 && cols[tnrYSerieIdx] ? cols[tnrYSerieIdx] : '');
+
+    const tnrCNivel = tnrCNivelIdx >= 0 ? parseNivel(cols[tnrCNivelIdx]) : null;
+    const tnrCSerie = formatSupplySerie(tnrCSerieIdx >= 0 && cols[tnrCSerieIdx] ? cols[tnrCSerieIdx] : '');
+
+    const tnrMNivel = tnrMNivelIdx >= 0 ? parseNivel(cols[tnrMNivelIdx]) : null;
+    const tnrMSerie = formatSupplySerie(tnrMSerieIdx >= 0 && cols[tnrMSerieIdx] ? cols[tnrMSerieIdx] : '');
+
+    const desechoNivel = desechoIdx >= 0 ? parseNivel(cols[desechoIdx]) : null;
+
+    const isColor = Boolean(
+      cleanMod.startsWith('CX') || cleanMod.includes('COLOR') ||
+      tnrYNivel !== null || tnrCNivel !== null || tnrMNivel !== null ||
+      Boolean(tnrYSerie) || Boolean(tnrCSerie) || Boolean(tnrMSerie)
+    );
+
     rows.push({
       ip: cleanIpAddress(ipIdx >= 0 ? cols[ipIdx] : ''),
       ubicacion: (kwIdx >= 0 ? cols[kwIdx] : '').trim().toUpperCase(),
       modelo: cleanMod,
       serie: serie,
-      tnrNivel: tnrNivelIdx >= 0 ? parseNivel(cols[tnrNivelIdx]) : null,
-      tnrSerie: formatSupplySerie(tnrSerieIdx >= 0 && cols[tnrSerieIdx] ? cols[tnrSerieIdx] : ''),
+      isColor: isColor,
+      tnrKNivel: tnrKNivel,
+      tnrKSerie: tnrKSerie,
+      tnrYNivel: tnrYNivel,
+      tnrYSerie: tnrYSerie,
+      tnrCNivel: tnrCNivel,
+      tnrCSerie: tnrCSerie,
+      tnrMNivel: tnrMNivel,
+      tnrMSerie: tnrMSerie,
+      desechoNivel: desechoNivel,
+      // Retrocompatibilidad con equipo monocromático
+      tnrNivel: tnrKNivel,
+      tnrSerie: tnrKSerie,
       paginasCarro: pagCarroIdx >= 0 ? cols[pagCarroIdx] : '',
       capacidadTnr: capTnrIdx >= 0 ? cols[capTnrIdx] : '',
       fechaInstalacionTnr: fecInstIdx >= 0 ? cols[fecInstIdx] : '',
@@ -387,10 +432,21 @@ function detectClientFromCsvRows(rows, fileName) {
   if (fUpper.includes('AUSOLES')) return 'AUSOLES';
   if (fUpper.includes('FUSALMO') || fUpper.includes('FOMENTO')) return 'FUSALMO';
 
+  // Buscar coincidencia si contiene palabras clave típicas de BAC en ubicaciones
+  if (rows && rows.length > 0) {
+    const hasBacLocation = rows.some(r => {
+      const u = (r.ubicacion || '').toUpperCase();
+      return u.includes('EDIFICIO C') || u.includes('EDIFICIO D') || u.includes('EDIFICIO A') || 
+             u.includes('CUCUMACAYAN') || u.includes('GRANE') || u.includes('AGENCIA') ||
+             u.includes('TORRE') || u.includes('ESCALON');
+    });
+    if (hasBacLocation) return 'BAC';
+  }
+
   // Buscar coincidencia en RDI si existe
   if (typeof rdiMapBySerie !== 'undefined' && rdiMapBySerie.size > 0 && rows.length > 0) {
     const clientCounts = {};
-    const sample = rows.slice(0, 20);
+    const sample = rows.slice(0, 30);
     sample.forEach(r => {
       const match = rdiMapBySerie.get(r.serie);
       if (match && match.CLIENTE) {
@@ -413,6 +469,11 @@ function detectClientFromCsvRows(rows, fileName) {
       if (bestClient.includes('BAC') || bestClient.includes('BANCO')) return 'BAC';
       return bestClient;
     }
+  }
+
+  // Si el archivo dice Monitoreo Color y no es Walmart, clasificar en BAC
+  if (fUpper.includes('COLOR')) {
+    return 'BAC';
   }
 
   // Nombre derivado del archivo
@@ -716,7 +777,7 @@ function refreshMonitoringAnalysis() {
     if (!ser) return;
     let entry = foliosBySerie.get(ser);
     if (!entry) {
-      entry = { all: [], tnr: [], udi: [], kmt: [] };
+      entry = { all: [], tnr: [], udi: [], kmt: [], tnrK: [], tnrY: [], tnrC: [], tnrM: [], wtb: [] };
       foliosBySerie.set(ser, entry);
     }
     entry.all.push(f);
@@ -724,6 +785,28 @@ function refreshMonitoringAnalysis() {
     const t = (f['TIPO SUM'] || f['TIPO'] || '').toString().trim().toUpperCase();
     const d = (f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '').toString().trim().toUpperCase();
 
+    // TNRK (Negro)
+    if (t === 'TNRK' || (t.includes('TNR') && (t.includes('K') || d.includes('NEGR') || d.includes('BLACK')))) {
+      entry.tnrK.push(f);
+    }
+    // TNRY (Amarillo)
+    if (t === 'TNRY' || (t.includes('TNR') && (t.includes('Y') || d.includes('AMARILL') || d.includes('YELLOW')))) {
+      entry.tnrY.push(f);
+    }
+    // TNRC (Cian)
+    if (t === 'TNRC' || (t.includes('TNR') && (t.includes('C') || d.includes('CIAN') || d.includes('CYAN')))) {
+      entry.tnrC.push(f);
+    }
+    // TNRM (Magenta)
+    if (t === 'TNRM' || (t.includes('TNR') && (t.includes('M') || d.includes('MAGENTA')))) {
+      entry.tnrM.push(f);
+    }
+    // WTB / Desecho / Residual
+    if (t === 'WTB' || t.includes('DESECHO') || t.includes('RESIDUAL') || d.includes('DESECHO') || d.includes('RESIDUAL') || d.includes('WASTE')) {
+      entry.wtb.push(f);
+    }
+
+    // Genérico / Mono
     if (t === 'TNR' || t.includes('TONER') || t.includes('TNR') || d.includes('TONER') || d.includes('TNR')) {
       entry.tnr.push(f);
     }
@@ -750,6 +833,11 @@ function refreshMonitoringAnalysis() {
     entry.tnr.sort(sortFoliosFn);
     entry.udi.sort(sortFoliosFn);
     entry.kmt.sort(sortFoliosFn);
+    if (entry.tnrK) entry.tnrK.sort(sortFoliosFn);
+    if (entry.tnrY) entry.tnrY.sort(sortFoliosFn);
+    if (entry.tnrC) entry.tnrC.sort(sortFoliosFn);
+    if (entry.tnrM) entry.tnrM.sort(sortFoliosFn);
+    if (entry.wtb) entry.wtb.sort(sortFoliosFn);
   });
 
   // 2. Determinar Clientes a Evaluar
@@ -812,16 +900,82 @@ function refreshMonitoringAnalysis() {
       const displayCliente = (clientName || (rdiInfo ? rdiInfo.CLIENTE : '') || 'N/D').toUpperCase();
       const displayDet = ((rdiInfo && rdiInfo.DET) ? rdiInfo.DET : '').toUpperCase();
 
-      // Cálculo de Deltas y Detección de Reemplazo
+      // Detección de Equipo de Color vs Monocromático
+      const isColor = Boolean(
+        row.isColor ||
+        displayModelo.startsWith('CX') ||
+        displayModelo.includes('COLOR') ||
+        (row.modelo && (row.modelo.startsWith('CX') || row.modelo.includes('COLOR'))) ||
+        row.tnrYNivel !== null ||
+        row.tnrCNivel !== null ||
+        row.tnrMNivel !== null ||
+        Boolean(row.tnrYSerie) ||
+        Boolean(row.tnrCSerie) ||
+        Boolean(row.tnrMSerie)
+      );
+
+      const tnrKNivel = row.tnrKNivel !== undefined && row.tnrKNivel !== null ? row.tnrKNivel : row.tnrNivel;
+      const tnrKSerie = formatSupplySerie(row.tnrKSerie || row.tnrSerie);
+      const tnrYNivel = row.tnrYNivel !== undefined ? row.tnrYNivel : null;
+      const tnrYSerie = formatSupplySerie(row.tnrYSerie);
+      const tnrCNivel = row.tnrCNivel !== undefined ? row.tnrCNivel : null;
+      const tnrCSerie = formatSupplySerie(row.tnrCSerie);
+      const tnrMNivel = row.tnrMNivel !== undefined ? row.tnrMNivel : null;
+      const tnrMSerie = formatSupplySerie(row.tnrMSerie);
+      const desechoNivel = row.desechoNivel !== undefined ? row.desechoNivel : null;
+
+      // Cálculo de Deltas y Detección de Reemplazo (Mono y Color)
       let deltaTnr = null;
       let tnrReplaced = false;
+      let deltaTnrK = null, tnrKReplaced = false;
+      let deltaTnrY = null, tnrYReplaced = false;
+      let deltaTnrC = null, tnrCReplaced = false;
+      let deltaTnrM = null, tnrMReplaced = false;
+      let deltaWtb = null;
+
       if (prevRow) {
-        if (prevRow.tnrNivel !== null && row.tnrNivel !== null) {
-          deltaTnr = prevRow.tnrNivel - row.tnrNivel;
+        // Delta Mono / Tóner K
+        const prevKNivel = prevRow.tnrKNivel !== undefined && prevRow.tnrKNivel !== null ? prevRow.tnrKNivel : prevRow.tnrNivel;
+        const prevKSerie = formatSupplySerie(prevRow.tnrKSerie || prevRow.tnrSerie);
+        if (prevKNivel !== null && tnrKNivel !== null) {
+          deltaTnr = prevKNivel - tnrKNivel;
+          deltaTnrK = deltaTnr;
         }
-        if ((prevRow.tnrSerie && row.tnrSerie && prevRow.tnrSerie !== row.tnrSerie) ||
-            (prevRow.tnrNivel !== null && prevRow.tnrNivel <= 15 && row.tnrNivel !== null && row.tnrNivel >= 80)) {
+        if ((prevKSerie && tnrKSerie && prevKSerie !== tnrKSerie) ||
+            (prevKNivel !== null && prevKNivel <= 15 && tnrKNivel !== null && tnrKNivel >= 80)) {
           tnrReplaced = true;
+          tnrKReplaced = true;
+        }
+
+        // Deltas Color (Y, C, M, WTB)
+        if (isColor) {
+          const prevYNivel = prevRow.tnrYNivel !== undefined ? prevRow.tnrYNivel : null;
+          const prevYSerie = formatSupplySerie(prevRow.tnrYSerie);
+          if (prevYNivel !== null && tnrYNivel !== null) deltaTnrY = prevYNivel - tnrYNivel;
+          if ((prevYSerie && tnrYSerie && prevYSerie !== tnrYSerie) ||
+              (prevYNivel !== null && prevYNivel <= 15 && tnrYNivel !== null && tnrYNivel >= 80)) {
+            tnrYReplaced = true;
+          }
+
+          const prevCNivel = prevRow.tnrCNivel !== undefined ? prevRow.tnrCNivel : null;
+          const prevCSerie = formatSupplySerie(prevRow.tnrCSerie);
+          if (prevCNivel !== null && tnrCNivel !== null) deltaTnrC = prevCNivel - tnrCNivel;
+          if ((prevCSerie && tnrCSerie && prevCSerie !== tnrCSerie) ||
+              (prevCNivel !== null && prevCNivel <= 15 && tnrCNivel !== null && tnrCNivel >= 80)) {
+            tnrCReplaced = true;
+          }
+
+          const prevMNivel = prevRow.tnrMNivel !== undefined ? prevRow.tnrMNivel : null;
+          const prevMSerie = formatSupplySerie(prevRow.tnrMSerie);
+          if (prevMNivel !== null && tnrMNivel !== null) deltaTnrM = prevMNivel - tnrMNivel;
+          if ((prevMSerie && tnrMSerie && prevMSerie !== tnrMSerie) ||
+              (prevMNivel !== null && prevMNivel <= 15 && tnrMNivel !== null && tnrMNivel >= 80)) {
+            tnrMReplaced = true;
+          }
+
+          if (prevRow.desechoNivel !== null && desechoNivel !== null) {
+            deltaWtb = desechoNivel - prevRow.desechoNivel;
+          }
         }
       }
 
@@ -842,15 +996,21 @@ function refreshMonitoringAnalysis() {
         deltaKmt = prevRow.kmtNivel - row.kmtNivel;
       }
 
-      // Alertas de Nivel Bajo (Reglas operativas actualizadas: TNR <= 15%, UDI <= 5%, KMT <= 3%)
-      const isTnrLow = (row.tnrNivel !== null && row.tnrNivel <= 15) || 
-                       (row.estadoSuministro === 'Advertencia' && (row.tnrNivel === null || row.tnrNivel <= 15));
+      // Alertas de Nivel Bajo
+      const isTnrLow = (tnrKNivel !== null && tnrKNivel <= 15) || 
+                       (row.estadoSuministro === 'Advertencia' && (tnrKNivel === null || tnrKNivel <= 15));
       const isUdiLow = (row.udiNivel !== null && row.udiNivel <= 5) || 
                        (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 5);
       const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 3);
 
-      // Salidas registradas en FOLIOS pre-clasificadas y pre-ordenadas cronológicamente O(1)
-      const equipEntry = foliosBySerie.get(serieUpper) || { all: [], tnr: [], udi: [], kmt: [] };
+      const isTnrKLow = isTnrLow;
+      const isTnrYLow = (tnrYNivel !== null && tnrYNivel <= 15);
+      const isTnrCLow = (tnrCNivel !== null && tnrCNivel <= 15);
+      const isTnrMLow = (tnrMNivel !== null && tnrMNivel <= 15);
+      const isWtbCritical = (desechoNivel !== null && desechoNivel >= 85);
+
+      // Salidas registradas en FOLIOS pre-clasificadas
+      const equipEntry = foliosBySerie.get(serieUpper) || { all: [], tnr: [], udi: [], kmt: [], tnrK: [], tnrY: [], tnrC: [], tnrM: [], wtb: [] };
       const sortedFolios = equipEntry.all;
       const tnrFolios = equipEntry.tnr;
       const udiFolios = equipEntry.udi;
@@ -860,69 +1020,46 @@ function refreshMonitoringAnalysis() {
       const lastUdiFolio = udiFolios[0] || null;
       const lastKmtFolio = kmtFolios[0] || null;
 
-      // Evaluar stock disponible por tipo dando prioridad al último folio registrado
-      // 1. TNR: El último movimiento registrado define la condición actual en tienda
+      // Helper para evaluar stock en sitio por tipo de suministro en FOLIOS
+      function evaluateColorSupplyStock(foliosList, currentInstalledSerie) {
+        if (!foliosList || foliosList.length === 0) return null;
+        const lastFolio = foliosList[0];
+        const lastEv = evaluateFolioStockStatus(lastFolio, currentInstalledSerie);
+        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'INSTALLED_MATCH' || lastEv.status === 'IN_USE') {
+          return lastEv;
+        } else if (lastEv.inStock || lastEv.inTransit) {
+          return lastEv;
+        }
+        for (const f of foliosList) {
+          const ev = evaluateFolioStockStatus(f, currentInstalledSerie);
+          if (ev.inStock || ev.inTransit) return ev;
+        }
+        return lastEv;
+      }
+
+      // Evaluar stock mono
       let stockTnrEvaluation = null;
       if (lastTnrFolio) {
-        const lastEv = evaluateFolioStockStatus(lastTnrFolio, row.tnrSerie);
-        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'INSTALLED_MATCH' || lastEv.status === 'IN_USE') {
-          // El último movimiento fue desechado, consumido o instalado -> la tienda NO tiene reserva
-          stockTnrEvaluation = lastEv;
-        } else if (lastEv.inStock || lastEv.inTransit) {
-          stockTnrEvaluation = lastEv;
-        } else {
-          for (const f of tnrFolios) {
-            const ev = evaluateFolioStockStatus(f, row.tnrSerie);
-            if (ev.inStock || ev.inTransit) {
-              stockTnrEvaluation = ev;
-              break;
-            }
-          }
-          if (!stockTnrEvaluation) stockTnrEvaluation = lastEv;
-        }
+        stockTnrEvaluation = evaluateColorSupplyStock(tnrFolios, tnrKSerie);
       }
 
-      // 2. UDI: El último movimiento registrado define la condición actual en tienda
       let stockUdiEvaluation = null;
       if (lastUdiFolio) {
-        const lastEv = evaluateFolioStockStatus(lastUdiFolio, row.udiSerie);
-        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'INSTALLED_MATCH' || lastEv.status === 'IN_USE') {
-          stockUdiEvaluation = lastEv;
-        } else if (lastEv.inStock || lastEv.inTransit) {
-          stockUdiEvaluation = lastEv;
-        } else {
-          for (const f of udiFolios) {
-            const ev = evaluateFolioStockStatus(f, row.udiSerie);
-            if (ev.inStock || ev.inTransit) {
-              stockUdiEvaluation = ev;
-              break;
-            }
-          }
-          if (!stockUdiEvaluation) stockUdiEvaluation = lastEv;
-        }
+        stockUdiEvaluation = evaluateColorSupplyStock(udiFolios, row.udiSerie);
       }
 
-      // 3. KMT: Evaluar kit de mantenimiento
       let stockKmtEvaluation = null;
       if (lastKmtFolio) {
-        const lastEv = evaluateFolioStockStatus(lastKmtFolio, null);
-        if (lastEv.discarded || lastEv.consumed || lastEv.status === 'IN_USE') {
-          stockKmtEvaluation = lastEv;
-        } else if (lastEv.inStock || lastEv.inTransit) {
-          stockKmtEvaluation = lastEv;
-        } else {
-          for (const f of kmtFolios) {
-            const ev = evaluateFolioStockStatus(f, null);
-            if (ev.inStock || ev.inTransit) {
-              stockKmtEvaluation = ev;
-              break;
-            }
-          }
-          if (!stockKmtEvaluation) stockKmtEvaluation = lastEv;
-        }
+        stockKmtEvaluation = evaluateColorSupplyStock(kmtFolios, null);
       }
 
-      // DIAGNÓSTICO TNR
+      // Evaluar stock de cada color para equipos a color
+      const stockTnrKEvaluation = evaluateColorSupplyStock(equipEntry.tnrK && equipEntry.tnrK.length > 0 ? equipEntry.tnrK : tnrFolios, tnrKSerie);
+      const stockTnrYEvaluation = evaluateColorSupplyStock(equipEntry.tnrY, tnrYSerie);
+      const stockTnrCEvaluation = evaluateColorSupplyStock(equipEntry.tnrC, tnrCSerie);
+      const stockTnrMEvaluation = evaluateColorSupplyStock(equipEntry.tnrM, tnrMSerie);
+      const stockWtbEvaluation = evaluateColorSupplyStock(equipEntry.wtb, null);
+
       let diagTnr = 'OPTIMO';
       let reasonTnr = '';
       if (tnrReplaced) {
@@ -932,11 +1069,11 @@ function refreshMonitoringAnalysis() {
         if (!stockTnrEvaluation || (!stockTnrEvaluation.inStock && !stockTnrEvaluation.inTransit)) {
           diagTnr = 'DESPACHO_REQUERIDO';
           if (stockTnrEvaluation && stockTnrEvaluation.discarded) {
-            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Último suministro (Folio #${stockTnrEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
+            reasonTnr = `🚨 Tóner en ${tnrKNivel !== null ? tnrKNivel + '%' : 'bajo'}. Último suministro (Folio #${stockTnrEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
           } else if (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE')) {
-            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/en uso. Requiere nuevo despacho.`;
+            reasonTnr = `🚨 Tóner en ${tnrKNivel !== null ? tnrKNivel + '%' : 'bajo'}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/en uso. Requiere nuevo despacho.`;
           } else {
-            reasonTnr = `🚨 Tóner en ${row.tnrNivel !== null ? row.tnrNivel + '%' : 'bajo'}. Sin registro de tóner en stock en FOLIOS.`;
+            reasonTnr = `🚨 Tóner en ${tnrKNivel !== null ? tnrKNivel + '%' : 'bajo'}. Sin registro de tóner en stock en FOLIOS.`;
           }
         } else if (stockTnrEvaluation.inTransit) {
           diagTnr = 'EN_TRANSITO';
@@ -995,77 +1132,141 @@ function refreshMonitoringAnalysis() {
       let alertLevel = null;
       let relevantFolio = sortedFolios[0] || null;
 
-      // 1. DESPACHO REQUERIDO (Alerta Urgente)
-      if (diagTnr === 'DESPACHO_REQUERIDO' && diagUdi === 'DESPACHO_REQUERIDO') {
-        overallDiag = 'DESPACHO_REQUERIDO';
-        primaryReason = `🚨 Despacho requerido: Tóner (${row.tnrNivel}%) y UDI (${row.udiNivel}%) críticos sin stock en sitio.`;
-        alertSupplyType = ((row.tnrNivel !== null ? row.tnrNivel : 15) <= (row.udiNivel !== null ? row.udiNivel : 5) ? 'TNR' : 'UDI');
-        alertLevel = Math.min(row.tnrNivel !== null ? row.tnrNivel : 15, row.udiNivel !== null ? row.udiNivel : 5);
-        relevantFolio = (alertSupplyType === 'TNR' ? lastTnrFolio : lastUdiFolio) || sortedFolios[0];
-      } else if (diagTnr === 'DESPACHO_REQUERIDO') {
-        overallDiag = 'DESPACHO_REQUERIDO';
-        primaryReason = reasonTnr + (diagUdi === 'STOCK_EN_SITIO' ? ` (UDI cuenta con stock en tienda: Folio #${stockUdiEvaluation.folNum})` : '');
-        alertSupplyType = 'TNR';
-        alertLevel = row.tnrNivel;
-        relevantFolio = lastTnrFolio || sortedFolios[0];
-      } else if (diagUdi === 'DESPACHO_REQUERIDO') {
-        overallDiag = 'DESPACHO_REQUERIDO';
-        primaryReason = reasonUdi + (diagTnr === 'STOCK_EN_SITIO' ? ` (Tóner cuenta con stock en tienda: Folio #${stockTnrEvaluation.folNum})` : '');
-        alertSupplyType = 'UDI';
-        alertLevel = row.udiNivel;
-        relevantFolio = lastUdiFolio || sortedFolios[0];
-      } else if (diagKmt === 'DESPACHO_REQUERIDO') {
-        overallDiag = 'DESPACHO_REQUERIDO';
-        primaryReason = reasonKmt;
-        alertSupplyType = 'KMT';
-        alertLevel = row.kmtNivel;
-        relevantFolio = lastKmtFolio || sortedFolios[0];
-      } 
-      // 2. REPOSICIÓN DE STOCK (Consumido recientemente en sitio)
-      else if (diagTnr === 'REPOSICION_STOCK') {
-        overallDiag = 'REPOSICION_STOCK';
-        primaryReason = reasonTnr;
-        alertSupplyType = 'TNR';
-        alertLevel = row.tnrNivel;
-        relevantFolio = lastTnrFolio || sortedFolios[0];
-      } else if (diagUdi === 'REPOSICION_STOCK') {
-        overallDiag = 'REPOSICION_STOCK';
-        primaryReason = reasonUdi;
-        alertSupplyType = 'UDI';
-        alertLevel = row.udiNivel;
-        relevantFolio = lastUdiFolio || sortedFolios[0];
-      } 
-      // 3. EN TRÁNSITO
-      else if (diagTnr === 'EN_TRANSITO' || diagUdi === 'EN_TRANSITO' || diagKmt === 'EN_TRANSITO') {
-        overallDiag = 'EN_TRANSITO';
-        if (diagTnr === 'EN_TRANSITO') {
-          primaryReason = reasonTnr;
+      if (isColor) {
+        // LÓGICA ESPECÍFICA PARA EQUIPOS DE COLOR
+        primaryReason = 'Suministros de color en rangos óptimos (> 15%).';
+        const colorAlerts = [];
+        if (isTnrKLow) colorAlerts.push({ tipo: 'TNRK', name: 'Negro (TNRK)', level: tnrKNivel, stockEv: stockTnrKEvaluation, folios: equipEntry.tnrK });
+        if (isTnrYLow) colorAlerts.push({ tipo: 'TNRY', name: 'Amarillo (TNRY)', level: tnrYNivel, stockEv: stockTnrYEvaluation, folios: equipEntry.tnrY });
+        if (isTnrCLow) colorAlerts.push({ tipo: 'TNRC', name: 'Cian (TNRC)', level: tnrCNivel, stockEv: stockTnrCEvaluation, folios: equipEntry.tnrC });
+        if (isTnrMLow) colorAlerts.push({ tipo: 'TNRM', name: 'Magenta (TNRM)', level: tnrMNivel, stockEv: stockTnrMEvaluation, folios: equipEntry.tnrM });
+        if (isWtbCritical) colorAlerts.push({ tipo: 'WTB', name: 'Desecho (WTB)', level: desechoNivel, stockEv: stockWtbEvaluation, folios: equipEntry.wtb });
+
+        // Ordenar por menor porcentaje (más crítico primero)
+        colorAlerts.sort((a, b) => (a.level ?? 999) - (b.level ?? 999));
+
+        const anyReplaced = tnrKReplaced || tnrYReplaced || tnrCReplaced || tnrMReplaced;
+
+        if (anyReplaced) {
+          overallDiag = 'REPOSICION_STOCK';
+          const repNames = [];
+          if (tnrKReplaced) repNames.push('Negro');
+          if (tnrYReplaced) repNames.push('Amarillo');
+          if (tnrCReplaced) repNames.push('Cian');
+          if (tnrMReplaced) repNames.push('Magenta');
+          primaryReason = `🔄 Tóner de color (${repNames.join(', ')}) cambiado en sitio. Reserva consumida, stock en 0.`;
+          alertSupplyType = tnrYReplaced ? 'TNRY' : (tnrCReplaced ? 'TNRC' : (tnrMReplaced ? 'TNRM' : 'TNRK'));
+          alertLevel = alertSupplyType === 'TNRY' ? tnrYNivel : (alertSupplyType === 'TNRC' ? tnrCNivel : (alertSupplyType === 'TNRM' ? tnrMNivel : tnrKNivel));
+          relevantFolio = sortedFolios[0];
+        } else if (colorAlerts.length > 0) {
+          const needsDispatch = colorAlerts.filter(a => !a.stockEv || (!a.stockEv.inStock && !a.stockEv.inTransit));
+          if (needsDispatch.length > 0) {
+            overallDiag = 'DESPACHO_REQUERIDO';
+            const mostCritical = needsDispatch[0];
+            alertSupplyType = mostCritical.tipo;
+            alertLevel = mostCritical.level;
+            relevantFolio = (mostCritical.folios && mostCritical.folios[0]) || sortedFolios[0];
+            if (mostCritical.stockEv && mostCritical.stockEv.discarded) {
+              primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Último suministro (Folio #${mostCritical.stockEv.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
+            } else if (mostCritical.stockEv && (mostCritical.stockEv.consumed || mostCritical.stockEv.status === 'IN_USE')) {
+              primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Suministro de Folio #${mostCritical.stockEv.folNum} ya fue instalado/en uso. Requiere despacho.`;
+            } else {
+              primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Sin registro en stock en FOLIOS. Requiere despacho.`;
+            }
+          } else {
+            const inTransitList = colorAlerts.filter(a => a.stockEv && a.stockEv.inTransit);
+            if (inTransitList.length > 0) {
+              overallDiag = 'EN_TRANSITO';
+              const tr = inTransitList[0];
+              alertSupplyType = tr.tipo;
+              alertLevel = tr.level;
+              relevantFolio = tr.stockEv.folio;
+              primaryReason = `🚚 Despacho de ${tr.name} en camino (Folio #${tr.stockEv.folNum} - ${tr.stockEv.est})`;
+            } else {
+              overallDiag = 'STOCK_EN_SITIO';
+              const st = colorAlerts[0];
+              alertSupplyType = st.tipo;
+              alertLevel = st.level;
+              relevantFolio = st.stockEv?.folio || sortedFolios[0];
+              const parts = colorAlerts.map(a => `${a.name}: Folio #${a.stockEv?.folNum || 'S/N'}`);
+              primaryReason = `🛡️ Tienda con tóner de color en STOCK en sitio (${parts.join(', ')}). Envío descartado.`;
+            }
+          }
+        }
+      } else {
+        // LÓGICA ESTÁNDAR PARA MONOCROMÁTICO (MX / MS)
+        // 1. DESPACHO REQUERIDO (Alerta Urgente)
+        if (diagTnr === 'DESPACHO_REQUERIDO' && diagUdi === 'DESPACHO_REQUERIDO') {
+          overallDiag = 'DESPACHO_REQUERIDO';
+          primaryReason = `🚨 Despacho requerido: Tóner (${tnrKNivel}%) y UDI (${row.udiNivel}%) críticos sin stock en sitio.`;
+          alertSupplyType = ((tnrKNivel !== null ? tnrKNivel : 15) <= (row.udiNivel !== null ? row.udiNivel : 5) ? 'TNR' : 'UDI');
+          alertLevel = Math.min(tnrKNivel !== null ? tnrKNivel : 15, row.udiNivel !== null ? row.udiNivel : 5);
+          relevantFolio = (alertSupplyType === 'TNR' ? lastTnrFolio : lastUdiFolio) || sortedFolios[0];
+        } else if (diagTnr === 'DESPACHO_REQUERIDO') {
+          overallDiag = 'DESPACHO_REQUERIDO';
+          primaryReason = reasonTnr + (diagUdi === 'STOCK_EN_SITIO' ? ` (UDI cuenta con stock en tienda: Folio #${stockUdiEvaluation.folNum})` : '');
           alertSupplyType = 'TNR';
-          alertLevel = row.tnrNivel;
-          relevantFolio = lastTnrFolio;
-        } else if (diagUdi === 'EN_TRANSITO') {
-          primaryReason = reasonUdi;
+          alertLevel = tnrKNivel;
+          relevantFolio = lastTnrFolio || sortedFolios[0];
+        } else if (diagUdi === 'DESPACHO_REQUERIDO') {
+          overallDiag = 'DESPACHO_REQUERIDO';
+          primaryReason = reasonUdi + (diagTnr === 'STOCK_EN_SITIO' ? ` (Tóner cuenta con stock en tienda: Folio #${stockTnrEvaluation.folNum})` : '');
           alertSupplyType = 'UDI';
           alertLevel = row.udiNivel;
-          relevantFolio = lastUdiFolio;
-        } else {
+          relevantFolio = lastUdiFolio || sortedFolios[0];
+        } else if (diagKmt === 'DESPACHO_REQUERIDO') {
+          overallDiag = 'DESPACHO_REQUERIDO';
           primaryReason = reasonKmt;
           alertSupplyType = 'KMT';
           alertLevel = row.kmtNivel;
-          relevantFolio = lastKmtFolio;
+          relevantFolio = lastKmtFolio || sortedFolios[0];
+        } 
+        // 2. REPOSICIÓN DE STOCK (Consumido recientemente en sitio)
+        else if (diagTnr === 'REPOSICION_STOCK') {
+          overallDiag = 'REPOSICION_STOCK';
+          primaryReason = reasonTnr;
+          alertSupplyType = 'TNR';
+          alertLevel = tnrKNivel;
+          relevantFolio = lastTnrFolio || sortedFolios[0];
+        } else if (diagUdi === 'REPOSICION_STOCK') {
+          overallDiag = 'REPOSICION_STOCK';
+          primaryReason = reasonUdi;
+          alertSupplyType = 'UDI';
+          alertLevel = row.udiNivel;
+          relevantFolio = lastUdiFolio || sortedFolios[0];
+        } 
+        // 3. EN TRÁNSITO
+        else if (diagTnr === 'EN_TRANSITO' || diagUdi === 'EN_TRANSITO' || diagKmt === 'EN_TRANSITO') {
+          overallDiag = 'EN_TRANSITO';
+          if (diagTnr === 'EN_TRANSITO') {
+            primaryReason = reasonTnr;
+            alertSupplyType = 'TNR';
+            alertLevel = tnrKNivel;
+            relevantFolio = lastTnrFolio;
+          } else if (diagUdi === 'EN_TRANSITO') {
+            primaryReason = reasonUdi;
+            alertSupplyType = 'UDI';
+            alertLevel = row.udiNivel;
+            relevantFolio = lastUdiFolio;
+          } else {
+            primaryReason = reasonKmt;
+            alertSupplyType = 'KMT';
+            alertLevel = row.kmtNivel;
+            relevantFolio = lastKmtFolio;
+          }
+        } 
+        // 4. STOCK EN SITIO (Envío descartado porque la tienda posee el suministro)
+        else if (diagTnr === 'STOCK_EN_SITIO' || diagUdi === 'STOCK_EN_SITIO' || diagKmt === 'STOCK_EN_SITIO') {
+          overallDiag = 'STOCK_EN_SITIO';
+          const parts = [];
+          if (diagTnr === 'STOCK_EN_SITIO' && stockTnrEvaluation) parts.push(`Tóner: Folio #${stockTnrEvaluation.folNum}`);
+          if (diagUdi === 'STOCK_EN_SITIO' && stockUdiEvaluation) parts.push(`UDI: Folio #${stockUdiEvaluation.folNum}`);
+          if (diagKmt === 'STOCK_EN_SITIO' && stockKmtEvaluation) parts.push(`KMT: Folio #${stockKmtEvaluation.folNum}`);
+          primaryReason = `🛡️ Tienda con repuesto en STOCK en sitio (${parts.join(', ')}). Envío descartado.`;
+          alertSupplyType = (diagTnr === 'STOCK_EN_SITIO' ? 'TNR' : (diagUdi === 'STOCK_EN_SITIO' ? 'UDI' : 'KMT'));
+          alertLevel = (diagTnr === 'STOCK_EN_SITIO' ? tnrKNivel : (diagUdi === 'STOCK_EN_SITIO' ? row.udiNivel : row.kmtNivel));
+          relevantFolio = (diagTnr === 'STOCK_EN_SITIO' ? (stockTnrEvaluation?.folio || lastTnrFolio) : (stockUdiEvaluation?.folio || lastUdiFolio)) || sortedFolios[0];
         }
-      } 
-      // 4. STOCK EN SITIO (Envío descartado porque la tienda posee el suministro)
-      else if (diagTnr === 'STOCK_EN_SITIO' || diagUdi === 'STOCK_EN_SITIO' || diagKmt === 'STOCK_EN_SITIO') {
-        overallDiag = 'STOCK_EN_SITIO';
-        const parts = [];
-        if (diagTnr === 'STOCK_EN_SITIO' && stockTnrEvaluation) parts.push(`Tóner: Folio #${stockTnrEvaluation.folNum}`);
-        if (diagUdi === 'STOCK_EN_SITIO' && stockUdiEvaluation) parts.push(`UDI: Folio #${stockUdiEvaluation.folNum}`);
-        if (diagKmt === 'STOCK_EN_SITIO' && stockKmtEvaluation) parts.push(`KMT: Folio #${stockKmtEvaluation.folNum}`);
-        primaryReason = `🛡️ Tienda con repuesto en STOCK en sitio (${parts.join(', ')}). Envío descartado.`;
-        alertSupplyType = (diagTnr === 'STOCK_EN_SITIO' ? 'TNR' : (diagUdi === 'STOCK_EN_SITIO' ? 'UDI' : 'KMT'));
-        alertLevel = (diagTnr === 'STOCK_EN_SITIO' ? row.tnrNivel : (diagUdi === 'STOCK_EN_SITIO' ? row.udiNivel : row.kmtNivel));
-        relevantFolio = (diagTnr === 'STOCK_EN_SITIO' ? (stockTnrEvaluation?.folio || lastTnrFolio) : (stockUdiEvaluation?.folio || lastUdiFolio)) || sortedFolios[0];
       }
 
       // Contadores
@@ -1083,14 +1284,52 @@ function refreshMonitoringAnalysis() {
         ubicacion: displayUbicacion,
         det: displayDet,
         ip: cleanIpAddress(row.ip || (rdiInfo ? rdiInfo.IP : '')),
-        tnrNivel: row.tnrNivel,
-        tnrSerie: formatSupplySerie(row.tnrSerie),
+        isColor: isColor,
+
+        // Suministros Color
+        tnrKNivel: tnrKNivel,
+        tnrKSerie: tnrKSerie,
+        deltaTnrK: deltaTnrK,
+        tnrKReplaced: tnrKReplaced,
+        isTnrKLow: isTnrKLow,
+        stockTnrKEval: stockTnrKEvaluation,
+
+        tnrYNivel: tnrYNivel,
+        tnrYSerie: tnrYSerie,
+        deltaTnrY: deltaTnrY,
+        tnrYReplaced: tnrYReplaced,
+        isTnrYLow: isTnrYLow,
+        stockTnrYEval: stockTnrYEvaluation,
+
+        tnrCNivel: tnrCNivel,
+        tnrCSerie: tnrCSerie,
+        deltaTnrC: deltaTnrC,
+        tnrCReplaced: tnrCReplaced,
+        isTnrCLow: isTnrCLow,
+        stockTnrCEval: stockTnrCEvaluation,
+
+        tnrMNivel: tnrMNivel,
+        tnrMSerie: tnrMSerie,
+        deltaTnrM: deltaTnrM,
+        tnrMReplaced: tnrMReplaced,
+        isTnrMLow: isTnrMLow,
+        stockTnrMEval: stockTnrMEvaluation,
+
+        desechoNivel: desechoNivel,
+        deltaWtb: deltaWtb,
+        isWtbCritical: isWtbCritical,
+        stockWtbEval: stockWtbEvaluation,
+
+        // Compatibilidad mono
+        tnrNivel: tnrKNivel,
+        tnrSerie: tnrKSerie,
         paginasCarro: row.paginasCarro,
-        deltaTnr,
-        tnrReplaced,
+        deltaTnr: isColor ? deltaTnrK : deltaTnr,
+        tnrReplaced: isColor ? tnrKReplaced : tnrReplaced,
         diagTnr,
         reasonTnr,
-        isTnrLow,
+        isTnrLow: isColor ? isTnrKLow : isTnrLow,
+
         udiNivel: row.udiNivel,
         udiSerie: formatSupplySerie(row.udiSerie),
         deltaUdi,
@@ -1098,11 +1337,13 @@ function refreshMonitoringAnalysis() {
         diagUdi,
         reasonUdi,
         isUdiLow,
+
         kmtNivel: row.kmtNivel,
         deltaKmt,
         diagKmt,
         reasonKmt,
         isKmtLow,
+
         overallDiag,
         primaryReason,
         alertSupplyType,
@@ -1270,15 +1511,23 @@ function onMonitoringSnapshotChange() {
 function filterMonitoringTable() {
   const searchInput = document.getElementById('searchMonitoringInput');
   const statusSelect = document.getElementById('filterMonitoringStatusSelect');
+  const colorSelect = document.getElementById('filterMonitoringColorSelect');
   const supplySelect = document.getElementById('filterMonitoringSupplySelect');
   const percentSelect = document.getElementById('filterMonitoringPercentSelect');
 
   monitoringSearchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
   monitoringFilterStatus = statusSelect ? statusSelect.value : 'ALL';
+  const monitoringFilterColor = colorSelect ? colorSelect.value : 'ALL';
   monitoringFilterSupply = supplySelect ? supplySelect.value : 'ALL';
   monitoringFilterPercent = percentSelect ? percentSelect.value : 'ALL';
 
   monitoringFilteredList = monitoringProcessedList.filter(row => {
+    // 0. Filtro Tipo de Equipo (Color vs Monocromático)
+    if (monitoringFilterColor !== 'ALL') {
+      if (monitoringFilterColor === 'COLOR' && !row.isColor) return false;
+      if (monitoringFilterColor === 'MONO' && row.isColor) return false;
+    }
+
     // 1. Filtro Diagnóstico
     if (monitoringFilterStatus !== 'ALL') {
       if (row.overallDiag !== monitoringFilterStatus) return false;
@@ -1288,6 +1537,16 @@ function filterMonitoringTable() {
     if (monitoringFilterSupply !== 'ALL') {
       if (monitoringFilterSupply === 'TNR') {
         if (!row.isTnrLow && row.diagTnr === 'OPTIMO') return false;
+      } else if (monitoringFilterSupply === 'TNRK') {
+        if (!row.isTnrKLow && row.diagTnrK === 'OPTIMO') return false;
+      } else if (monitoringFilterSupply === 'TNRY') {
+        if (!row.isTnrYLow && row.diagTnrY === 'OPTIMO') return false;
+      } else if (monitoringFilterSupply === 'TNRC') {
+        if (!row.isTnrCLow && row.diagTnrC === 'OPTIMO') return false;
+      } else if (monitoringFilterSupply === 'TNRM') {
+        if (!row.isTnrMLow && row.diagTnrM === 'OPTIMO') return false;
+      } else if (monitoringFilterSupply === 'WTB') {
+        if (!row.isWtbCritical && row.diagWtb === 'OPTIMO') return false;
       } else if (monitoringFilterSupply === 'UDI') {
         if (!row.isUdiLow && row.diagUdi === 'OPTIMO') return false;
       } else if (monitoringFilterSupply === 'KMT') {
@@ -1299,13 +1558,38 @@ function filterMonitoringTable() {
     if (monitoringFilterPercent !== 'ALL') {
       const levels = [];
       if (monitoringFilterSupply === 'TNR') {
-        if (row.tnrNivel !== null) levels.push({ type: 'TNR', val: row.tnrNivel, isCritical: row.isTnrLow });
+        if (row.isColor) {
+          if (row.tnrKNivel !== null) levels.push({ type: 'TNRK', val: row.tnrKNivel, isCritical: row.isTnrKLow });
+          if (row.tnrYNivel !== null) levels.push({ type: 'TNRY', val: row.tnrYNivel, isCritical: row.isTnrYLow });
+          if (row.tnrCNivel !== null) levels.push({ type: 'TNRC', val: row.tnrCNivel, isCritical: row.isTnrCLow });
+          if (row.tnrMNivel !== null) levels.push({ type: 'TNRM', val: row.tnrMNivel, isCritical: row.isTnrMLow });
+        } else if (row.tnrNivel !== null) {
+          levels.push({ type: 'TNR', val: row.tnrNivel, isCritical: row.isTnrLow });
+        }
+      } else if (monitoringFilterSupply === 'TNRK') {
+        if (row.tnrKNivel !== null) levels.push({ type: 'TNRK', val: row.tnrKNivel, isCritical: row.isTnrKLow });
+      } else if (monitoringFilterSupply === 'TNRY') {
+        if (row.tnrYNivel !== null) levels.push({ type: 'TNRY', val: row.tnrYNivel, isCritical: row.isTnrYLow });
+      } else if (monitoringFilterSupply === 'TNRC') {
+        if (row.tnrCNivel !== null) levels.push({ type: 'TNRC', val: row.tnrCNivel, isCritical: row.isTnrCLow });
+      } else if (monitoringFilterSupply === 'TNRM') {
+        if (row.tnrMNivel !== null) levels.push({ type: 'TNRM', val: row.tnrMNivel, isCritical: row.isTnrMLow });
+      } else if (monitoringFilterSupply === 'WTB') {
+        if (row.desechoNivel !== null) levels.push({ type: 'WTB', val: row.desechoNivel, isCritical: row.isWtbCritical });
       } else if (monitoringFilterSupply === 'UDI') {
         if (row.udiNivel !== null) levels.push({ type: 'UDI', val: row.udiNivel, isCritical: row.isUdiLow });
       } else if (monitoringFilterSupply === 'KMT') {
         if (row.kmtNivel !== null) levels.push({ type: 'KMT', val: row.kmtNivel, isCritical: row.isKmtLow });
       } else {
-        if (row.tnrNivel !== null) levels.push({ type: 'TNR', val: row.tnrNivel, isCritical: row.isTnrLow });
+        if (row.isColor) {
+          if (row.tnrKNivel !== null) levels.push({ type: 'TNRK', val: row.tnrKNivel, isCritical: row.isTnrKLow });
+          if (row.tnrYNivel !== null) levels.push({ type: 'TNRY', val: row.tnrYNivel, isCritical: row.isTnrYLow });
+          if (row.tnrCNivel !== null) levels.push({ type: 'TNRC', val: row.tnrCNivel, isCritical: row.isTnrCLow });
+          if (row.tnrMNivel !== null) levels.push({ type: 'TNRM', val: row.tnrMNivel, isCritical: row.isTnrMLow });
+          if (row.desechoNivel !== null) levels.push({ type: 'WTB', val: row.desechoNivel, isCritical: row.isWtbCritical });
+        } else {
+          if (row.tnrNivel !== null) levels.push({ type: 'TNR', val: row.tnrNivel, isCritical: row.isTnrLow });
+        }
         if (row.udiNivel !== null) levels.push({ type: 'UDI', val: row.udiNivel, isCritical: row.isUdiLow });
         if (row.kmtNivel !== null) levels.push({ type: 'KMT', val: row.kmtNivel, isCritical: row.isKmtLow });
       }
@@ -1335,7 +1619,12 @@ function filterMonitoringTable() {
 
     // 3.b Filtro de Casillas por Cantidades/Niveles Específicos para TNR, UDI y KMT
     if (monitoringSelectedTnrLevels.size > 0) {
-      if (row.tnrNivel === null || row.tnrNivel === undefined || !monitoringSelectedTnrLevels.has(Number(row.tnrNivel))) return false;
+      if (row.isColor) {
+        const hasAnyColorLevel = [row.tnrKNivel, row.tnrYNivel, row.tnrCNivel, row.tnrMNivel].some(lvl => lvl !== null && lvl !== undefined && monitoringSelectedTnrLevels.has(Number(lvl)));
+        if (!hasAnyColorLevel) return false;
+      } else {
+        if (row.tnrNivel === null || row.tnrNivel === undefined || !monitoringSelectedTnrLevels.has(Number(row.tnrNivel))) return false;
+      }
     }
     if (monitoringSelectedUdiLevels.size > 0) {
       if (row.udiNivel === null || row.udiNivel === undefined || !monitoringSelectedUdiLevels.has(Number(row.udiNivel))) return false;
@@ -1344,9 +1633,10 @@ function filterMonitoringTable() {
       if (row.kmtNivel === null || row.kmtNivel === undefined || !monitoringSelectedKmtLevels.has(Number(row.kmtNivel))) return false;
     }
 
-    // 4. Búsqueda de Texto
+    // 4. Búsqueda de Texto (incluye series de color K, Y, C, M)
     if (monitoringSearchQuery) {
-      const text = `${row.serie} ${row.cliente} ${row.ubicacion} ${row.det} ${row.modelo} ${row.ip} ${row.tnrSerie} ${row.udiSerie}`.toLowerCase();
+      const colorSeries = row.isColor ? `${row.tnrKSerie || ''} ${row.tnrYSerie || ''} ${row.tnrCSerie || ''} ${row.tnrMSerie || ''}` : '';
+      const text = `${row.serie} ${row.cliente} ${row.ubicacion} ${row.det} ${row.modelo} ${row.ip} ${row.tnrSerie} ${row.udiSerie} ${colorSeries}`.toLowerCase();
       if (!text.includes(monitoringSearchQuery)) return false;
     }
 
@@ -2110,6 +2400,59 @@ function renderMonitoringTable() {
           <p class="font-medium text-slate-700 dark:text-slate-300">${r.ubicacion}</p>
           ${r.det ? `<span class="text-[10px] text-slate-400 font-mono">DET: ${r.det}</span>` : ''}
         </td>
+        ${r.isColor ? `
+        <td class="py-2.5 px-3">
+          <div class="grid grid-cols-2 gap-1.5 min-w-[210px]">
+            <!-- TNRK (Negro) -->
+            <div class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+              <div class="flex items-center justify-between text-[10px] font-bold">
+                <span class="inline-flex items-center gap-1 text-slate-900 dark:text-slate-100"><span class="w-2 h-2 rounded-full bg-slate-900 dark:bg-white inline-block"></span> K</span>
+                <span class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrKNivel !== null ? r.tnrKNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
+                <div class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-600' : 'bg-slate-800 dark:bg-slate-300'} h-1 rounded-full" style="width: ${r.tnrKNivel || 0}%"></div>
+              </div>
+              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRK: ${r.tnrKSerie || 'S/N'}">${r.tnrKSerie || 'S/N'}</div>
+            </div>
+
+            <!-- TNRY (Amarillo) -->
+            <div class="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800">
+              <div class="flex items-center justify-between text-[10px] font-bold">
+                <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Y</span>
+                <span class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrYNivel !== null ? r.tnrYNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
+                <div class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-600' : 'bg-amber-400'} h-1 rounded-full" style="width: ${r.tnrYNivel || 0}%"></div>
+              </div>
+              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRY: ${r.tnrYSerie || 'S/N'}">${r.tnrYSerie || 'S/N'}</div>
+            </div>
+
+            <!-- TNRC (Cian) -->
+            <div class="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-800">
+              <div class="flex items-center justify-between text-[10px] font-bold">
+                <span class="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-300"><span class="w-2 h-2 rounded-full bg-cyan-500 inline-block"></span> C</span>
+                <span class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrCNivel !== null ? r.tnrCNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
+                <div class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-600' : 'bg-cyan-500'} h-1 rounded-full" style="width: ${r.tnrCNivel || 0}%"></div>
+              </div>
+              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRC: ${r.tnrCSerie || 'S/N'}">${r.tnrCSerie || 'S/N'}</div>
+            </div>
+
+            <!-- TNRM (Magenta) -->
+            <div class="p-1.5 rounded-lg bg-pink-50 dark:bg-pink-950/40 border border-pink-300 dark:border-pink-800">
+              <div class="flex items-center justify-between text-[10px] font-bold">
+                <span class="inline-flex items-center gap-1 text-pink-700 dark:text-pink-300"><span class="w-2 h-2 rounded-full bg-pink-500 inline-block"></span> M</span>
+                <span class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrMNivel !== null ? r.tnrMNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
+                <div class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-600' : 'bg-pink-500'} h-1 rounded-full" style="width: ${r.tnrMNivel || 0}%"></div>
+              </div>
+              <div class="text-[9px] font-mono text-slate-500 truncate mt-0.5" title="Serie TNRM: ${r.tnrMSerie || 'S/N'}">${r.tnrMSerie || 'S/N'}</div>
+            </div>
+          </div>
+        </td>
+        ` : `
         <td class="py-2.5 px-3">
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="font-bold text-slate-800 dark:text-slate-200">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
@@ -2125,6 +2468,19 @@ function renderMonitoringTable() {
             ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.tnrSerie}'); showToast('Serie TNR copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie TNR"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
           </div>
         </td>
+        `}
+        ${r.isColor ? `
+        <td class="py-2.5 px-3">
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="font-bold text-[10px] text-purple-700 dark:text-purple-300">🪣 Desecho Residual</span>
+            <span class="font-bold text-slate-800 dark:text-slate-200 ${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'text-rose-600 font-black' : ''}">${r.desechoNivel !== null ? r.desechoNivel + '%' : 'N/D'}</span>
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+            <div class="${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'bg-rose-600' : 'bg-purple-500'} h-1.5 rounded-full" style="width: ${r.desechoNivel !== null ? Math.max(3, Math.min(100, r.desechoNivel)) : 0}%"></div>
+          </div>
+          <span class="text-[9px] text-slate-400 mt-1 block">Contenedor WTB</span>
+        </td>
+        ` : `
         <td class="py-2.5 px-3">
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="font-bold text-slate-800 dark:text-slate-200">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
@@ -2140,11 +2496,16 @@ function renderMonitoringTable() {
             ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.udiSerie}'); showToast('Serie UDI copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie UDI"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
           </div>
         </td>
+        `}
         <td class="py-2.5 px-3">
-          <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
-          <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-            <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
-          </div>
+          ${r.kmtNivel !== null ? `
+            <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${r.kmtNivel}%</span>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+              <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel}%"></div>
+            </div>
+          ` : `
+            <span class="text-[11px] text-slate-400 italic">No aplica</span>
+          `}
         </td>
         <td class="py-2.5 px-3">
           ${diagBadge}
@@ -2238,7 +2599,92 @@ function renderMonitoringTable() {
           </div>
         </div>
 
-        <!-- Suministros (TNR, UDI, KMT) -->
+        ${r.isColor ? `
+        <!-- Suministros a Color (TNRK, TNRY, TNRC, TNRM y Desecho) -->
+        <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <!-- TNRK -->
+            <div class="bg-slate-100 dark:bg-slate-900/80 p-2 rounded-xl border border-slate-300 dark:border-slate-700 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-800 dark:text-slate-200">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-900 dark:bg-white inline-block"></span> Negro (K)</span>
+                  <span class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrKNivel !== null ? r.tnrKNivel + '%' : 'N/D'}</span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                  <div class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-600' : 'bg-slate-800 dark:bg-slate-300'} h-1.5 rounded-full" style="width: ${r.tnrKNivel || 0}%"></div>
+                </div>
+              </div>
+              <div class="mt-1 pt-1 border-t border-slate-200 dark:border-slate-700/60">
+                <span class="block text-[8px] font-bold text-slate-400 uppercase">Serie TNRK:</span>
+                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrKSerie}">${r.tnrKSerie || 'S/N'}</span>
+              </div>
+            </div>
+
+            <!-- TNRY -->
+            <div class="bg-amber-50 dark:bg-amber-950/40 p-2 rounded-xl border border-amber-300 dark:border-amber-800 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Amarillo (Y)</span>
+                  <span class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrYNivel !== null ? r.tnrYNivel + '%' : 'N/D'}</span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                  <div class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-600' : 'bg-amber-400'} h-1.5 rounded-full" style="width: ${r.tnrYNivel || 0}%"></div>
+                </div>
+              </div>
+              <div class="mt-1 pt-1 border-t border-amber-200 dark:border-amber-800/60">
+                <span class="block text-[8px] font-bold text-amber-600 dark:text-amber-400 uppercase">Serie TNRY:</span>
+                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrYSerie}">${r.tnrYSerie || 'S/N'}</span>
+              </div>
+            </div>
+
+            <!-- TNRC -->
+            <div class="bg-cyan-50 dark:bg-cyan-950/40 p-2 rounded-xl border border-cyan-300 dark:border-cyan-800 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between text-[10px] font-bold text-cyan-800 dark:text-cyan-300">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-500 inline-block"></span> Cian (C)</span>
+                  <span class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrCNivel !== null ? r.tnrCNivel + '%' : 'N/D'}</span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                  <div class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-600' : 'bg-cyan-500'} h-1.5 rounded-full" style="width: ${r.tnrCNivel || 0}%"></div>
+                </div>
+              </div>
+              <div class="mt-1 pt-1 border-t border-cyan-200 dark:border-cyan-800/60">
+                <span class="block text-[8px] font-bold text-cyan-600 dark:text-cyan-400 uppercase">Serie TNRC:</span>
+                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrCSerie}">${r.tnrCSerie || 'S/N'}</span>
+              </div>
+            </div>
+
+            <!-- TNRM -->
+            <div class="bg-pink-50 dark:bg-pink-950/40 p-2 rounded-xl border border-pink-300 dark:border-pink-800 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between text-[10px] font-bold text-pink-800 dark:text-pink-300">
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pink-500 inline-block"></span> Magenta (M)</span>
+                  <span class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrMNivel !== null ? r.tnrMNivel + '%' : 'N/D'}</span>
+                </div>
+                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                  <div class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-600' : 'bg-pink-500'} h-1.5 rounded-full" style="width: ${r.tnrMNivel || 0}%"></div>
+                </div>
+              </div>
+              <div class="mt-1 pt-1 border-t border-pink-200 dark:border-pink-800/60">
+                <span class="block text-[8px] font-bold text-pink-600 dark:text-pink-400 uppercase">Serie TNRM:</span>
+                <span class="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate block select-all" title="${r.tnrMSerie}">${r.tnrMSerie || 'S/N'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desecho Residual (WTB) -->
+          <div class="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 flex items-center justify-between text-xs">
+            <span class="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">🪣 Contenedor de Desecho (WTB):</span>
+            <div class="flex items-center gap-2">
+              <span class="font-bold ${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'text-rose-600 font-black' : 'text-purple-800 dark:text-purple-200'}">${r.desechoNivel !== null ? r.desechoNivel + '%' : 'N/D'}</span>
+              <div class="w-20 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                <div class="${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'bg-rose-600' : 'bg-purple-500'} h-1.5 rounded-full" style="width: ${r.desechoNivel || 0}%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        ` : `
+        <!-- Suministros Monocromáticos (TNR, UDI, KMT) -->
         <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl flex flex-col justify-between">
             <div>
@@ -2294,6 +2740,7 @@ function renderMonitoringTable() {
             </div>
           </div>
         </div>
+        `}
 
         <!-- Última Salida y Acciones -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
@@ -2393,7 +2840,16 @@ function findLastNumpartForSupply(serie, tipoSum, modelo) {
   if (typeof monitoringProcessedList !== 'undefined' && Array.isArray(monitoringProcessedList)) {
     const match = monitoringProcessedList.find(r => r.serie === serieUpper);
     if (match) {
-      const folioRef = (tipoUpper === 'UDI') ? match.lastUdiFolio : ((tipoUpper === 'KMT') ? match.lastKmtFolio : match.lastTnrFolio);
+      let folioRef = null;
+      if (tipoUpper === 'UDI') folioRef = match.lastUdiFolio;
+      else if (tipoUpper === 'KMT') folioRef = match.lastKmtFolio;
+      else if (tipoUpper === 'TNRY') folioRef = match.lastTnrYFolio || match.lastTnrFolio;
+      else if (tipoUpper === 'TNRC') folioRef = match.lastTnrCFolio || match.lastTnrFolio;
+      else if (tipoUpper === 'TNRM') folioRef = match.lastTnrMFolio || match.lastTnrFolio;
+      else if (tipoUpper === 'TNRK') folioRef = match.lastTnrKFolio || match.lastTnrFolio;
+      else if (tipoUpper === 'WTB') folioRef = match.lastWtbFolio;
+      else folioRef = match.lastTnrFolio;
+
       if (folioRef) {
         const np = (folioRef['NUMPART'] || folioRef['NUMERO DE PARTE'] || folioRef['NUM_PART'] || folioRef['NUMPAR'] || '').toString().trim().toUpperCase();
         if (np) return np;
@@ -2477,7 +2933,12 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   // Determinar porcentaje
   let nivelVal = alertLevel;
   if (nivelVal === undefined || nivelVal === null) {
-    if (tipoSum === 'TNR') nivelVal = match ? match.tnrNivel : null;
+    if (tipoSum === 'TNR') nivelVal = match ? (match.isColor ? match.tnrKNivel : match.tnrNivel) : null;
+    else if (tipoSum === 'TNRK') nivelVal = match ? match.tnrKNivel : null;
+    else if (tipoSum === 'TNRY') nivelVal = match ? match.tnrYNivel : null;
+    else if (tipoSum === 'TNRC') nivelVal = match ? match.tnrCNivel : null;
+    else if (tipoSum === 'TNRM') nivelVal = match ? match.tnrMNivel : null;
+    else if (tipoSum === 'WTB') nivelVal = match ? match.desechoNivel : null;
     else if (tipoSum === 'UDI') nivelVal = match ? match.udiNivel : null;
     else if (tipoSum === 'KMT') nivelVal = match ? match.kmtNivel : null;
   }
@@ -2488,12 +2949,25 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
 
   // Determinar Prioridad
   let prioridad = 'ALTA';
-  if (nivelVal !== null && nivelVal <= 5) prioridad = 'URGENTE';
-  else if (nivelVal !== null && nivelVal <= 15) prioridad = 'ALTA';
-  else prioridad = 'MEDIA';
+  if (tipoSum === 'WTB') {
+    if (nivelVal !== null && nivelVal >= 90) prioridad = 'URGENTE';
+    else if (nivelVal !== null && nivelVal >= 80) prioridad = 'ALTA';
+    else prioridad = 'MEDIA';
+  } else {
+    if (nivelVal !== null && nivelVal <= 5) prioridad = 'URGENTE';
+    else if (nivelVal !== null && nivelVal <= 15) prioridad = 'ALTA';
+    else prioridad = 'MEDIA';
+  }
 
   // Texto solicitud
-  const tipoLabel = (tipoSum === 'TNR') ? 'TÓNER NEGRO (TNR)' : ((tipoSum === 'UDI') ? 'UNIDAD DE IMAGEN (UDI)' : 'KIT DE MANTENIMIENTO (KMT)');
+  let tipoLabel = 'TÓNER NEGRO (TNR)';
+  if (tipoSum === 'TNRK') tipoLabel = 'TÓNER NEGRO (TNRK)';
+  else if (tipoSum === 'TNRY') tipoLabel = 'TÓNER AMARILLO (TNRY)';
+  else if (tipoSum === 'TNRC') tipoLabel = 'TÓNER CIAN (TNRC)';
+  else if (tipoSum === 'TNRM') tipoLabel = 'TÓNER MAGENTA (TNRM)';
+  else if (tipoSum === 'WTB') tipoLabel = 'CONTENEDOR DE DESECHO RESIDUAL (WTB)';
+  else if (tipoSum === 'UDI') tipoLabel = 'UNIDAD DE IMAGEN (UDI)';
+  else if (tipoSum === 'KMT') tipoLabel = 'KIT DE MANTENIMIENTO (KMT)';
   const solicitudTexto = `SUMINISTRO ${tipoLabel} POR DESGASTE DE MONITOREO (${nivelStr})`.toUpperCase();
 
   currentAppSheetEquipment = {
@@ -2576,7 +3050,14 @@ function onAppSheetTipoSumChange(newTipo) {
   const np = findLastNumpartForSupply(currentAppSheetEquipment.serie, newTipo, currentAppSheetEquipment.modelo);
   const elNum = document.getElementById('appsheetInputNumpart');
   if (elNum) elNum.value = (np || '').toUpperCase();
-  const tipoLabel = (newTipo === 'TNR') ? 'TÓNER NEGRO (TNR)' : ((newTipo === 'UDI') ? 'UNIDAD DE IMAGEN (UDI)' : 'KIT DE MANTENIMIENTO (KMT)');
+  let tipoLabel = 'TÓNER NEGRO (TNR)';
+  if (newTipo === 'TNRK') tipoLabel = 'TÓNER NEGRO (TNRK)';
+  else if (newTipo === 'TNRY') tipoLabel = 'TÓNER AMARILLO (TNRY)';
+  else if (newTipo === 'TNRC') tipoLabel = 'TÓNER CIAN (TNRC)';
+  else if (newTipo === 'TNRM') tipoLabel = 'TÓNER MAGENTA (TNRM)';
+  else if (newTipo === 'WTB') tipoLabel = 'CONTENEDOR DE DESECHO RESIDUAL (WTB)';
+  else if (newTipo === 'UDI') tipoLabel = 'UNIDAD DE IMAGEN (UDI)';
+  else if (newTipo === 'KMT') tipoLabel = 'KIT DE MANTENIMIENTO (KMT)';
   const elSol = document.getElementById('appsheetInputSolicitud');
   if (elSol) elSol.value = `SUMINISTRO ${tipoLabel} POR DESGASTE DE MONITOREO (${currentAppSheetEquipment.nivelStr || 'BAJO'})`.toUpperCase();
   const elOrigin = document.getElementById('appsheetNumpartOriginBadge');
@@ -2840,15 +3321,145 @@ function openEquipmentHistoryModal(serie) {
         <p class="font-bold text-slate-700 dark:text-slate-300 mt-0.5">${rdiInfo ? rdiInfo.PROPIEDAD : 'IEXCA'}</p>
       </div>
 
-      <!-- Bloque de Folios Amarrados por Tipo de Suministro (TNR y UDI) -->
+      <!-- Bloque de Folios Amarrados por Tipo de Suministro -->
       <div class="col-span-2 sm:col-span-4 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2 mt-1">
         <div class="flex items-center justify-between flex-wrap gap-1">
           <p class="text-amber-800 dark:text-amber-300 text-[10px] uppercase font-bold tracking-wider">
-            📦 Control de Stock en Sitio & Folios por Suministro (TNR / UDI)
+            ${matchProcessed && matchProcessed.isColor ? '🎨 Control de Stock en Sitio & Folios de Color (K / Y / C / M / Desecho)' : '📦 Control de Stock en Sitio & Folios por Suministro (TNR / UDI)'}
           </p>
           <span class="text-[10px] font-semibold text-slate-500">Salidas más recientes al inicio</span>
         </div>
 
+        ${matchProcessed && matchProcessed.isColor ? `
+        <!-- Tarjetas de Color: Negro, Amarillo, Cian, Magenta y Desecho -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1 min-w-0">
+          <!-- TNRK (Negro) -->
+          <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 flex flex-col justify-between gap-2 min-w-0 shadow-2xs">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-900 dark:bg-white inline-block"></span> Tóner Negro (TNRK)</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrKLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrKNivel !== null ? matchProcessed.tnrKNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrKSerie || 'S/N'}</span></div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed.lastTnrKFolio ? `
+                  <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrKFolio['FOLIO'] || matchProcessed.lastTnrKFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrKFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrKFolio['FECHA']) : ''})</span>
+                  ${getFolioStatusBadge(matchProcessed.lastTnrKFolio['ESTADO SUM'] || matchProcessed.lastTnrKFolio['ESTADO'] || 'ENTREGADO')}
+                ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRK</span>`}
+              </div>
+            </div>
+            <div class="pt-1 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              ${matchProcessed.lastTnrKFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrKFolio['FOLIO'] || matchProcessed.lastTnrKFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-slate-800 hover:bg-slate-900 text-white transition text-center">✏️ Folio K</button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNRK', ${matchProcessed.tnrKNivel || 10});" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition text-center">📦 Salida K</button>
+              `}
+            </div>
+          </div>
+
+          <!-- TNRY (Amarillo) -->
+          <div class="p-2.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 flex flex-col justify-between gap-2 min-w-0 shadow-2xs">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Tóner Amarillo (TNRY)</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrYLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrYNivel !== null ? matchProcessed.tnrYNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrYSerie || 'S/N'}</span></div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed.lastTnrYFolio ? `
+                  <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrYFolio['FOLIO'] || matchProcessed.lastTnrYFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrYFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrYFolio['FECHA']) : ''})</span>
+                  ${getFolioStatusBadge(matchProcessed.lastTnrYFolio['ESTADO SUM'] || matchProcessed.lastTnrYFolio['ESTADO'] || 'ENTREGADO')}
+                ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRY</span>`}
+              </div>
+            </div>
+            <div class="pt-1 border-t border-amber-200 dark:border-amber-800/60 flex justify-end">
+              ${matchProcessed.lastTnrYFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrYFolio['FOLIO'] || matchProcessed.lastTnrYFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white transition text-center">✏️ Folio Y</button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNRY', ${matchProcessed.tnrYNivel || 10});" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition text-center">📦 Salida Y</button>
+              `}
+            </div>
+          </div>
+
+          <!-- TNRC (Cian) -->
+          <div class="p-2.5 rounded-lg bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-300 dark:border-cyan-800 flex flex-col justify-between gap-2 min-w-0 shadow-2xs">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-cyan-800 dark:text-cyan-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block"></span> Tóner Cian (TNRC)</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrCLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrCNivel !== null ? matchProcessed.tnrCNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrCSerie || 'S/N'}</span></div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed.lastTnrCFolio ? `
+                  <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrCFolio['FOLIO'] || matchProcessed.lastTnrCFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrCFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrCFolio['FECHA']) : ''})</span>
+                  ${getFolioStatusBadge(matchProcessed.lastTnrCFolio['ESTADO SUM'] || matchProcessed.lastTnrCFolio['ESTADO'] || 'ENTREGADO')}
+                ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRC</span>`}
+              </div>
+            </div>
+            <div class="pt-1 border-t border-cyan-200 dark:border-cyan-800/60 flex justify-end">
+              ${matchProcessed.lastTnrCFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrCFolio['FOLIO'] || matchProcessed.lastTnrCFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-cyan-600 hover:bg-cyan-700 text-white transition text-center">✏️ Folio C</button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNRC', ${matchProcessed.tnrCNivel || 10});" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition text-center">📦 Salida C</button>
+              `}
+            </div>
+          </div>
+
+          <!-- TNRM (Magenta) -->
+          <div class="p-2.5 rounded-lg bg-pink-50/50 dark:bg-pink-950/20 border border-pink-300 dark:border-pink-800 flex flex-col justify-between gap-2 min-w-0 shadow-2xs">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-pink-800 dark:text-pink-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span> Tóner Magenta (TNRM)</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrMLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrMNivel !== null ? matchProcessed.tnrMNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrMSerie || 'S/N'}</span></div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed.lastTnrMFolio ? `
+                  <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrMFolio['FOLIO'] || matchProcessed.lastTnrMFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrMFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrMFolio['FECHA']) : ''})</span>
+                  ${getFolioStatusBadge(matchProcessed.lastTnrMFolio['ESTADO SUM'] || matchProcessed.lastTnrMFolio['ESTADO'] || 'ENTREGADO')}
+                ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRM</span>`}
+              </div>
+            </div>
+            <div class="pt-1 border-t border-pink-200 dark:border-pink-800/60 flex justify-end">
+              ${matchProcessed.lastTnrMFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastTnrMFolio['FOLIO'] || matchProcessed.lastTnrMFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-pink-600 hover:bg-pink-700 text-white transition text-center">✏️ Folio M</button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'TNRM', ${matchProcessed.tnrMNivel || 10});" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition text-center">📦 Salida M</button>
+              `}
+            </div>
+          </div>
+
+          <!-- WTB (Desecho Residual) -->
+          <div class="p-2.5 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 border border-purple-300 dark:border-purple-800 flex flex-col justify-between gap-2 min-w-0 shadow-2xs">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">🪣 Desecho (WTB)</span>
+                <span class="font-bold text-xs ${matchProcessed.isWtbCritical ? 'text-rose-600' : 'text-purple-800 dark:text-purple-200'}">${matchProcessed.desechoNivel !== null ? matchProcessed.desechoNivel + '%' : 'N/D'}</span>
+              </div>
+              <div class="text-[10px] text-slate-500 mt-1">Contenedor Residual de Tóner</div>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                ${matchProcessed.lastWtbFolio ? `
+                  <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastWtbFolio['FOLIO'] || matchProcessed.lastWtbFolio['FOLIO '] || ''}</span>
+                  <span class="text-[10px] text-slate-500">(${matchProcessed.lastWtbFolio['FECHA'] ? formatDateShort(matchProcessed.lastWtbFolio['FECHA']) : ''})</span>
+                  ${getFolioStatusBadge(matchProcessed.lastWtbFolio['ESTADO SUM'] || matchProcessed.lastWtbFolio['ESTADO'] || 'ENTREGADO')}
+                ` : `<span class="text-[10px] text-slate-400 italic">Sin folio WTB</span>`}
+              </div>
+            </div>
+            <div class="pt-1 border-t border-purple-200 dark:border-purple-800/60 flex justify-end">
+              ${matchProcessed.lastWtbFolio ? `
+                <button type="button" onclick="goToFolioDetail('${matchProcessed.lastWtbFolio['FOLIO'] || matchProcessed.lastWtbFolio['FOLIO '] || ''}', '${serieUpper}');" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-purple-600 hover:bg-purple-700 text-white transition text-center">✏️ Folio WTB</button>
+              ` : `
+                <button type="button" onclick="dispatchSalidaFromAlert('${serieUpper}', 'WTB', ${matchProcessed.desechoNivel || 85});" class="w-full px-2 py-1 rounded-md text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white transition text-center">📦 Salida WTB</button>
+              `}
+            </div>
+          </div>
+        </div>
+        ` : `
+        <!-- Monocromático: TNR y UDI -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1 min-w-0">
           <!-- Tarjeta TNR (Tóner) -->
           <div class="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 min-w-0">
@@ -2910,6 +3521,7 @@ function openEquipmentHistoryModal(serie) {
             </div>
           </div>
         </div>
+        `}
       </div>
     `;
   }
@@ -2956,21 +3568,52 @@ function openEquipmentHistoryModal(serie) {
 
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-100 dark:border-slate-800 text-xs';
-        tr.innerHTML = `
-          <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatDateTimeWithDay(h.uploadDate)}</td>
-          <td class="py-2 px-3 font-bold text-slate-900 dark:text-white">${h.tnrNivel !== null ? h.tnrNivel + '%' : 'N/D'}${deltaTnrText}</td>
-          <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-300 text-[11px]">${h.tnrSerie || 'N/D'}</td>
-          <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">${h.udiNivel !== null ? h.udiNivel + '%' : 'N/D'}</td>
-          <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${h.kmtNivel !== null ? h.kmtNivel + '%' : 'N/D'}</td>
-          <td class="py-2 px-3 font-mono text-slate-500">${h.paginasCarro || 'N/D'}</td>
-          <td class="py-2 px-3">
-            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
-              h.estadoSuministro === 'Advertencia'
-                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-            }">${h.estadoSuministro}</span>
-          </td>
-        `;
+        if (h.isColor) {
+          tr.innerHTML = `
+            <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatDateTimeWithDay(h.uploadDate)}</td>
+            <td class="py-2 px-3">
+              <div class="flex items-center gap-1.5 flex-wrap text-[11px] font-bold">
+                <span class="text-slate-900 dark:text-white" title="Negro (K)">⚫ ${h.tnrKNivel !== null ? h.tnrKNivel + '%' : 'N/D'}</span>
+                <span class="text-amber-600 dark:text-amber-400" title="Amarillo (Y)">🟡 ${h.tnrYNivel !== null ? h.tnrYNivel + '%' : 'N/D'}</span>
+                <span class="text-cyan-600 dark:text-cyan-400" title="Cian (C)">🔵 ${h.tnrCNivel !== null ? h.tnrCNivel + '%' : 'N/D'}</span>
+                <span class="text-pink-600 dark:text-pink-400" title="Magenta (M)">🔴 ${h.tnrMNivel !== null ? h.tnrMNivel + '%' : 'N/D'}</span>
+              </div>
+            </td>
+            <td class="py-2 px-3 font-mono text-slate-500 text-[10px]">
+              <span title="K: ${h.tnrKSerie || 'S/N'}, Y: ${h.tnrYSerie || 'S/N'}, C: ${h.tnrCSerie || 'S/N'}, M: ${h.tnrMSerie || 'S/N'}">
+                ${h.tnrKSerie ? 'K: ' + h.tnrKSerie : '4 Colores'}
+              </span>
+            </td>
+            <td class="py-2 px-3 font-bold text-purple-700 dark:text-purple-300">
+              🪣 ${h.desechoNivel !== null ? h.desechoNivel + '%' : 'N/D'}
+            </td>
+            <td class="py-2 px-3 text-slate-400 italic">No aplica</td>
+            <td class="py-2 px-3 font-mono text-slate-500">${h.paginasCarro || 'N/D'}</td>
+            <td class="py-2 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
+                h.estadoSuministro === 'Advertencia'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+              }">${h.estadoSuministro}</span>
+            </td>
+          `;
+        } else {
+          tr.innerHTML = `
+            <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatDateTimeWithDay(h.uploadDate)}</td>
+            <td class="py-2 px-3 font-bold text-slate-900 dark:text-white">${h.tnrNivel !== null ? h.tnrNivel + '%' : 'N/D'}${deltaTnrText}</td>
+            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-300 text-[11px]">${h.tnrSerie || 'N/D'}</td>
+            <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">${h.udiNivel !== null ? h.udiNivel + '%' : 'N/D'}</td>
+            <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${h.kmtNivel !== null ? h.kmtNivel + '%' : 'N/D'}</td>
+            <td class="py-2 px-3 font-mono text-slate-500">${h.paginasCarro || 'N/D'}</td>
+            <td class="py-2 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
+                h.estadoSuministro === 'Advertencia'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+              }">${h.estadoSuministro}</span>
+            </td>
+          `;
+        }
         snapshotsBody.appendChild(tr);
       });
     }
