@@ -3078,8 +3078,12 @@
               <input type="number" id="salidaFolioInput" required placeholder="7938" class="w-full text-xs font-mono font-bold bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-amber-900 dark:text-amber-200 focus:ring-2 focus:ring-amber-500">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Fecha de Salida *</label>
-              <input type="date" id="salidaFecha" required class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>Fecha de Salida *</span>
+                <span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">Día / Mes / Año</span>
+              </label>
+              <input type="date" id="salidaFecha" oninput="updateSalidaFechaHelper()" onchange="updateSalidaFechaHelper()" required class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-amber-500">
+              <div id="salidaFechaHelper" class="mt-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 min-h-[16px]"></div>
             </div>
             <div>
               <label class="block text-xs font-bold text-blue-700 dark:text-blue-400 mb-1 flex items-center justify-between">
@@ -8662,6 +8666,19 @@
             r._folioStr = '-';
           }
         }
+
+        // Corrección de fechas y meses para Folios 7425 y 7253 (Evita ambigüedad con formato inglés)
+        if (r._folioNum === 7425) {
+          r['FECHA'] = '10/04/2026';
+          r['MES'] = 'ABRIL';
+          r['AÑO'] = 2026;
+          r._ts = new Date(2026, 3, 10, 12, 0, 0).getTime();
+        } else if (r._folioNum === 7253) {
+          r['FECHA'] = '10/02/2026';
+          r['MES'] = 'FEBRERO';
+          r['AÑO'] = 2026;
+          r._ts = new Date(2026, 1, 10, 12, 0, 0).getTime();
+        }
       }
     }
 
@@ -9337,6 +9354,9 @@
     function getRowDateTimestamp(row) {
       if (!row) return 0;
       if (row._ts !== undefined) return row._ts;
+      const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String(row['FOLIO'] || row['FOLIO '] || '').replace(/\D/g, ''), 10);
+      if (fNum === 7425) return new Date(2026, 3, 10, 12, 0, 0).getTime();
+      if (fNum === 7253) return new Date(2026, 1, 10, 12, 0, 0).getTime();
       const dateVal = row['FECHA'] || row['Fecha'] || row['fecha'] || row['CREATED'] || row['DATE'];
       if (dateVal !== undefined && dateVal !== null && dateVal !== '') {
         const parsed = parseFlexibleDate(dateVal);
@@ -9439,8 +9459,8 @@
             'ESTADO SUM': cleanStatus,
             'FOLIO': fNum,
             'FOLIO ': fNum,
-            'FECHA': String(r['FECHA'] || '').trim(),
-            'MES': String(r['MES'] || '').trim(),
+            'FECHA': fNum === 7425 ? '10/04/2026' : (fNum === 7253 ? '10/02/2026' : String(r['FECHA'] || '').trim()),
+            'MES': fNum === 7425 ? 'ABRIL' : (fNum === 7253 ? 'FEBRERO' : String(r['MES'] || '').trim().toUpperCase()),
             'AÑO': Number(r['AÑO'] || r['ANO']) || 2026,
             'SOLICITUD APPSHEET': idTicket,
             'ID_TICKET': idTicket
@@ -10066,13 +10086,13 @@
         return true;
       });
 
-      // ORDENAR SIEMPRE EL REGISTRO MÁS RECIENTE PRIMERO (CRONOLÓGICO DESCENDENTE O FOLIO DESCENDENTE)
+      // ORDENAR SIEMPRE POR NÚMERO DE FOLIO DESCENDENTE (EL NÚMERO DE FOLIO MÁS ALTO PRIMERO)
       salidasFilteredData.sort((a, b) => {
-        const timeDiff = (b._ts !== undefined ? b._ts : getRowDateTimestamp(b)) - (a._ts !== undefined ? a._ts : getRowDateTimestamp(a));
-        if (timeDiff !== 0) return timeDiff;
         const folioA = a._folioNum !== undefined ? a._folioNum : (parseInt(String(getRowFolio(a)).replace(/\D/g, ''), 10) || 0);
         const folioB = b._folioNum !== undefined ? b._folioNum : (parseInt(String(getRowFolio(b)).replace(/\D/g, ''), 10) || 0);
         if (folioB !== folioA) return folioB - folioA;
+        const timeDiff = (b._ts !== undefined ? b._ts : getRowDateTimestamp(b)) - (a._ts !== undefined ? a._ts : getRowDateTimestamp(a));
+        if (timeDiff !== 0) return timeDiff;
         return (a._origIdx || 0) - (b._origIdx || 0);
       });
 
@@ -10486,6 +10506,35 @@
       } catch (err) {}
     });
 
+    function formatToInputDate(d) {
+      if (!d || !(d instanceof Date) || isNaN(d.getTime())) {
+        d = new Date();
+      }
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function updateSalidaFechaHelper() {
+      const val = document.getElementById('salidaFecha')?.value;
+      const helper = document.getElementById('salidaFechaHelper');
+      if (!helper) return;
+      if (!val) {
+        helper.textContent = 'Selecciona una fecha (Día / Mes / Año)';
+        return;
+      }
+      const parts = val.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const mesNombre = MESES[m - 1] || '';
+        helper.innerHTML = `📅 <b>${d} de ${mesNombre} de ${y}</b> <span class="text-slate-400 font-normal">(Día: ${d}, Mes: ${m} - ${mesNombre}, Año: ${y})</span>`;
+      }
+    }
+
     function openNewSalidaModal(prefill = null) {
       document.getElementById('salidaEditIndices').value = '[]';
       document.getElementById('modalSalidaTitle').textContent = "Registrar Salida de Suministro (FOLIOS)";
@@ -10495,7 +10544,8 @@
       const nextFolio = getNextFolioNumber();
       const folioInput = document.getElementById('salidaFolioInput');
       if (folioInput) folioInput.value = nextFolio;
-      document.getElementById('salidaFecha').value = new Date().toISOString().split('T')[0];
+      document.getElementById('salidaFecha').value = formatToInputDate(new Date());
+      updateSalidaFechaHelper();
 
       salidaItemCardsCounter = 0;
       const container = document.getElementById('salidaItemsContainer');
@@ -10567,8 +10617,15 @@
         folioInput.value = !isNaN(num) && num > 0 ? num : (folVal !== '-' ? folVal : getNextFolioNumber());
       }
 
-      const fDate = parseFlexibleDate(firstRow['FECHA'] || firstRow['Fecha']);
-      document.getElementById('salidaFecha').value = fDate ? fDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      let fDate = parseFlexibleDate(firstRow['FECHA'] || firstRow['Fecha']);
+      const folNumInt = parseInt(String(folVal).replace(/\D/g, ''), 10);
+      if (folNumInt === 7425) {
+        fDate = new Date(2026, 3, 10, 12, 0, 0); // 10 de Abril de 2026
+      } else if (folNumInt === 7253) {
+        fDate = new Date(2026, 1, 10, 12, 0, 0); // 10 de Febrero de 2026
+      }
+      document.getElementById('salidaFecha').value = formatToInputDate(fDate);
+      updateSalidaFechaHelper();
       document.getElementById('salidaIdTicket').value = firstRow['ID_TICKET'] || firstRow['SOLICITUD APPSHEET'] || firstRow['ID TICKET'] || '';
       document.getElementById('salidaDestino').value = firstRow['DESTINO'] || '';
       document.getElementById('salidaDet').value = firstRow['DET'] || '';
@@ -10609,9 +10666,19 @@
       e.preventDefault();
       const folioVal = parseInt(document.getElementById('salidaFolioInput').value, 10) || getNextFolioNumber();
       const fechaVal = document.getElementById('salidaFecha').value;
-      const fDate = new Date(fechaVal);
-      const mesName = (SPANISH_FULL_MONTHS[fDate.getMonth()] || '01 - Enero').toUpperCase();
-      const anioNum = fDate.getFullYear();
+      let mesName = 'SEPTIEMBRE';
+      let anioNum = 2026;
+      let fechaFormatted = fechaVal;
+      if (fechaVal && fechaVal.includes('-')) {
+        const [yS, mS, dS] = fechaVal.split('-');
+        const yN = parseInt(yS, 10);
+        const mN = parseInt(mS, 10);
+        const dN = parseInt(dS, 10);
+        const MESES_CLEAN = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+        mesName = MESES_CLEAN[mN - 1] || 'ENERO';
+        anioNum = yN || 2026;
+        fechaFormatted = `${String(dN).padStart(2, '0')}/${String(mN).padStart(2, '0')}/${yN}`;
+      }
       const idTicketVal = document.getElementById('salidaIdTicket').value.trim().toUpperCase();
       const destinoVal = document.getElementById('salidaDestino').value.trim().toUpperCase();
       const detVal = document.getElementById('salidaDet').value.trim().toUpperCase();
@@ -10661,7 +10728,7 @@
           'IP': ipInputVal,
           'FOLIO': folioVal,
           'FOLIO ': folioVal,
-          'FECHA': fechaVal,
+          'FECHA': fechaFormatted,
           'MES': mesName,
           'AÑO': anioNum,
           'SOLICITUD APPSHEET': idTicketVal,
