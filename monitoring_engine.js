@@ -4430,7 +4430,206 @@ if (typeof window !== 'undefined') {
   window.setMonitoringViewMode = setMonitoringViewMode;
   window.deleteMonitoringClient = deleteMonitoringClient;
   window.resetMonitoringToDefault = resetMonitoringToDefault;
+  
+// =========================================================================
+// EXPORTACIÓN CONSOLIDADA DE HISTÓRICO DE MONITOREO DESDE FIREBASE / MEMORIA
+// =========================================================================
+function exportMonitoringHistoricalToExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert("Librería SheetJS (XLSX) no disponible en esta sesión.");
+    return;
+  }
+
+  const mData = (typeof monitoringData !== 'undefined' && monitoringData) ? monitoringData : {};
+  const clients = Object.keys(mData);
+
+  if (clients.length === 0) {
+    alert("No hay datos históricos de monitoreo disponibles en memoria ni en la nube.");
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const allRows = [];
+  const summaryRows = [];
+
+  clients.forEach(cli => {
+    const rawSnaps = mData[cli];
+    const snapshots = Array.isArray(rawSnaps) ? rawSnaps : Object.values(rawSnaps || {});
+
+    snapshots.forEach((snap, snapIdx) => {
+      if (!snap || typeof snap !== 'object') return;
+      const snapDate = snap.uploadDate || snap.date || '-';
+      const snapFile = snap.fileName || '-';
+      const rows = snap.rows || snap.items || [];
+
+      let criticosCount = 0;
+      let alertasCount = 0;
+      let optimosCount = 0;
+
+      rows.forEach((r, rIdx) => {
+        const tnr = (r.tnrNivel !== undefined && r.tnrNivel !== null && r.tnrNivel !== '') ? parseFloat(r.tnrNivel) : null;
+        const udi = (r.udiNivel !== undefined && r.udiNivel !== null && r.udiNivel !== '') ? parseFloat(r.udiNivel) : null;
+        const kmt = (r.kmtNivel !== undefined && r.kmtNivel !== null && r.kmtNivel !== '') ? parseFloat(r.kmtNivel) : null;
+
+        if (tnr !== null && tnr <= 10) criticosCount++;
+        else if (tnr !== null && tnr <= 20) alertasCount++;
+        else if (tnr !== null) optimosCount++;
+
+        allRows.push({
+          'CLIENTE': cli,
+          'FECHA MONITOREO': snapDate,
+          'CORTE #': snapIdx + 1,
+          'ARCHIVO CSV ORIGEN': snapFile,
+          'SERIE EQUIPO': r.serie || '',
+          'MODELO': r.modelo || '',
+          'UBICACIÓN / TIENDA': r.ubicacion || '',
+          'DIRECCIÓN IP': r.ip || '',
+          'TNR (%)': tnr !== null ? tnr : '',
+          'SERIE TÓNER': r.tnrSerie || r.tnrKSerie || '',
+          'UDI (%)': udi !== null ? udi : '',
+          'SERIE UDI': r.udiSerie || '',
+          'KMT (%)': kmt !== null ? kmt : '',
+          'CAPACIDAD TÓNER': r.capacidadTnr || '',
+          'PÁGINAS CARRO': r.paginasCarro || '',
+          'ESTADO SUMINISTRO': r.estadoSuministro || '',
+          'FECHA INSTALACIÓN TÓNER': r.fechaInstalacionTnr || ''
+        });
+      });
+
+      summaryRows.push({
+        'CLIENTE': cli,
+        'CORTE #': snapIdx + 1,
+        'FECHA CORTE': snapDate,
+        'TOTAL IMPRESORES': rows.length,
+        'TÓNER CRÍTICO (≤10%)': criticosCount,
+        'TÓNER EN ALERTA (11-20%)': alertasCount,
+        'TÓNER ÓPTIMO (>20%)': optimosCount,
+        'ARCHIVO ORIGEN': snapFile
+      });
+    });
+  });
+
+  if (allRows.length === 0) {
+    alert("No se encontraron registros de impresores en los cortes de monitoreo.");
+    return;
+  }
+
+  // 1. Hoja Resumen de Cortes
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, wsSummary, "RESUMEN_CORTES");
+
+  // 2. Hoja Consolidada General (Todas las mediciones históricas)
+  const wsAll = XLSX.utils.json_to_sheet(allRows);
+  XLSX.utils.book_append_sheet(wb, wsAll, "HISTORICO_CONSOLIDADO");
+
+  // 3. Hojas separadas por cliente
+  clients.forEach(cli => {
+    const clientRows = allRows.filter(r => r['CLIENTE'] === cli);
+    if (clientRows.length > 0) {
+      const wsClient = XLSX.utils.json_to_sheet(clientRows);
+      const safeSheetName = (cli + "_HISTORICO").substring(0, 31);
+      XLSX.utils.book_append_sheet(wb, wsClient, safeSheetName);
+    }
+  });
+
+  const fileName = `HISTORICO_MONITOREO_IEXCA_CONSOLIDADO_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  if (typeof showToast === 'function') {
+    showToast(`📥 Histórico de monitoreo descargado: ${allRows.length.toLocaleString()} mediciones.`);
+  }
+}
+
+// Descarga en formato JSON crudo para respaldo
+function downloadMonitoringRawJson() {
+  const mData = (typeof monitoringData !== 'undefined' && monitoringData) ? monitoringData : {};
+  const jsonStr = JSON.stringify(mData, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `FIREBASE_MONITORING_BACKUP_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  if (typeof showToast === 'function') {
+    showToast("📦 Respaldo JSON de Firebase descargado.");
+  }
+}
+
+// Abrir Modal Inspector de Firebase
+function openFirebaseInspectorModal() {
+  const modal = document.getElementById('modalFirebaseInspector');
+  if (!modal) return;
+
+  const mData = (typeof monitoringData !== 'undefined' && monitoringData) ? monitoringData : {};
+  const clients = Object.keys(mData);
+
+  let totalSnaps = 0;
+  let totalRows = 0;
+  const clientBreakdown = [];
+
+  clients.forEach(cli => {
+    const rawSnaps = mData[cli];
+    const snaps = Array.isArray(rawSnaps) ? rawSnaps : Object.values(rawSnaps || {});
+    totalSnaps += snaps.length;
+    let clientRows = 0;
+    snaps.forEach(s => {
+      clientRows += (s.rows || s.items || []).length;
+    });
+    totalRows += clientRows;
+    clientBreakdown.push({
+      client: cli,
+      snapshotsCount: snaps.length,
+      measurementsCount: clientRows,
+      snaps: snaps
+    });
+  });
+
+  // Actualizar métricas del modal
+  const elTotalSnaps = document.getElementById('fbInspTotalSnapshots');
+  if (elTotalSnaps) elTotalSnaps.textContent = totalSnaps.toLocaleString();
+  
+  const elTotalRows = document.getElementById('fbInspTotalMeasurements');
+  if (elTotalRows) elTotalRows.textContent = totalRows.toLocaleString();
+
+  const elTotalClients = document.getElementById('fbInspTotalClients');
+  if (elTotalClients) elTotalClients.textContent = clients.length.toString();
+
+  // Renderizar tabla de cortes en el inspector
+  const tbody = document.getElementById('fbInspSnapshotsTableBody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    clientBreakdown.forEach(cb => {
+      cb.snaps.forEach((s, idx) => {
+        const rowsCount = (s.rows || s.items || []).length;
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/50 transition border-b border-slate-100 dark:border-slate-800';
+        tr.innerHTML = `
+          <td class="px-3 py-2 font-bold text-slate-800 dark:text-slate-100">${cb.client}</td>
+          <td class="px-3 py-2 font-mono text-slate-600 dark:text-slate-300">Corte #${idx + 1}</td>
+          <td class="px-3 py-2 text-slate-700 dark:text-slate-200">${s.uploadDate || s.date || '-'}</td>
+          <td class="px-3 py-2 text-right font-bold text-indigo-600 dark:text-indigo-400">${rowsCount.toLocaleString()}</td>
+          <td class="px-3 py-2 text-xs font-mono text-slate-400 truncate max-w-[200px]" title="${s.fileName || ''}">${s.fileName || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+  }
+
+  pushModalToHistory('modalFirebaseInspector');
+}
+
+function closeFirebaseInspectorModal(force = false) {
+  triggerModalClose('modalFirebaseInspector', force);
+}
+
+
   window.exportMonitoringAuditToExcel = exportMonitoringAuditToExcel;
+  window.exportMonitoringHistoricalToExcel = exportMonitoringHistoricalToExcel;
+  window.downloadMonitoringRawJson = downloadMonitoringRawJson;
+  window.openFirebaseInspectorModal = openFirebaseInspectorModal;
+  window.closeFirebaseInspectorModal = closeFirebaseInspectorModal;
   window.normalizeMarkVisionModel = normalizeMarkVisionModel;
   window.parseLexmarkFleetCsv = parseLexmarkFleetCsv;
   window.detectClientFromCsvRows = detectClientFromCsvRows;
@@ -4500,6 +4699,10 @@ if (typeof module !== 'undefined' && module.exports) {
     renderMonitoringTable,
     initMonitoringModule,
     exportMonitoringAuditToExcel,
+    exportMonitoringHistoricalToExcel,
+    downloadMonitoringRawJson,
+    openFirebaseInspectorModal,
+    closeFirebaseInspectorModal,
     openSupplyLevelsPopover,
     closeSupplyLevelsPopover,
     renderSupplyLevelsChecklist,
