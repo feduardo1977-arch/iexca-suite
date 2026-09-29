@@ -3062,11 +3062,14 @@
         <div class="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-700/80 pb-2">
             <span class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <span>📋 Datos Principales del Folio & Solicitud</span>
+              <span>📋 Datos Principales del Folio & Solicitud (SALIDAS ACTUALIZADAS)</span>
             </span>
-            <span class="text-[11px] text-slate-500 font-medium">Compartidos por todas las líneas del despacho</span>
+            <span class="text-[11px] text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1">
+              <span>⚡ Autocompletado inteligente por DET o Destino</span>
+            </span>
           </div>
 
+          <!-- Fila 1: Folio, Fecha, Solicitud AppSheet -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-bold text-amber-800 dark:text-amber-300 mb-1 flex items-center justify-between">
@@ -3075,7 +3078,7 @@
                   <span>📄 PDF</span>
                 </button>
               </label>
-              <input type="number" id="salidaFolioInput" required placeholder="7938" class="w-full text-xs font-mono font-bold bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-amber-900 dark:text-amber-200 focus:ring-2 focus:ring-amber-500">
+              <input type="number" id="salidaFolioInput" required placeholder="7944" class="w-full text-xs font-mono font-bold bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-amber-900 dark:text-amber-200 focus:ring-2 focus:ring-amber-500">
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
@@ -3087,35 +3090,63 @@
             </div>
             <div>
               <label class="block text-xs font-bold text-blue-700 dark:text-blue-400 mb-1 flex items-center justify-between">
-                <span>📲 Solicitud AppSheet (ID_TICKET)</span>
+                <span class="flex items-center gap-1">
+                  <span>📲 Solicitud AppSheet (ID_TICKET)</span>
+                  <span class="text-[9px] font-normal text-slate-400 dark:text-slate-500">(Opcional)</span>
+                </span>
+                <span class="text-[9px] font-semibold text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/50 px-1.5 py-0.5 rounded" title="Si la entrega es por emergencia o anticipada, déjalo vacío y vincúlalo después">Proactivo / Emergencia</span>
               </label>
-              <input type="text" id="salidaIdTicket" placeholder="Ej. INC004235 o No. Solicitud" class="w-full text-xs font-mono font-semibold bg-blue-50/70 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-xl px-3 py-2 text-blue-900 dark:text-blue-200 placeholder:text-blue-400/70 focus:ring-2 focus:ring-blue-500">
+              <input type="text" id="salidaIdTicket" list="datalistTicketsAppSheet" oninput="onSalidaTicketInput(this.value)" onchange="onSalidaTicketInput(this.value)" placeholder="Opcional: ej. INC004235 (o dejar en blanco)" class="w-full text-xs font-mono font-semibold bg-blue-50/70 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-xl px-3 py-2 text-blue-900 dark:text-blue-200 placeholder:text-blue-400/60 focus:ring-2 focus:ring-blue-500">
+              <div id="salidaTicketHelper" class="mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                <span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>
+              </div>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+          <!-- Fila 2: DET, Destino, Formato, Tipo (ORDEN NATURAL DE SALIDAS ACTUALIZADAS) -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+            <!-- DET / CECO -->
+            <div class="sm:col-span-3">
+              <label class="block text-[11px] font-bold text-indigo-700 dark:text-indigo-300 mb-1 flex items-center justify-between">
+                <span>📍 DET / CECO *</span>
+                <span class="text-[9px] font-normal text-indigo-500 dark:text-indigo-400">Autocompleta tienda</span>
+              </label>
+              <input type="text" id="salidaDet" list="datalistRDIDet" oninput="onSalidaDetInput(this.value)" onchange="onSalidaDetInput(this.value)" required placeholder="Ej. 775, BACSV55..." class="w-full text-xs font-mono font-bold bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 rounded-xl px-3 py-2 text-indigo-900 dark:text-indigo-200 focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- DESTINO / TIENDA -->
+            <div class="sm:col-span-5">
+              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>🏬 Destino / Tienda / Sucursal *</span>
+                <span class="text-[9px] font-normal text-slate-400">Autocompleta DET</span>
+              </label>
+              <input type="text" id="salidaDestino" list="datalistRDITiendas" oninput="onSalidaDestinoInput(this.value)" onchange="onSalidaDestinoInput(this.value)" required placeholder="Buscar o ingresar Tienda..." class="w-full text-xs font-medium bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <!-- FORMATO -->
             <div class="sm:col-span-2">
-              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Destino / Tienda / Sucursal *</label>
-              <input type="text" id="salidaDestino" list="datalistRDITiendas" oninput="onSalidaDestinoInput(this.value)" required placeholder="Buscar o ingresar Tienda..." class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Formato</label>
+              <input type="text" id="salidaFormato" list="datalistFormatos" placeholder="Ej. SUPERCENTER" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
             </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">DET / CECO</label>
-              <input type="text" id="salidaDet" placeholder="Ej. 775" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Cliente</label>
-              <input type="text" id="salidaCliente" placeholder="Ej. WALMART, BAC" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+
+            <!-- TIPO -->
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Tipo Cuenta</label>
+              <input type="text" id="salidaTipo" list="datalistTipos" placeholder="Ej. WM, BANCARIA" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Formato de Tienda</label>
-              <input type="text" id="salidaFormato" placeholder="Ej. SUPERCENTER, MAXI, BANCARIA" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+          <!-- Fila 3: Cliente y feedback dinámico de autocompletado -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-0.5 items-center">
+            <div class="sm:col-span-4">
+              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Cliente *</label>
+              <input type="text" id="salidaCliente" list="datalistRDIClientes" placeholder="Ej. WALMART, BAC..." class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
             </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Tipo de Cuenta</label>
-              <input type="text" id="salidaTipo" placeholder="Ej. WM, BANCARIA, EMPRESA" class="w-full text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200">
+            <div class="sm:col-span-8 flex items-center pt-3.5">
+              <div id="salidaAutofillFeedback" class="text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 w-full flex items-center gap-1.5 min-h-[34px]">
+                <span id="salidaAutofillIcon" class="text-indigo-600 dark:text-indigo-400 text-xs">💡</span>
+                <span id="salidaAutofillText">Escribe el DET o selecciona la Tienda para autocompletar automáticamente los datos del destino.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -3608,6 +3639,9 @@
   <datalist id="datalistRDIModelos"></datalist>
   <datalist id="datalistRDIDet"></datalist>
   <datalist id="datalistRDITiendas"></datalist>
+  <datalist id="datalistFormatos"></datalist>
+  <datalist id="datalistTipos"></datalist>
+  <datalist id="datalistTicketsAppSheet"></datalist>
 
   <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-4 text-center text-xs text-slate-400">
     <p>Excel Analytics Dashboard • Procesamiento local ultra rápido • Compatible con Microsoft Excel, macros (.xlsm), binarios (.xlsb) y CSV</p>
@@ -8783,29 +8817,7 @@
 
       // Indexar metadatos numéricos y temporales en memoria O(N) una vez resuelto sheetStore['FOLIOS']
       indexFoliosMetadata(sheetStore['FOLIOS']);
-
-      // Llenar autocompletado de partes de forma rápida usando DocumentFragment (tope 250 elementos únicos)
-      const datalistParts = document.getElementById('datalistNumParts');
-      if (datalistParts) {
-        datalistParts.innerHTML = '';
-        const frag = document.createDocumentFragment();
-        const uniqueParts = new Set();
-        let addedCount = 0;
-        for (let i = 0; i < foliosData.length && addedCount < 250; i++) {
-          const r = foliosData[i];
-          const np = (r['NUMPART'] || r['NumPart'] || '').toString().trim();
-          const desc = (r['DESCRIPCION'] || r['DESCRIPCIÓN'] || r['Descripcion'] || '').toString().trim();
-          if (np && !uniqueParts.has(np)) {
-            uniqueParts.add(np);
-            const opt = document.createElement('option');
-            opt.value = np;
-            opt.label = desc;
-            frag.appendChild(opt);
-            addedCount++;
-          }
-        }
-        datalistParts.appendChild(frag);
-      }
+      buildSalidasActualizadasCatalog(true);
 
       // 4. Indexar Órdenes de Servicio (ODS)
       const odsSheetName = rawWorkbook.SheetNames.find(n => n.trim().toUpperCase() === 'ODS') || 
@@ -9036,71 +9048,659 @@
       }
     }
 
-    // AUTOLLENADO INTELIGENTE PARA LÍNEAS DE SUMINISTROS EN FOLIOS
+    // =========================================================================
+    // CATÁLOGO MAESTRO DINÁMICO DE SALIDAS ACTUALIZADAS (FOLIOS, ODS Y RDI)
+    // =========================================================================
+    const foliosDetCatalogMap = new Map();
+    const foliosDestinoCatalogMap = new Map();
+    const foliosTicketCatalogMap = new Map();
+    const foliosNumPartCatalogMap = new Map();
+    const foliosImpresorCatalogMap = new Map();
+    let isSalidasCatalogBuilt = false;
+
+    function buildSalidasActualizadasCatalog(force = false) {
+      if (isSalidasCatalogBuilt && !force) return;
+
+      foliosDetCatalogMap.clear();
+      foliosDestinoCatalogMap.clear();
+      foliosTicketCatalogMap.clear();
+      foliosNumPartCatalogMap.clear();
+      foliosImpresorCatalogMap.clear();
+
+      const uniqueDets = new Set();
+      const uniqueDestinos = new Set();
+      const uniqueFormatos = new Set(['SUPERCENTER', 'MAXI DESPENSA', 'DESPENSA FAMILIAR', 'BANCARIA', 'OFICINA', 'CEDIS', 'EMPRESA', 'PLANTAS']);
+      const uniqueTipos = new Set(['WM', 'BANCARIA', 'EMPRESA', 'PLANTAS']);
+      const uniqueClientes = new Set();
+      const uniqueNumParts = new Map();
+      const uniqueImpresores = new Map();
+
+      // 1. Prioridad 1: Datos de SALIDAS ACTUALIZADAS (sheetStore['FOLIOS'])
+      const folios = sheetStore['FOLIOS'] || [];
+      folios.forEach(r => {
+        const rawDet = String(r['DET'] || r['CECO/DET'] || r['CECO'] || r['Det'] || '').trim();
+        const rawDest = String(r['DESTINO'] || r['Destino'] || r['TIENDA'] || r['Tienda'] || r['SUCURSAL'] || r['Sucursal'] || '').trim();
+        const rawFmt = String(r['FORMATO'] || r['Formato'] || '').trim();
+        const rawTipo = String(r['TIPO'] || r['Tipo'] || '').trim();
+        const rawCli = String(r['CLIENTE'] || r['Cliente'] || '').trim();
+        const rawNp = String(r['NUMPART'] || r['NumPart'] || '').trim();
+        const rawDesc = String(r['DESCRIPCION'] || r['DESCRIPCIÓN'] || r['Descripcion'] || '').trim();
+        const rawTipoSum = String(r['TIPO SUM'] || r['Tipo Sum'] || r['TIPOSUM'] || '').trim().toUpperCase();
+        const rawImp = String(r['IMPRESOR'] || r['SERIE2'] || (r['IMPRESOR'] ? r['IMPRESOR'] : (r['SERIE SUM'] ? r['SERIE'] : '')) || '').trim();
+        const rawMod = String(r['MODELO'] || r['Modelo'] || r['MOD'] || '').trim();
+        const rawUbi = String(r['UBICACIÓN'] || r['UBICACION'] || r['Ubicación'] || r['Ubicacion'] || r['DEPTO'] || '').trim();
+        const rawIp = cleanIpAddress(String(r['IP'] || r['Ip'] || ''));
+        const rawStatus = String(r['STATUS BACKUP'] || r['ESTADO SUM'] || 'EN STOCK').trim().toUpperCase();
+        const rawTicket = String(r['ID_TICKET'] || r['ID TICKET'] || r['SOLICITUD APPSHEET'] || '').trim();
+
+        if (rawDet) uniqueDets.add(rawDet);
+        if (rawDest) uniqueDestinos.add(rawDest);
+        if (rawFmt) uniqueFormatos.add(rawFmt);
+        if (rawTipo) uniqueTipos.add(rawTipo);
+        if (rawCli) uniqueClientes.add(rawCli);
+
+        const storeInfo = {
+          det: rawDet,
+          destino: rawDest,
+          formato: rawFmt,
+          tipo: rawTipo,
+          cliente: rawCli,
+          printers: []
+        };
+
+        if (rawDet) {
+          const upDet = rawDet.toUpperCase();
+          if (!foliosDetCatalogMap.has(upDet) || (!foliosDetCatalogMap.get(upDet).destino && rawDest)) {
+            foliosDetCatalogMap.set(upDet, storeInfo);
+          }
+          const noZeros = upDet.replace(/^0+/, '');
+          if (noZeros && !foliosDetCatalogMap.has(noZeros)) {
+            foliosDetCatalogMap.set(noZeros, storeInfo);
+          }
+        }
+
+        if (rawDest) {
+          const upDest = rawDest.toUpperCase();
+          if (!foliosDestinoCatalogMap.has(upDest) || (!foliosDestinoCatalogMap.get(upDest).det && rawDet)) {
+            foliosDestinoCatalogMap.set(upDest, storeInfo);
+          }
+        }
+
+        if (rawTicket) {
+          const upTicket = rawTicket.toUpperCase();
+          if (!foliosTicketCatalogMap.has(upTicket)) {
+            foliosTicketCatalogMap.set(upTicket, {
+              idTicket: rawTicket,
+              det: rawDet,
+              destino: rawDest,
+              cliente: rawCli,
+              formato: rawFmt,
+              tipo: rawTipo,
+              impresor: rawImp,
+              modelo: rawMod,
+              numPart: rawNp,
+              descripcion: rawDesc
+            });
+          }
+        }
+
+        if (rawNp) {
+          const upNp = rawNp.toUpperCase();
+          if (!uniqueNumParts.has(upNp) || (!uniqueNumParts.get(upNp).descripcion && rawDesc)) {
+            uniqueNumParts.set(upNp, {
+              numPart: rawNp,
+              descripcion: rawDesc || `Suministro ${rawNp}`,
+              tipoSum: rawTipoSum || 'TNR'
+            });
+          }
+        }
+
+        if (rawImp) {
+          const upImp = rawImp.toUpperCase();
+          if (!uniqueImpresores.has(upImp) || (!uniqueImpresores.get(upImp).ip && rawIp)) {
+            uniqueImpresores.set(upImp, {
+              impresor: rawImp,
+              modelo: rawMod,
+              ubicacion: rawUbi || rawDest,
+              ip: rawIp,
+              det: rawDet,
+              destino: rawDest,
+              cliente: rawCli,
+              formato: rawFmt,
+              tipo: rawTipo,
+              statusBackup: rawStatus || 'EN STOCK'
+            });
+          }
+        }
+      });
+
+      // 2. Prioridad 2: Datos de RDI y ventana maestra (rdiList / window.RDI_MASTER_DATA)
+      const rdiSource = (Array.isArray(rdiList) && rdiList.length > 0) ? rdiList : (sheetStore['RDI'] || window.RDI_MASTER_DATA || []);
+      rdiSource.forEach(item => {
+        const rawDet = String(item['CECO/DET'] || item['DET'] || item['CECO'] || item['Det'] || '').trim();
+        const rawDest = String(item['TIENDA'] || item['Tienda'] || item['SUCURSAL'] || item['Sucursal'] || item['DIRECCIÓN'] || item['DIRECCION'] || '').trim();
+        const rawFmt = String(item['FORMATO'] || item['Formato'] || '').trim();
+        const rawCli = String(item['CLIENTE'] || item['Cliente'] || '').trim();
+        const rawImp = String(item['SERIE'] || item['Serie'] || '').trim();
+        const rawMod = String(item['MOD'] || item['MODELO'] || item['Modelo'] || item['Mod'] || '').trim();
+        const rawUbi = String(item['UBICACIÓN'] || item['UBICACION'] || item['Ubicación'] || item['Ubicacion'] || item['DEPTO'] || '').trim();
+        const rawIp = cleanIpAddress(String(item['IP'] || item['Ip'] || item['DIRECCION IP'] || ''));
+
+        if (rawDet) uniqueDets.add(rawDet);
+        if (rawDest) uniqueDestinos.add(rawDest);
+        if (rawFmt) uniqueFormatos.add(rawFmt);
+        if (rawCli) uniqueClientes.add(rawCli);
+
+        const storeInfo = {
+          det: rawDet,
+          destino: rawDest,
+          formato: rawFmt,
+          tipo: (rawCli.toUpperCase().includes('WALMART') || rawCli.toUpperCase().includes('WM')) ? 'WM' : (rawCli.toUpperCase().includes('BAC') ? 'BANCARIA' : 'EMPRESA'),
+          cliente: rawCli,
+          printers: []
+        };
+
+        if (rawDet) {
+          const upDet = rawDet.toUpperCase();
+          if (!foliosDetCatalogMap.has(upDet)) {
+            foliosDetCatalogMap.set(upDet, storeInfo);
+          }
+          const noZeros = upDet.replace(/^0+/, '');
+          if (noZeros && !foliosDetCatalogMap.has(noZeros)) {
+            foliosDetCatalogMap.set(noZeros, storeInfo);
+          }
+        }
+
+        if (rawDest) {
+          const upDest = rawDest.toUpperCase();
+          if (!foliosDestinoCatalogMap.has(upDest)) {
+            foliosDestinoCatalogMap.set(upDest, storeInfo);
+          }
+        }
+
+        if (rawImp) {
+          const upImp = rawImp.toUpperCase();
+          if (!uniqueImpresores.has(upImp)) {
+            uniqueImpresores.set(upImp, {
+              impresor: rawImp,
+              modelo: rawMod,
+              ubicacion: rawUbi || rawDest,
+              ip: rawIp,
+              det: rawDet,
+              destino: rawDest,
+              cliente: rawCli,
+              formato: rawFmt,
+              tipo: storeInfo.tipo,
+              statusBackup: 'EN USO'
+            });
+          }
+        }
+      });
+
+      // 3. Prioridad 3: Tickets y Solicitudes de AppSheet / ODS (sheetStore['ODS'])
+      const odsSource = sheetStore['ODS'] || [];
+      odsSource.forEach(r => {
+        const rawTicket = String(r['ID TICKET'] || r['ID_TICKET'] || r['ID'] || r['TICKET'] || '').trim();
+        if (!rawTicket) return;
+        const upTicket = rawTicket.toUpperCase();
+        
+        const rawDet = String(r['DET'] || r['CECO'] || r['CECO/DET'] || '').trim();
+        const rawDest = String(r['TIENDA'] || r['DESTINO'] || r['SUCURSAL'] || r['DIRECCION'] || '').trim();
+        const rawCli = String(r['CLIENTE'] || r['Cliente'] || '').trim();
+        const rawImp = String(r['SERIE'] || r['IMPRESOR'] || '').trim();
+        const rawMod = String(r['MOD'] || r['MODELO'] || '').trim();
+        const rawUbi = String(r['UBICACION'] || r['UBICACIÓN'] || r['DEPTO'] || '').trim();
+        const rawFalla = String(r['PROBLEMA REPORTADO'] || r['PROBLEMA'] || r['FALLA'] || r['DESCRIPCION'] || '').trim();
+        const rawEstado = String(r['ESTADO'] || r['Estado'] || 'ABIERTO').trim().toUpperCase();
+        const rawFmt = String(r['FORMATO'] || '').trim();
+        const rawTipo = String(r['TIPO'] || '').trim();
+
+        if (rawDet) uniqueDets.add(rawDet);
+        if (rawDest) uniqueDestinos.add(rawDest);
+        if (rawCli) uniqueClientes.add(rawCli);
+
+        if (!foliosTicketCatalogMap.has(upTicket)) {
+          foliosTicketCatalogMap.set(upTicket, {
+            idTicket: rawTicket,
+            det: rawDet,
+            destino: rawDest,
+            cliente: rawCli,
+            formato: rawFmt,
+            tipo: rawTipo,
+            impresor: rawImp,
+            modelo: rawMod,
+            ubicacion: rawUbi,
+            falla: rawFalla,
+            estado: rawEstado,
+            source: 'ODS'
+          });
+        } else {
+          const existing = foliosTicketCatalogMap.get(upTicket);
+          if (!existing.impresor && rawImp) existing.impresor = rawImp;
+          if (!existing.modelo && rawMod) existing.modelo = rawMod;
+          if (!existing.ubicacion && rawUbi) existing.ubicacion = rawUbi;
+          if (!existing.det && rawDet) existing.det = rawDet;
+          if (!existing.destino && rawDest) existing.destino = rawDest;
+          if (!existing.cliente && rawCli) existing.cliente = rawCli;
+          if (!existing.falla && rawFalla) existing.falla = rawFalla;
+        }
+      });
+
+      // Transferir a maps de catálogo
+      uniqueNumParts.forEach((v, k) => foliosNumPartCatalogMap.set(k, v));
+      uniqueImpresores.forEach((v, k) => foliosImpresorCatalogMap.set(k, v));
+
+      // 4. Poblar todos los datalists del DOM
+      populateDatalistOptions('datalistRDIDet', Array.from(uniqueDets).sort((a,b) => a.localeCompare(b, undefined, {numeric: true})), (det) => {
+        const info = foliosDetCatalogMap.get(det.toUpperCase()) || {};
+        return {
+          value: det,
+          text: info.destino ? `${det} - ${info.destino} (${info.cliente || 'IEXCA'})` : det
+        };
+      });
+
+      populateDatalistOptions('datalistRDITiendas', Array.from(uniqueDestinos).sort(), (dest) => {
+        const info = foliosDestinoCatalogMap.get(dest.toUpperCase()) || {};
+        return {
+          value: dest,
+          text: info.det ? `${dest} (DET: ${info.det} • ${info.cliente || 'IEXCA'})` : dest
+        };
+      });
+
+      populateDatalistOptions('datalistFormatos', Array.from(uniqueFormatos).sort(), (fmt) => ({ value: fmt, text: fmt }));
+      populateDatalistOptions('datalistTipos', Array.from(uniqueTipos).sort(), (tipo) => ({ value: tipo, text: tipo }));
+      populateDatalistOptions('datalistRDIClientes', Array.from(uniqueClientes).sort(), (cli) => ({ value: cli, text: cli }));
+      populateDatalistOptions('datalistClientes', Array.from(uniqueClientes).sort(), (cli) => ({ value: cli, text: cli }));
+
+      populateDatalistOptions('datalistNumParts', Array.from(uniqueNumParts.values()).sort((a,b) => a.numPart.localeCompare(b.numPart)), (item) => ({
+        value: item.numPart,
+        text: `${item.numPart} - ${item.descripcion} [${item.tipoSum}]`
+      }));
+
+      populateDatalistOptions('datalistRDISeries', Array.from(uniqueImpresores.values()).sort((a,b) => a.impresor.localeCompare(b.impresor)), (item) => ({
+        value: item.impresor,
+        text: `${item.impresor} - ${item.modelo || 'Equipo'} (${item.destino || item.ubicacion || 'En Tienda'})`
+      }));
+
+      populateDatalistOptions('datalistTicketsAppSheet', Array.from(foliosTicketCatalogMap.values()).slice(0, 300), (item) => ({
+        value: item.idTicket,
+        text: `${item.idTicket} • ${item.destino || item.det || 'Tienda'} (${item.cliente || 'IEXCA'})${item.impresor ? ` [${item.impresor}]` : ''}`
+      }));
+
+      isSalidasCatalogBuilt = true;
+    }
+
+    function populateDatalistOptions(elementId, items, mappingFn) {
+      const datalist = document.getElementById(elementId);
+      if (!datalist || !Array.isArray(items)) return;
+      datalist.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      items.forEach(it => {
+        const mapped = mappingFn ? mappingFn(it) : { value: it, text: it };
+        if (mapped && mapped.value) {
+          const opt = document.createElement('option');
+          opt.value = mapped.value;
+          opt.label = mapped.text || mapped.value;
+          opt.textContent = mapped.text || mapped.value;
+          fragment.appendChild(opt);
+        }
+      });
+      datalist.appendChild(fragment);
+    }
+
+    function updateSalidaAutofillFeedback(match, source = null) {
+      const box = document.getElementById('salidaAutofillFeedback');
+      const text = document.getElementById('salidaAutofillText');
+      const icon = document.getElementById('salidaAutofillIcon');
+      if (!box || !text) return;
+
+      if (!match) {
+        box.className = 'text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 w-full flex items-center gap-1.5 min-h-[34px] transition-colors';
+        if (icon) icon.textContent = '💡';
+        text.textContent = 'Escribe el DET o selecciona la Tienda para autocompletar automáticamente los datos del destino.';
+        return;
+      }
+
+      box.className = 'text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/80 rounded-xl px-3 py-1.5 w-full flex items-center gap-1.5 min-h-[34px] shadow-xs transition-colors';
+      if (icon) icon.textContent = '✅';
+      const detText = match.det ? `DET: ${match.det}` : 'Sin DET';
+      const destText = match.destino || 'Destino detectado';
+      const cliText = match.cliente ? `• Cliente: ${match.cliente}` : '';
+      const fmtText = match.formato ? `(${match.formato})` : '';
+      text.innerHTML = `<span><b>Autocompletado exitoso:</b> ${escapeHtml(destText)} [${escapeHtml(detText)}] ${escapeHtml(cliText)} ${escapeHtml(fmtText)}</span>`;
+    }
+
+    function filterPrintersDatalistByDet(det, destino) {
+      const datalist = document.getElementById('datalistRDISeries');
+      if (!datalist) return;
+      const cleanDet = (det || '').trim().toUpperCase();
+      const cleanDest = (destino || '').trim().toUpperCase();
+      if (!cleanDet && !cleanDest) return;
+
+      const topPrinters = [];
+      const otherPrinters = [];
+
+      foliosImpresorCatalogMap.forEach(item => {
+        const itemDet = (item.det || '').trim().toUpperCase();
+        const itemDest = (item.destino || '').trim().toUpperCase();
+        const isMatch = (cleanDet && itemDet === cleanDet) || (cleanDest && itemDest === cleanDest);
+        if (isMatch) {
+          topPrinters.push(item);
+        } else {
+          otherPrinters.push(item);
+        }
+      });
+
+      if (topPrinters.length > 0) {
+        datalist.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        topPrinters.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.impresor;
+          opt.label = `⚡ ${p.impresor} - ${p.modelo || 'Equipo'} (EN ESTA TIENDA: ${p.ubicacion || 'General'})`;
+          opt.textContent = opt.label;
+          fragment.appendChild(opt);
+        });
+        otherPrinters.slice(0, 150).forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.impresor;
+          opt.label = `${p.impresor} - ${p.modelo || 'Equipo'} (${p.destino || 'Otro'})`;
+          opt.textContent = opt.label;
+          fragment.appendChild(opt);
+        });
+        datalist.appendChild(fragment);
+      }
+    }
+
+    function onSalidaDetInput(val) {
+      buildSalidasActualizadasCatalog();
+      const raw = (val || '').trim().toUpperCase();
+      if (!raw) {
+        updateSalidaAutofillFeedback(null);
+        return;
+      }
+
+      // Limpiar texto si viene del label del datalist tipo "775 - WALMART SANTA ELENA"
+      let cleanDet = raw.split(/[\s\-–—]/)[0].trim();
+      let match = foliosDetCatalogMap.get(cleanDet) || foliosDetCatalogMap.get(raw);
+      if (!match) {
+        const withoutZeros = cleanDet.replace(/^0+/, '');
+        match = foliosDetCatalogMap.get(withoutZeros);
+      }
+
+      if (match) {
+        const elDest = document.getElementById('salidaDestino');
+        if (elDest && match.destino) elDest.value = match.destino;
+
+        const elCli = document.getElementById('salidaCliente');
+        if (elCli && match.cliente) elCli.value = match.cliente;
+
+        const elForm = document.getElementById('salidaFormato');
+        if (elForm && match.formato) elForm.value = match.formato;
+
+        const elTipo = document.getElementById('salidaTipo');
+        if (elTipo && match.tipo) elTipo.value = match.tipo;
+
+        updateSalidaAutofillFeedback(match, 'DET');
+        filterPrintersDatalistByDet(match.det, match.destino);
+      } else {
+        updateSalidaAutofillFeedback(null);
+      }
+    }
+
+    function onSalidaDestinoInput(val) {
+      buildSalidasActualizadasCatalog();
+      const raw = (val || '').trim().toUpperCase();
+      if (!raw) {
+        updateSalidaAutofillFeedback(null);
+        return;
+      }
+
+      let match = foliosDestinoCatalogMap.get(raw);
+      if (!match) {
+        for (const [k, v] of foliosDestinoCatalogMap.entries()) {
+          if (k.startsWith(raw) || raw.startsWith(k)) {
+            match = v;
+            break;
+          }
+        }
+      }
+
+      if (match) {
+        const elDet = document.getElementById('salidaDet');
+        if (elDet && match.det) elDet.value = match.det;
+
+        const elCli = document.getElementById('salidaCliente');
+        if (elCli && match.cliente) elCli.value = match.cliente;
+
+        const elForm = document.getElementById('salidaFormato');
+        if (elForm && match.formato) elForm.value = match.formato;
+
+        const elTipo = document.getElementById('salidaTipo');
+        if (elTipo && match.tipo) elTipo.value = match.tipo;
+
+        updateSalidaAutofillFeedback(match, 'DESTINO');
+        filterPrintersDatalistByDet(match.det, match.destino);
+      } else {
+        updateSalidaAutofillFeedback(null);
+      }
+    }
+
+    function onSalidaTicketInput(val) {
+      buildSalidasActualizadasCatalog();
+      const raw = (val || '').trim().toUpperCase();
+      const helper = document.getElementById('salidaTicketHelper');
+      
+      if (!raw) {
+        if (helper) {
+          helper.innerHTML = '<span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>';
+          helper.className = 'mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight';
+        }
+        return;
+      }
+
+      // 1. Limpiar prefijo o label si viene del datalist "INC004235 • WALMART..."
+      const cleanTicket = raw.split(/[\s•–—]/)[0].trim();
+
+      let match = foliosTicketCatalogMap.get(cleanTicket) || foliosTicketCatalogMap.get(raw);
+      if (!match) {
+        for (const [k, v] of foliosTicketCatalogMap.entries()) {
+          if (k.includes(cleanTicket) || cleanTicket.includes(k)) {
+            match = v;
+            break;
+          }
+        }
+      }
+
+      if (match) {
+        if (helper) {
+          helper.innerHTML = `✅ <b>Solicitud detectada:</b> ${escapeHtml(match.destino || match.det || 'Tienda')} ${match.impresor ? `(Equipo: <b>${escapeHtml(match.impresor)}</b>)` : ''}`;
+          helper.className = 'mt-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold leading-tight';
+        }
+
+        // 2. Autocompletar DET / Tienda
+        if (match.det) {
+          const elDet = document.getElementById('salidaDet');
+          if (elDet) elDet.value = match.det;
+          onSalidaDetInput(match.det);
+        } else if (match.destino) {
+          const elDest = document.getElementById('salidaDestino');
+          if (elDest) elDest.value = match.destino;
+          onSalidaDestinoInput(match.destino);
+        }
+
+        if (match.cliente) {
+          const elCli = document.getElementById('salidaCliente');
+          if (elCli && !elCli.value) elCli.value = match.cliente;
+        }
+
+        if (match.formato) {
+          const elFmt = document.getElementById('salidaFormato');
+          if (elFmt && !elFmt.value) elFmt.value = match.formato;
+        }
+
+        if (match.tipo) {
+          const elTipo = document.getElementById('salidaTipo');
+          if (elTipo && !elTipo.value) elTipo.value = match.tipo;
+        }
+
+        // 3. Autocompletar la primera tarjeta de suministro
+        const firstCard = document.querySelector('.salida-item-card');
+        if (firstCard) {
+          const idx = firstCard.id.replace('salidaItemCard_', '');
+          
+          if (match.impresor) {
+            const elImp = document.getElementById(`itemImpresor_${idx}`);
+            if (elImp && !elImp.value) {
+              elImp.value = match.impresor;
+              onItemImpresorInput(idx, match.impresor);
+            }
+          }
+
+          if (match.numPart) {
+            const elNp = document.getElementById(`itemNumPart_${idx}`);
+            if (elNp && !elNp.value) {
+              elNp.value = match.numPart;
+              onItemNumPartChange(idx, match.numPart);
+            }
+          }
+
+          // Si el ticket trae una falla o descripción de tóner/UDI y la descripción está vacía
+          if (match.falla || match.descripcion) {
+            const elDesc = document.getElementById(`itemDescripcion_${idx}`);
+            const textToUse = match.descripcion || match.falla;
+            if (elDesc && !elDesc.value && textToUse) {
+              elDesc.value = textToUse;
+              const upFalla = textToUse.toUpperCase();
+              const elTipo = document.getElementById(`itemTipoSum_${idx}`);
+              if (elTipo) {
+                if (upFalla.includes('TONER') || upFalla.includes('TÓNER') || upFalla.includes('TNR')) {
+                  elTipo.value = 'TNR';
+                } else if (upFalla.includes('IMAGEN') || upFalla.includes('UDI') || upFalla.includes('FOTOCONDUCTOR') || upFalla.includes('DRUM')) {
+                  elTipo.value = 'UDI';
+                } else if (upFalla.includes('MANTENIMIENTO') || upFalla.includes('KMT')) {
+                  elTipo.value = 'KMT';
+                }
+              }
+            }
+          }
+        }
+
+        updateSalidaAutofillFeedback({
+          det: match.det || document.getElementById('salidaDet')?.value,
+          destino: match.destino || document.getElementById('salidaDestino')?.value,
+          cliente: match.cliente || document.getElementById('salidaCliente')?.value,
+          formato: match.formato || document.getElementById('salidaFormato')?.value
+        }, 'TICKET');
+      } else {
+        if (helper) {
+          helper.innerHTML = 'ℹ️ <b>Solicitud no encontrada en historial previo:</b> Se registrará y quedará vinculada al guardar el folio.';
+          helper.className = 'mt-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium leading-tight';
+        }
+      }
+    }
+
+    function createSalidaFromTicket(ticketId) {
+      buildSalidasActualizadasCatalog();
+      const cleanTicket = String(ticketId || '').trim().toUpperCase();
+      const match = foliosTicketCatalogMap.get(cleanTicket);
+      if (match) {
+        openNewSalidaModal({
+          idTicket: match.idTicket || ticketId,
+          det: match.det || '',
+          destino: match.destino || '',
+          cliente: match.cliente || '',
+          formato: match.formato || '',
+          tipo: match.tipo || '',
+          serie: match.impresor || '',
+          modelo: match.modelo || '',
+          ubicacion: match.ubicacion || '',
+          numPart: match.numPart || '',
+          descripcion: match.descripcion || match.falla || '',
+          tipoSum: 'TNR',
+          cant: 1
+        });
+      } else {
+        openNewSalidaModal({ idTicket: ticketId });
+      }
+    }
+
     function onItemImpresorInput(itemIndex, val) {
+      buildSalidasActualizadasCatalog();
       const trimmed = (val || '').trim().toUpperCase();
-      const badge = document.getElementById(`badgeAutofillItem_${itemIndex}`);
+      const badge = document.getElementById(`badgeImpresorAutofill_${itemIndex}`);
       if (!trimmed) {
         if (badge) badge.textContent = '';
         return;
       }
-      const match = (typeof rdiMapBySerie !== 'undefined') ? rdiMapBySerie.get(trimmed) : null;
+
+      let match = foliosImpresorCatalogMap.get(trimmed);
+      if (!match && typeof rdiMapBySerie !== 'undefined') {
+        const rdiMatch = rdiMapBySerie.get(trimmed);
+        if (rdiMatch) {
+          match = {
+            impresor: rdiMatch.SERIE,
+            modelo: rdiMatch.MOD || rdiMatch.MODELO,
+            ubicacion: rdiMatch.DEPTO || rdiMatch.UBICACION || '',
+            ip: rdiMatch.IP || '',
+            det: rdiMatch.DET || '',
+            destino: rdiMatch.TIENDA || rdiMatch.DIRECCION || '',
+            cliente: rdiMatch.CLIENTE || '',
+            formato: rdiMatch.FORMATO || '',
+            tipo: rdiMatch.TIPO || '',
+            statusBackup: 'EN USO'
+          };
+        }
+      }
+
       if (match) {
         const elMod = document.getElementById(`itemModelo_${itemIndex}`);
-        if (elMod && (!elMod.value || elMod.value === '')) elMod.value = match.MOD || '';
+        if (elMod && match.modelo) elMod.value = match.modelo;
+
         const elUbi = document.getElementById(`itemUbicacion_${itemIndex}`);
-        if (elUbi && (!elUbi.value || elUbi.value === '')) elUbi.value = match.DEPTO || match.UBICACION || match['UBICACIÓN'] || '';
+        if (elUbi && match.ubicacion) elUbi.value = match.ubicacion;
+
+        const elIp = document.getElementById(`itemIp_${itemIndex}`);
+        if (elIp && match.ip) elIp.value = match.ip;
+
+        const elStatus = document.getElementById(`itemStatusBackup_${itemIndex}`);
+        if (elStatus && match.statusBackup) elStatus.value = match.statusBackup;
 
         // Si los datos generales del encabezado están vacíos, completarlos con este equipo:
-        const elDest = document.getElementById('salidaDestino');
-        if (elDest && !elDest.value) elDest.value = match.TIENDA || match.DIRECCION || '';
         const elDet = document.getElementById('salidaDet');
-        if (elDet && !elDet.value) elDet.value = match.DET || '';
-        const elCli = document.getElementById('salidaCliente');
-        if (elCli && !elCli.value) elCli.value = match.CLIENTE || '';
-        const elForm = document.getElementById('salidaFormato');
-        if (elForm && !elForm.value) elForm.value = match.FORMATO || '';
-        const elTipo = document.getElementById('salidaTipo');
-        if (elTipo && !elTipo.value) elTipo.value = match.TIPO || '';
+        if (elDet && !elDet.value && match.det) {
+          onSalidaDetInput(match.det);
+        } else {
+          const elDest = document.getElementById('salidaDestino');
+          if (elDest && !elDest.value && match.destino) onSalidaDestinoInput(match.destino);
+        }
 
         if (badge) {
-          badge.textContent = `✅ ${match.MOD} (${match.TIENDA || match.CLIENTE})`;
-          badge.className = 'text-[10px] text-emerald-600 dark:text-emerald-400 font-bold';
+          badge.innerHTML = `✓ <b>${escapeHtml(match.modelo || '')}</b> <span class="text-slate-500 font-normal">(${escapeHtml(match.ubicacion || match.destino || 'En Tienda')})</span>`;
+          badge.className = 'text-[10px] text-emerald-600 dark:text-emerald-400 font-medium';
         }
       } else {
         if (badge) {
-          badge.textContent = 'Serie no hallada en RDI';
+          badge.textContent = 'Serie nueva (se registrará al guardar)';
           badge.className = 'text-[10px] text-amber-600 dark:text-amber-400 font-medium';
         }
       }
     }
 
     function onItemNumPartChange(itemIndex, val) {
+      buildSalidasActualizadasCatalog();
       const trimmed = (val || '').trim().toUpperCase();
       if (!trimmed) return;
-      const folios = sheetStore['FOLIOS'] || [];
-      const match = folios.find(r => (r['NUMPART'] || r['NumPart'] || '').toString().trim().toUpperCase() === trimmed);
+      const match = foliosNumPartCatalogMap.get(trimmed);
       if (match) {
         const descInput = document.getElementById(`itemDescripcion_${itemIndex}`);
-        if (descInput && !descInput.value) {
-          descInput.value = match['DESCRIPCION'] || match['DESCRIPCIÓN'] || match['Descripcion'] || '';
+        if (descInput && match.descripcion) {
+          descInput.value = match.descripcion;
         }
-      }
-    }
-
-    function onSalidaDestinoInput(val) {
-      const trimmed = (val || '').trim().toUpperCase();
-      if (!trimmed || !Array.isArray(rdiList)) return;
-      const match = rdiList.find(r => (r.TIENDA || r.DIRECCION || '').toString().trim().toUpperCase() === trimmed);
-      if (match) {
-        const elDet = document.getElementById('salidaDet');
-        if (elDet && !elDet.value) elDet.value = match.DET || match['CECO/DET'] || '';
-        const elCli = document.getElementById('salidaCliente');
-        if (elCli && !elCli.value) elCli.value = match.CLIENTE || '';
-        const elForm = document.getElementById('salidaFormato');
-        if (elForm && !elForm.value) elForm.value = match.FORMATO || '';
-        const elTipo = document.getElementById('salidaTipo');
-        if (elTipo && !elTipo.value) elTipo.value = match.TIPO || '';
+        const tipoSumSelect = document.getElementById(`itemTipoSum_${itemIndex}`);
+        if (tipoSumSelect && match.tipoSum) {
+          tipoSumSelect.value = match.tipoSum;
+        }
       }
     }
 
@@ -9125,87 +9725,103 @@
           <div class="flex items-center gap-2">
             <span class="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
               <span class="w-5 h-5 rounded-full bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100 flex items-center justify-center text-[10px] font-mono font-bold line-item-number">${document.querySelectorAll('.salida-item-card').length + 1}</span>
-              <span class="line-item-title">Línea de Suministro</span>
+              <span class="line-item-title">Línea de Suministro a Despachar</span>
             </span>
-            <span id="badgeAutofillItem_${itemIndex}" class="text-[10px] text-amber-700 dark:text-amber-300 font-medium"></span>
           </div>
           <button type="button" onclick="removeSalidaItemRow(${itemIndex})" class="btn-remove-salida-item text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-bold px-2 py-0.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/50 transition flex items-center gap-1" title="Eliminar este suministro del folio">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-            <span>Quitar</span>
+            <span>Quitar Línea</span>
           </button>
         </div>
 
-        <!-- FILA 1: EQUIPO RECEPTOR -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <div>
-            <label class="block text-[11px] font-bold text-amber-900 dark:text-amber-200 mb-0.5">
-              ⚡ Serie Impresor (Equipo Receptor):
-            </label>
-            <input type="text" id="itemImpresor_${itemIndex}" list="datalistRDISeries" oninput="onItemImpresorInput(${itemIndex}, this.value)" value="${escapeHtml(data.impresor || '')}" placeholder="Serie del equipo (ej. 70157...)" class="w-full text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+        <!-- SECCIÓN 1: DATOS DEL SUMINISTRO A ENTREGAR (COLUMNAS 1 A 5 DE SALIDAS ACTUALIZADAS) -->
+        <div class="p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/50 border border-amber-200/60 dark:border-amber-900/40 space-y-2">
+          <div class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+            <span>📦 Suministro a Entregar (SERIE SUM, NUMPART, DESCRIPCION, TIPO SUM, CANT)</span>
           </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Modelo Impresor:</label>
-            <input type="text" id="itemModelo_${itemIndex}" value="${escapeHtml(data.modelo || '')}" placeholder="Modelo equipo" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <div class="sm:col-span-3">
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Serie Suministro (SERIE SUM):</label>
+              <input type="text" id="itemSerieSum_${itemIndex}" value="${escapeHtml(data.serieSum || '')}" placeholder="Ej. SCAB2611447EC" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-mono">
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[11px] font-bold text-indigo-700 dark:text-indigo-300 mb-0.5 flex items-center justify-between">
+                <span>No. Parte (NUMPART):</span>
+                <span class="text-[9px] font-normal text-indigo-500">Autocompleta desc</span>
+              </label>
+              <input type="text" id="itemNumPart_${itemIndex}" list="datalistNumParts" oninput="onItemNumPartChange(${itemIndex}, this.value)" onchange="onItemNumPartChange(${itemIndex}, this.value)" value="${escapeHtml(data.numPart || '')}" placeholder="Ej. P50F4U00" class="w-full text-xs bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-mono font-bold">
+            </div>
+            <div class="sm:col-span-6">
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Descripción del Suministro *</label>
+              <input type="text" id="itemDescripcion_${itemIndex}" required value="${escapeHtml(data.descripcion || '')}" placeholder="Ej. TONER LEXMARK MX511" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+            </div>
           </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Ubicación / Área Interna:</label>
-            <input type="text" id="itemUbicacion_${itemIndex}" value="${escapeHtml(data.ubicacion || '')}" placeholder="Ej. Tesorería, Cajas, Recepción" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <div class="sm:col-span-6 sm:col-start-1">
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Tipo Suministro (TIPO SUM) *</label>
+              <select id="itemTipoSum_${itemIndex}" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
+                <option value="TNR" ${rawTipoSum === 'TNR' ? 'selected' : ''}>Tóner (TNR)</option>
+                <option value="UDI" ${rawTipoSum === 'UDI' ? 'selected' : ''}>Unidad Imagen (UDI)</option>
+                <option value="KMT" ${rawTipoSum === 'KMT' ? 'selected' : ''}>Kit Mantto (KMT)</option>
+                <option value="WTB" ${rawTipoSum === 'WTB' ? 'selected' : ''}>Waste Box (WTB)</option>
+                <option value="IMP" ${rawTipoSum === 'IMP' ? 'selected' : ''}>Impresor (IMP)</option>
+                <option value="REP" ${rawTipoSum === 'REP' ? 'selected' : ''}>Repuesto (REP)</option>
+                <option value="ACC" ${rawTipoSum === 'ACC' ? 'selected' : ''}>Accesorio (ACC)</option>
+                <option value="SUM" ${rawTipoSum === 'SUM' ? 'selected' : ''}>Otro Suministro (SUM)</option>
+              </select>
+            </div>
+            <div class="sm:col-span-6">
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Cantidad a Despachar (CANT) *</label>
+              <input type="number" id="itemCant_${itemIndex}" min="1" value="${data.cant || 1}" required class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-bold">
+            </div>
           </div>
         </div>
 
-        <!-- FILA 2: SUMINISTRO -->
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Tipo Suministro *</label>
-            <select id="itemTipoSum_${itemIndex}" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
-              <option value="TNR" ${rawTipoSum === 'TNR' ? 'selected' : ''}>Tóner (TNR)</option>
-              <option value="UDI" ${rawTipoSum === 'UDI' ? 'selected' : ''}>Unidad Imagen (UDI)</option>
-              <option value="KMT" ${rawTipoSum === 'KMT' ? 'selected' : ''}>Kit Mantto (KMT)</option>
-              <option value="WTB" ${rawTipoSum === 'WTB' ? 'selected' : ''}>Waste Box (WTB)</option>
-              <option value="IMP" ${rawTipoSum === 'IMP' ? 'selected' : ''}>Impresor (IMP)</option>
-              <option value="REP" ${rawTipoSum === 'REP' ? 'selected' : ''}>Repuesto (REP)</option>
-              <option value="ACC" ${rawTipoSum === 'ACC' ? 'selected' : ''}>Accesorio (ACC)</option>
-              <option value="SUM" ${rawTipoSum === 'SUM' ? 'selected' : ''}>Otro Suministro (SUM)</option>
-            </select>
+        <!-- SECCIÓN 2: EQUIPO IMPRESOR RECEPTOR EN TIENDA (COLUMNAS 6 A 10 + IP + STATUS BACKUP) -->
+        <div class="p-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <span>🖨️ Equipo Impresor Receptor en Tienda (IMPRESOR, MODELO, UBICACIÓN, IP, STATUS BACKUP)</span>
+            </span>
+            <span id="badgeImpresorAutofill_${itemIndex}" class="text-[10px]"></span>
           </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">No. Parte (NUMPART)</label>
-            <input type="text" id="itemNumPart_${itemIndex}" list="datalistNumParts" onchange="onItemNumPartChange(${itemIndex}, this.value)" value="${escapeHtml(data.numPart || '')}" placeholder="Ej. P50F4U00" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-bold text-amber-900 dark:text-amber-200 mb-0.5 flex items-center justify-between">
+                <span>⚡ Serie Impresor:</span>
+                <span class="text-[9px] font-normal text-amber-600 dark:text-amber-400">Prioriza este DET</span>
+              </label>
+              <input type="text" id="itemImpresor_${itemIndex}" list="datalistRDISeries" oninput="onItemImpresorInput(${itemIndex}, this.value)" onchange="onItemImpresorInput(${itemIndex}, this.value)" value="${escapeHtml(data.impresor || '')}" placeholder="Serie del equipo (ej. 70157...)" class="w-full text-xs font-mono font-bold bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Modelo Impresor:</label>
+              <input type="text" id="itemModelo_${itemIndex}" list="datalistRDIModelos" value="${escapeHtml(data.modelo || '')}" placeholder="Ej. MX511de" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Ubicación / Área Interna:</label>
+              <input type="text" id="itemUbicacion_${itemIndex}" value="${escapeHtml(data.ubicacion || '')}" placeholder="Ej. Tesorería, Cajas, Recepción" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
+            </div>
           </div>
-          <div class="sm:col-span-2">
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Descripción del Suministro *</label>
-            <input type="text" id="itemDescripcion_${itemIndex}" required value="${escapeHtml(data.descripcion || '')}" placeholder="Ej. TONER LEXMARK MX511" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200">
-          </div>
-        </div>
-
-        <!-- FILA 3: SERIE SUM, CANT, ESTADOS -->
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Serie del Suministro:</label>
-            <input type="text" id="itemSerieSum_${itemIndex}" value="${escapeHtml(data.serieSum || '')}" placeholder="Ej. SCAB2611447EC" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-mono">
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Cantidad (CANT) *</label>
-            <input type="number" id="itemCant_${itemIndex}" min="1" value="${data.cant || 1}" required class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-bold">
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Estatus Operativo Real:</label>
-            <select id="itemStatusBackup_${itemIndex}" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
-              <option value="EN STOCK" ${rawStatusBackup.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-              <option value="EN USO" ${rawStatusBackup.includes('USO') ? 'selected' : ''}>⚡ EN USO</option>
-              <option value="DESECHADO" ${(rawStatusBackup.includes('DESECH') || rawStatusBackup.includes('BAJA') || rawStatusBackup.includes('DAÑ')) ? 'selected' : ''}>🗑️ DESECHADO</option>
-              <option value="VENDIDO" ${rawStatusBackup.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
-              <option value="REUTILIZADO" ${rawStatusBackup.includes('REUTILIZ') ? 'selected' : ''}>♻️ REUTILIZADO</option>
-              <option value="ENTREGADO" ${rawStatusBackup === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="INSTALADO" ${rawStatusBackup.includes('INSTALAD') ? 'selected' : ''}>🔧 INSTALADO</option>
-              <option value="EN TRANSITO" ${rawStatusBackup.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-              <option value="CONSUMIDO" ${rawStatusBackup.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">IP de Red del Impresor:</label>
-            <input type="text" id="itemIp_${itemIndex}" value="${escapeHtml(currentIp)}" placeholder="Ej. 10.108.47.3" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-mono">
-            <input type="hidden" id="itemEstadoSum_${itemIndex}" value="${escapeHtml(data.estadoSum || rawStatusBackup)}">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">IP de Red del Impresor:</label>
+              <input type="text" id="itemIp_${itemIndex}" value="${escapeHtml(currentIp)}" placeholder="Ej. 10.108.47.3" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-mono">
+              <input type="hidden" id="itemEstadoSum_${itemIndex}" value="${escapeHtml(data.estadoSum || rawStatusBackup)}">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Estatus Operativo Real:</label>
+              <select id="itemStatusBackup_${itemIndex}" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
+                <option value="EN STOCK" ${rawStatusBackup.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
+                <option value="EN USO" ${rawStatusBackup.includes('USO') ? 'selected' : ''}>⚡ EN USO</option>
+                <option value="DESECHADO" ${(rawStatusBackup.includes('DESECH') || rawStatusBackup.includes('BAJA') || rawStatusBackup.includes('DAÑ')) ? 'selected' : ''}>🗑️ DESECHADO</option>
+                <option value="VENDIDO" ${rawStatusBackup.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
+                <option value="REUTILIZADO" ${rawStatusBackup.includes('REUTILIZ') ? 'selected' : ''}>♻️ REUTILIZADO</option>
+                <option value="ENTREGADO" ${rawStatusBackup === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                <option value="INSTALADO" ${rawStatusBackup.includes('INSTALAD') ? 'selected' : ''}>🔧 INSTALADO</option>
+                <option value="EN TRANSITO" ${rawStatusBackup.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+                <option value="CONSUMIDO" ${rawStatusBackup.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
+              </select>
+            </div>
           </div>
         </div>
       `;
@@ -9525,6 +10141,7 @@
 
         // 3. Re-indexar metadatos numéricos y fechas O(N)
         indexFoliosMetadata(sheetStore['FOLIOS']);
+        buildSalidasActualizadasCatalog(true);
 
         // 4. Actualizar estado cruzado de Monitoreo SIN alterar la data de suministros
         if (typeof window.buildMonitoringQuickMap === 'function') {
@@ -10212,11 +10829,11 @@
             </td>
             <td class="py-1.5 px-2.5 font-mono text-[11px] font-semibold text-blue-600 dark:text-blue-400">
               ${(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET']) ? `
-                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 shadow-2xs">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 shadow-2xs" title="Solicitud AppSheet vinculada">
                   <span>📱</span>
                   <span>${escapeHtml(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET'])}</span>
                 </span>
-              ` : '<span class="text-slate-300 dark:text-slate-600">-</span>'}
+              ` : '<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60" title="Despacho Proactivo / Emergencia (Sin ticket vinculado aún. Puedes editar para vincularlo)">⚡ Proactivo</span>'}
             </td>
             <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-medium">${formatDateShort(row['FECHA'] || row['Fecha'])}</td>
             <td class="py-1.5 px-2.5 text-center">
@@ -10541,6 +11158,10 @@
       document.getElementById('formSalidaFolios').reset();
       isSalidaFormDirty = false;
 
+      // Asegurar catálogos y datalists 100% actualizados con FOLIOS y RDI
+      buildSalidasActualizadasCatalog();
+      updateSalidaAutofillFeedback(null);
+
       const nextFolio = getNextFolioNumber();
       const folioInput = document.getElementById('salidaFolioInput');
       if (folioInput) folioInput.value = nextFolio;
@@ -10551,26 +11172,45 @@
       const container = document.getElementById('salidaItemsContainer');
       if (container) container.innerHTML = '';
 
+      const helperTicket = document.getElementById('salidaTicketHelper');
+      if (helperTicket) {
+        helperTicket.innerHTML = '<span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>';
+        helperTicket.className = 'mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight';
+      }
+
       if (prefill) {
+        if (prefill.idTicket) {
+          const elTicket = document.getElementById('salidaIdTicket');
+          if (elTicket) elTicket.value = prefill.idTicket;
+          onSalidaTicketInput(prefill.idTicket);
+        }
         if (prefill.destino) document.getElementById('salidaDestino').value = prefill.destino;
         if (prefill.det) document.getElementById('salidaDet').value = prefill.det;
         if (prefill.cliente) document.getElementById('salidaCliente').value = prefill.cliente;
         if (prefill.formato) document.getElementById('salidaFormato').value = prefill.formato;
         if (prefill.tipo) document.getElementById('salidaTipo').value = prefill.tipo;
-        if (prefill.idTicket) document.getElementById('salidaIdTicket').value = prefill.idTicket;
 
-        addSalidaItemRow({
-          impresor: prefill.serie || '',
-          modelo: prefill.modelo || '',
-          ubicacion: prefill.ubicacion || '',
-          tipoSum: prefill.tipoSum || 'TNR',
-          numPart: prefill.numPart || '',
-          descripcion: prefill.descripcion || '',
-          serieSum: prefill.serieSum || '',
-          cant: prefill.cant || 1,
-          estadoSum: 'EN STOCK',
-          statusBackup: 'EN STOCK'
-        });
+        if (prefill.det) {
+          onSalidaDetInput(prefill.det);
+        } else if (prefill.destino) {
+          onSalidaDestinoInput(prefill.destino);
+        }
+
+        // Si después de onSalidaTicketInput no se creó tarjeta o se requiere asegurar valores:
+        if (document.querySelectorAll('.salida-item-card').length === 0) {
+          addSalidaItemRow({
+            impresor: prefill.serie || '',
+            modelo: prefill.modelo || '',
+            ubicacion: prefill.ubicacion || '',
+            tipoSum: prefill.tipoSum || 'TNR',
+            numPart: prefill.numPart || '',
+            descripcion: prefill.descripcion || '',
+            serieSum: prefill.serieSum || '',
+            cant: prefill.cant || 1,
+            estadoSum: 'EN STOCK',
+            statusBackup: 'EN STOCK'
+          });
+        }
       } else {
         addSalidaItemRow();
       }
@@ -10587,6 +11227,8 @@
       const folios = sheetStore['FOLIOS'] || [];
       const row = folios[index];
       if (!row) return;
+
+      buildSalidasActualizadasCatalog();
 
       const folVal = getRowFolio(row);
       document.getElementById('modalSalidaTitle').textContent = `Editar Salida (Folio #${folVal})`;
@@ -10626,12 +11268,31 @@
       }
       document.getElementById('salidaFecha').value = formatToInputDate(fDate);
       updateSalidaFechaHelper();
-      document.getElementById('salidaIdTicket').value = firstRow['ID_TICKET'] || firstRow['SOLICITUD APPSHEET'] || firstRow['ID TICKET'] || '';
+      const currentTicket = firstRow['ID_TICKET'] || firstRow['SOLICITUD APPSHEET'] || firstRow['ID TICKET'] || '';
+      document.getElementById('salidaIdTicket').value = currentTicket;
+      const helperTicket = document.getElementById('salidaTicketHelper');
+      if (helperTicket) {
+        if (currentTicket) {
+          helperTicket.innerHTML = `🔗 <b>Vinculado a Solicitud:</b> ${escapeHtml(currentTicket)}`;
+          helperTicket.className = 'mt-1 text-[10px] text-blue-700 dark:text-blue-300 font-semibold leading-tight';
+        } else {
+          helperTicket.innerHTML = '<span>💡 Folio sin solicitud vinculada (despacho proactivo/urgencia). Puedes ingresar el ticket ahora para vincularlo.</span>';
+          helperTicket.className = 'mt-1 text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-tight';
+        }
+      }
       document.getElementById('salidaDestino').value = firstRow['DESTINO'] || '';
       document.getElementById('salidaDet').value = firstRow['DET'] || '';
       document.getElementById('salidaCliente').value = firstRow['CLIENTE'] || '';
       document.getElementById('salidaFormato').value = firstRow['FORMATO'] || '';
       document.getElementById('salidaTipo').value = firstRow['TIPO'] || '';
+
+      updateSalidaAutofillFeedback({
+        det: firstRow['DET'],
+        destino: firstRow['DESTINO'],
+        cliente: firstRow['CLIENTE'],
+        formato: firstRow['FORMATO']
+      }, 'CARGADO');
+      filterPrintersDatalistByDet(firstRow['DET'], firstRow['DESTINO']);
 
       // Limpiar y cargar las tarjetas de suministros de este folio
       salidaItemCardsCounter = 0;
@@ -10679,7 +11340,8 @@
         anioNum = yN || 2026;
         fechaFormatted = `${String(dN).padStart(2, '0')}/${String(mN).padStart(2, '0')}/${yN}`;
       }
-      const idTicketVal = document.getElementById('salidaIdTicket').value.trim().toUpperCase();
+      const rawTicketInput = (document.getElementById('salidaIdTicket')?.value || '').trim();
+      const idTicketVal = rawTicketInput.split(/[\s•–—]/)[0].trim().toUpperCase();
       const destinoVal = document.getElementById('salidaDestino').value.trim().toUpperCase();
       const detVal = document.getElementById('salidaDet').value.trim().toUpperCase();
       const clienteVal = document.getElementById('salidaCliente').value.trim().toUpperCase();
@@ -10765,6 +11427,7 @@
       }
 
       indexFoliosMetadata(sheetStore['FOLIOS']);
+      buildSalidasActualizadasCatalog(true);
       saveToIndexedDB();
 
       // Auto-registro en RDI si está marcado
@@ -11128,6 +11791,9 @@
             <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300">${row['TECNICO1'] || row['TECNICO 1'] || '-'}</td>
             <td class="py-1.5 px-2.5 text-center">
               <div class="flex items-center justify-center gap-1.5">
+                <button type="button" onclick="event.stopPropagation(); createSalidaFromTicket('${ticketId}')" title="📦 Generar / Despachar Folio de Salida para esta Solicitud" class="p-1 rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                </button>
                 <button type="button" onclick="event.stopPropagation(); viewBoletaForTicket('${ticketId}')" title="Ver Boleta Imprimible" class="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                 </button>
