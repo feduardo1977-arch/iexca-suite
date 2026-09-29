@@ -39,11 +39,11 @@
   <!-- Chart.js para gráficos interactivos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <!-- Catálogo Maestro RDI (752 Equipos e Impresores de IEXCA) -->
-  <script src="rdi_master.js?v=20260925"></script>
+  <script src="rdi_master.js?v=20260929"></script>
   <!-- Datos Iniciales de Monitoreo de Consumibles (BAC y WALMART) -->
-  <script src="default_monitoring_data.js?v=20260925"></script>
+  <script src="default_monitoring_data.js?v=20260929"></script>
   <!-- Motor de Diagnóstico y Gestión de Monitoreo Fleet & Stock en Sitio -->
-  <script src="monitoring_engine.js?v=20260925"></script>
+  <script src="monitoring_engine.js?v=20260929"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -7413,7 +7413,12 @@
           saveCurrentSheetState(currentSheetName);
           renderSheetsTabBar();
           saveToIndexedDB();
-          showToast(`⚡ SUITE.xlsm recargado limpiamente (${wb.SheetNames.length} hojas).`);
+          if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA && typeof monitoringData !== 'undefined') {
+            monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
+            if (typeof saveMonitoringToIndexedDB === 'function') saveMonitoringToIndexedDB();
+            if (typeof refreshMonitoringAnalysis === 'function') refreshMonitoringAnalysis();
+          }
+          showToast(`⚡ SUITE.xlsm y Monitoreo recargados limpiamente (${wb.SheetNames.length} hojas).`);
           return;
         }
       } catch (err) {
@@ -7421,6 +7426,11 @@
       }
 
       loadSuiteIEXCADemo();
+      if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA && typeof monitoringData !== 'undefined') {
+        monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
+        if (typeof saveMonitoringToIndexedDB === 'function') saveMonitoringToIndexedDB();
+        if (typeof refreshMonitoringAnalysis === 'function') refreshMonitoringAnalysis();
+      }
       showToast("🔄 Suite IEXCA restablecida con datos limpios.");
     }
 
