@@ -3681,7 +3681,6 @@
       // Validación del último correlativo general consecutivo para control de bodega y no duplicar folios.
       let folAnt = '-';
       let detAnt = '-';
-      let sumEnv = '0';
       const folios = sheetStore['FOLIOS'] || [];
       const currentFolioNum = parseInt(String(data.folio || '').replace(/\D/g, ''), 10) || 0;
 
