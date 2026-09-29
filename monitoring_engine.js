@@ -3711,6 +3711,7 @@ function dispatchDirectToFoliosFromModal() {
 
   const match = (typeof monitoringProcessedList !== 'undefined') ? monitoringProcessedList.find(r => r.serie === data.SERIE) : null;
   const cliente = (match ? match.cliente : '').toUpperCase();
+  const idTicket = (document.getElementById('appsheetInputSolicitud')?.value || data.SOLICITUD || '').trim().toUpperCase();
 
   if (typeof openNewSalidaModal === 'function') {
     openNewSalidaModal({
@@ -3721,6 +3722,10 @@ function dispatchDirectToFoliosFromModal() {
       cliente: cliente,
       destino: (data.TIENDA || '').toUpperCase(),
       det: (data.DET || '').toUpperCase(),
+      ubicacion: (match ? (match.depto || match.ubicacion) : '').toUpperCase(),
+      formato: (match ? match.formato : '').toUpperCase(),
+      tipo: (match ? match.tipo : '').toUpperCase(),
+      idTicket: idTicket,
       descripcion: `DESPACHO DE ${data.SOLICITUD} (${data.PORCENTAJE}) - PEDIDO APPSHEET`.toUpperCase()
     });
   }
