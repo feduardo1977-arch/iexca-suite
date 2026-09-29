@@ -4049,10 +4049,16 @@
         const savedState = await Promise.race([loadFromIndexedDB(), timeoutPromise]);
         if (savedState && savedState.sheetStore && Object.keys(savedState.sheetStore).length > 0) {
           console.log("[INIT] Restoring from IndexedDB...");
-          const restored = restoreSuiteFromSavedState(savedState);
-          if (restored) {
-            showToast(`🟢 Base local restaurada (${new Date(savedState.timestamp).toLocaleTimeString()}).`);
-            return;
+          const folios = savedState.sheetStore['FOLIOS'];
+          // Si la base local guardada no tiene folios o está vacía, preferir cargar SUITE.xlsm limpio
+          if (Array.isArray(folios) && folios.length > 0) {
+            const restored = restoreSuiteFromSavedState(savedState);
+            if (restored) {
+              showToast(`🟢 Base local restaurada (${folios.length.toLocaleString()} folios, ${new Date(savedState.timestamp).toLocaleTimeString()}).`);
+              return;
+            }
+          } else {
+            console.warn("[INIT] IndexedDB contiene 0 folios o estado incompleto. Procediendo a cargar directamente SUITE.xlsm fresco...");
           }
         }
       } catch (e) {
@@ -8373,7 +8379,17 @@
         if (r._ts === undefined) r._ts = getRowDateTimestamp(r);
         if (!r['ID_TICKET'] && r['SOLICITUD APPSHEET']) r['ID_TICKET'] = r['SOLICITUD APPSHEET'];
         if (!r['SOLICITUD APPSHEET'] && r['ID_TICKET']) r['SOLICITUD APPSHEET'] = r['ID_TICKET'];
-        if (!r['IMPRESOR'] && r['SERIE']) r['IMPRESOR'] = r['SERIE'];
+        
+        // Manejo de columnas duplicadas en Excel (SheetJS mapea la 2da columna 'SERIE' como 'SERIE2')
+        // Columna 0: Serie del Suministro (SCAB...) | Columna 5: Serie del Equipo Impresor (7015...)
+        if (r['SERIE2']) {
+          if (!r['SERIE SUM']) r['SERIE SUM'] = r['SERIE'];
+          r['IMPRESOR'] = r['SERIE2'];
+          r['SERIE'] = r['SERIE2'];
+        } else if (!r['IMPRESOR'] && r['SERIE']) {
+          r['IMPRESOR'] = r['SERIE'];
+        }
+
         // Separación limpia de IP y Estado Real
         const estVal = (r['ESTADO SUM'] || '').toString().trim();
         if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(estVal) && !r['IP']) {
@@ -8450,10 +8466,6 @@
         });
       }
 
-      // Indexar metadatos numéricos y temporales en memoria O(N) una sola vez
-      indexFoliosMetadata(sheetStore['FOLIOS']);
-      indexOdsMetadata(sheetStore['ODS']);
-
       // 2. Indexar Base Maestra de Equipos (RDI)
       const rdiSheetName = rawWorkbook.SheetNames.find(n => n.trim().toUpperCase() === 'RDI') || 
                            rawWorkbook.SheetNames.find(n => n.toUpperCase().includes('RDI'));
@@ -8499,6 +8511,9 @@
         }
       }
 
+      // Indexar metadatos numéricos y temporales en memoria O(N) una vez resuelto sheetStore['FOLIOS']
+      indexFoliosMetadata(sheetStore['FOLIOS']);
+
       // Llenar autocompletado de partes de forma rápida usando DocumentFragment (tope 250 elementos únicos)
       const datalistParts = document.getElementById('datalistNumParts');
       if (datalistParts) {
@@ -8533,6 +8548,9 @@
         if (!sheetStore['ODS']) sheetStore['ODS'] = [];
         odsData = sheetStore['ODS'];
       }
+
+      // Indexar metadatos numéricos y temporales en memoria O(N) una vez resuelto sheetStore['ODS']
+      indexOdsMetadata(sheetStore['ODS']);
 
       const datalistTec = document.getElementById('datalistTecnicos');
       const datalistFal = document.getElementById('datalistFallas');
@@ -8698,7 +8716,9 @@
       const isDirty = suiteTabsDirty[tabId];
 
       if (tabId === 'salidas') {
-        if (isDirty) {
+        const tbody = document.getElementById('salidasTableBody');
+        const needsRender = isDirty || !tbody || tbody.children.length === 0;
+        if (needsRender) {
           pendingTabTaskTimeout = setTimeout(() => {
             updateSalidasKPIs();
             filterSalidasTable();
@@ -8706,7 +8726,9 @@
           }, 0);
         }
       } else if (tabId === 'tickets') {
-        if (isDirty) {
+        const tbody = document.getElementById('odsTableBody');
+        const needsRender = isDirty || !tbody || tbody.children.length === 0;
+        if (needsRender) {
           pendingTabTaskTimeout = setTimeout(() => {
             updateOdsKPIs();
             filterOdsTable();
@@ -8714,7 +8736,9 @@
           }, 0);
         }
       } else if (tabId === 'rdi') {
-        if (isDirty) {
+        const tbody = document.getElementById('rdiTableBody');
+        const needsRender = isDirty || !tbody || tbody.children.length === 0;
+        if (needsRender) {
           pendingTabTaskTimeout = setTimeout(() => {
             updateRdiKPIs();
             filterRdiTable();
@@ -9476,7 +9500,6 @@
     }
 
     function getRowRealStatus(row) {
-      if (typeof window.getRowRealStatus === 'function') return window.getRowRealStatus(row);
       if (!row) return 'ENTREGADO';
       const bak = String(row['STATUS BACKUP'] || row['STATUS_BACKUP'] || '').trim();
       if (bak && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(bak) && bak !== '-' && bak !== '0.0.0.0') return bak;
@@ -9486,7 +9509,6 @@
     }
 
     function getRowSupplyIp(row) {
-      if (typeof window.getRowSupplyIp === 'function') return window.getRowSupplyIp(row);
       if (!row) return '';
       const est = String(row['ESTADO SUM'] || '').trim();
       if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(est) && est !== '0.0.0.0') return est;
@@ -9496,13 +9518,15 @@
     }
 
     function getMonitoringSupplyStatusFlag(row) {
-      if (typeof window.getMonitoringSupplyStatusFlag === 'function') return window.getMonitoringSupplyStatusFlag(row);
+      if (typeof window.getEngineSupplyStatusFlag === 'function') {
+        return window.getEngineSupplyStatusFlag(row);
+      }
       return { flag: 'NONE', statusText: 'Sin Datos', badge: '<span class="text-slate-400 text-xs">-</span>' };
     }
 
     function getFolioStatusBadge(rawEst) {
-      if (typeof window.getFolioStatusBadge === 'function' && window.getFolioStatusBadge !== getFolioStatusBadge) {
-        return window.getFolioStatusBadge(rawEst);
+      if (typeof window.getEngineFolioStatusBadge === 'function') {
+        return window.getEngineFolioStatusBadge(rawEst);
       }
       const st = (rawEst || 'ENTREGADO').toString().trim().toUpperCase();
       if (st.includes('DESECH') || st.includes('DESECHO') || st.includes('BAJA') || st.includes('DAÑ') || st.includes('DEFECT') || st.includes('DEVUELT') || st.includes('RETIRAD') || st.includes('SCRAP')) {

@@ -180,14 +180,37 @@ function buildMonitoringQuickMap() {
 
     latestSnap.rows.forEach(r => {
       const imp = String(r.serie || '').trim().toUpperCase();
-      const tnr = String(r.tnrSerie || '').trim().toUpperCase();
-      const udi = String(r.udiSerie || '').trim().toUpperCase();
       const ip = cleanIpAddress(r.ip || '');
+
+      const addSupply = (rawSerie, type, nivel) => {
+        if (!rawSerie) return;
+        const s = String(rawSerie).trim().toUpperCase();
+        if (!s || s === '-' || s === 'SIN DATO' || s === 'N/A' || s === 'UNKNOWN' || s === 'NULL' || s === 'N/D') return;
+        const entry = { type, imp, nivel, client: clientKey, ip };
+        supplyMap.set(s, entry);
+        const fmt = (typeof formatSupplySerie === 'function') ? formatSupplySerie(s) : (s.startsWith('S') ? s : 'S' + s);
+        if (fmt && fmt !== s) {
+          supplyMap.set(fmt, entry);
+        }
+      };
+
+      addSupply(r.tnrSerie, 'TNR', r.tnrNivel);
+      addSupply(r.tnrKSerie, 'TNR K', r.tnrKNivel !== undefined ? r.tnrKNivel : r.tnrNivel);
+      addSupply(r.tnrYSerie, 'TNR Y', r.tnrYNivel);
+      addSupply(r.tnrCSerie, 'TNR C', r.tnrCNivel);
+      addSupply(r.tnrMSerie, 'TNR M', r.tnrMNivel);
+      addSupply(r.udiSerie, 'UDI', r.udiNivel);
+      addSupply(r.desechoSerie, 'WTB', r.desechoNivel);
 
       if (imp) {
         printerMap.set(imp, {
-          tnrSerie: tnr,
-          udiSerie: udi,
+          tnrSerie: r.tnrSerie,
+          tnrKSerie: r.tnrKSerie,
+          tnrYSerie: r.tnrYSerie,
+          tnrCSerie: r.tnrCSerie,
+          tnrMSerie: r.tnrMSerie,
+          udiSerie: r.udiSerie,
+          desechoSerie: r.desechoSerie,
           tnrNivel: r.tnrNivel,
           udiNivel: r.udiNivel,
           modelo: r.modelo,
@@ -195,12 +218,6 @@ function buildMonitoringQuickMap() {
           ip: ip,
           client: clientKey
         });
-      }
-      if (tnr && tnr !== '-' && tnr !== 'N/A' && tnr !== 'UNKNOWN' && tnr !== 'NULL') {
-        supplyMap.set(tnr, { type: 'TNR', imp: imp, nivel: r.tnrNivel, client: clientKey, ip: ip });
-      }
-      if (udi && udi !== '-' && udi !== 'N/A' && udi !== 'UNKNOWN' && udi !== 'NULL') {
-        supplyMap.set(udi, { type: 'UDI', imp: imp, nivel: r.udiNivel, client: clientKey, ip: ip });
       }
     });
   });
@@ -220,10 +237,11 @@ function getMonitoringSupplyStatusFlag(row) {
     };
   }
 
-  const sSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '').trim().toUpperCase();
-  const imp = String(row['IMPRESOR'] || row['SERIE'] || '').trim().toUpperCase();
+  const rawSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['SERIE2'] ? row['SERIE'] : '') || (row['IMPRESOR'] && row['IMPRESOR'] !== row['SERIE'] ? row['SERIE'] : '') || '').trim().toUpperCase();
+  const fmtSum = (typeof formatSupplySerie === 'function') ? formatSupplySerie(rawSum) : (rawSum.startsWith('S') ? rawSum : 'S' + rawSum);
+  const imp = String(row['SERIE2'] || row['IMPRESOR'] || (row['SERIE SUM'] ? row['SERIE'] : '') || '').trim().toUpperCase();
 
-  if (!sSum || sSum === '-' || sSum === 'SIN DATO' || sSum === 'N/A' || sSum === 'SD') {
+  if (!rawSum || rawSum === '-' || rawSum === 'SIN DATO' || rawSum === 'N/A' || rawSum === 'SD' || rawSum === 'N/D') {
     return {
       flag: 'NO_SERIE',
       statusText: 'Sin Serie Suministro',
@@ -236,7 +254,7 @@ function getMonitoringSupplyStatusFlag(row) {
   }
 
   // 1. ¿El suministro está físicamente instalado y reportando en monitoreo?
-  const liveMatch = monitoringSupplyQuickMap.get(sSum);
+  const liveMatch = monitoringSupplyQuickMap.get(rawSum) || (fmtSum ? monitoringSupplyQuickMap.get(fmtSum) : null);
   if (liveMatch) {
     const nivText = (liveMatch.nivel !== undefined && liveMatch.nivel !== null && liveMatch.nivel !== '') ? ` (${liveMatch.type}: ${liveMatch.nivel}%)` : '';
     return {
@@ -278,11 +296,15 @@ function getMonitoringSupplyStatusFlag(row) {
 
 if (typeof window !== 'undefined') {
   window.getFolioStatusBadge = getFolioStatusBadge;
+  window.getEngineFolioStatusBadge = getFolioStatusBadge;
   window.isIpAddress = isIpAddress;
   window.getRowRealStatus = getRowRealStatus;
+  window.getEngineRowRealStatus = getRowRealStatus;
   window.getRowSupplyIp = getRowSupplyIp;
+  window.getEngineRowSupplyIp = getRowSupplyIp;
   window.buildMonitoringQuickMap = buildMonitoringQuickMap;
   window.getMonitoringSupplyStatusFlag = getMonitoringSupplyStatusFlag;
+  window.getEngineSupplyStatusFlag = getMonitoringSupplyStatusFlag;
 }
 
 function setMonitoringViewMode(mode) {
@@ -1133,16 +1155,16 @@ function getFolioNumber(folio) {
 
 function getFolioSerie(folio) {
   if (!folio) return '';
-  return (folio['SERIE'] || folio['SERIE '] || folio['SERIE EQUIPO'] || folio['Serie'] || folio['Serie Equipo'] || '').toString().trim().toUpperCase();
+  return (folio['IMPRESOR'] || folio['SERIE2'] || (folio['SERIE SUM'] ? folio['SERIE'] : '') || folio['SERIE'] || folio['SERIE '] || folio['SERIE EQUIPO'] || folio['Serie'] || folio['Serie Equipo'] || '').toString().trim().toUpperCase();
 }
 
 // EVALUACIÓN DE STOCK EN SITIO POR FOLIO Y SERIE DE SUMINISTRO
 function evaluateFolioStockStatus(folio, currentInstalledSerie) {
   if (!folio) return { inStock: false, inTransit: false, consumed: false, discarded: false, status: 'NONE' };
 
-  const rawEst = (folio['ESTADO SUM'] || folio['ESTADO_SUM'] || folio['ESTADO'] || folio['STATUS'] || folio['ESTATUS'] || 'ENTREGADO').toString().trim();
+  const rawEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(folio) : (folio['STATUS BACKUP'] || folio['ESTADO SUM'] || 'ENTREGADO').toString().trim();
   const est = rawEst.toUpperCase();
-  const folSerie = formatSupplySerie(folio['SERIE SUM'] || folio['SERIE_SUM'] || folio['SERIE SUMINISTRO'] || '');
+  const folSerie = formatSupplySerie(folio['SERIE SUM'] || folio['SERIE_SUM'] || folio['SERIE SUMINISTRO'] || (folio['SERIE2'] ? folio['SERIE'] : '') || '');
   const currentInstalled = formatSupplySerie(currentInstalledSerie);
   const folNum = getFolioNumber(folio);
 
@@ -2929,8 +2951,26 @@ function renderMonitoringTable() {
       const fNum = getFolioNumber(r.lastFolio);
       const fFecha = r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : '';
       const fTipo = r.lastFolio['TIPO SUM'] || r.lastFolio['TIPO'] || 'SUM';
-      const fEst = (r.lastFolio['ESTADO SUM'] || r.lastFolio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
-      const fSerieSum = r.lastFolio['SERIE SUM'] || r.lastFolio['SERIE_SUM'] || '';
+      const fEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(r.lastFolio) : (r.lastFolio['STATUS BACKUP'] || 'ENTREGADO');
+      const fSerieSum = r.lastFolio['SERIE SUM'] || r.lastFolio['SERIE_SUM'] || (r.lastFolio['SERIE2'] ? r.lastFolio['SERIE'] : '') || '';
+      const fSerieNorm = fSerieSum ? formatSupplySerie(fSerieSum) : '';
+
+      // Verificar si la serie física despachada está actualmente instalada y reportando en el equipo
+      const isSupplyInUse = fSerieSum && (
+        (r.tnrSerie && (fSerieSum === r.tnrSerie || fSerieNorm === formatSupplySerie(r.tnrSerie))) ||
+        (r.tnrKSerie && (fSerieSum === r.tnrKSerie || fSerieNorm === formatSupplySerie(r.tnrKSerie))) ||
+        (r.tnrYSerie && (fSerieSum === r.tnrYSerie || fSerieNorm === formatSupplySerie(r.tnrYSerie))) ||
+        (r.tnrCSerie && (fSerieSum === r.tnrCSerie || fSerieNorm === formatSupplySerie(r.tnrCSerie))) ||
+        (r.tnrMSerie && (fSerieSum === r.tnrMSerie || fSerieNorm === formatSupplySerie(r.tnrMSerie))) ||
+        (r.udiSerie && (fSerieSum === r.udiSerie || fSerieNorm === formatSupplySerie(r.udiSerie)))
+      );
+
+      const inUseFlagBadge = isSupplyInUse
+        ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs" title="Serie física del suministro confirmada operando en el equipo">🟢 EN USO EN EQUIPO</span>`
+        : (fEst.includes('STOCK') || fEst.includes('DISPONIBLE') || fEst === 'ENTREGADO'
+            ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs" title="Suministro despachado pendiente de instalación (Stock en tienda)">🟡 EN STOCK TIENDA</span>`
+            : '');
+
       lastFolioHtml = `
         <div class="leading-tight">
           <div class="flex items-center gap-1.5 flex-wrap">
@@ -2944,9 +2984,10 @@ function renderMonitoringTable() {
             </button>
           </div>
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
-          <p class="text-[10px] text-slate-600 dark:text-slate-300">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
-          <div class="mt-1 flex items-center gap-1.5">
+          <p class="text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
+          <div class="mt-1 flex items-center gap-1.5 flex-wrap">
             ${getFolioStatusBadge(fEst)}
+            ${inUseFlagBadge}
             <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
               ✏️ Modificar
             </button>
@@ -3393,7 +3434,25 @@ function renderMonitoringTable() {
                   const cardFolNum = getFolioNumber(r.lastFolio);
                   const cardFecha = r.lastFolio['FECHA'] ? formatDateShort(r.lastFolio['FECHA']) : '';
                   const cardTipo = r.lastFolio['TIPO SUM'] || r.lastFolio['TIPO'] || 'SUM';
-                  const cardEst = (r.lastFolio['ESTADO SUM'] || r.lastFolio['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+                  const cardEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(r.lastFolio) : (r.lastFolio['STATUS BACKUP'] || 'ENTREGADO');
+                  const cardSerieSum = r.lastFolio['SERIE SUM'] || r.lastFolio['SERIE_SUM'] || (r.lastFolio['SERIE2'] ? r.lastFolio['SERIE'] : '') || '';
+                  const cardSerieNorm = cardSerieSum ? formatSupplySerie(cardSerieSum) : '';
+
+                  const cardInUse = cardSerieSum && (
+                    (r.tnrSerie && (cardSerieSum === r.tnrSerie || cardSerieNorm === formatSupplySerie(r.tnrSerie))) ||
+                    (r.tnrKSerie && (cardSerieSum === r.tnrKSerie || cardSerieNorm === formatSupplySerie(r.tnrKSerie))) ||
+                    (r.tnrYSerie && (cardSerieSum === r.tnrYSerie || cardSerieNorm === formatSupplySerie(r.tnrYSerie))) ||
+                    (r.tnrCSerie && (cardSerieSum === r.tnrCSerie || cardSerieNorm === formatSupplySerie(r.tnrCSerie))) ||
+                    (r.tnrMSerie && (cardSerieSum === r.tnrMSerie || cardSerieNorm === formatSupplySerie(r.tnrMSerie))) ||
+                    (r.udiSerie && (cardSerieSum === r.udiSerie || cardSerieNorm === formatSupplySerie(r.udiSerie)))
+                  );
+
+                  const cardFlagBadge = cardInUse
+                    ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs">🟢 EN USO</span>`
+                    : (cardEst.includes('STOCK') || cardEst.includes('DISPONIBLE') || cardEst === 'ENTREGADO'
+                        ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs">🟡 EN STOCK</span>`
+                        : '');
+
                   return `<div class="leading-tight">
                     <div class="flex items-center gap-1.5 flex-wrap">
                       <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="font-bold text-amber-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1" title="Consultar o modificar folio en ventana emergente">
@@ -3404,9 +3463,11 @@ function renderMonitoringTable() {
                         <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
                         <span>PDF</span>
                       </button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-0.5">${cardFecha ? '(' + cardFecha + ') ' : ''}${cardTipo}: <span class="font-mono text-slate-700 dark:text-slate-300">${cardSerieSum || 'Sin serie'}</span></p>
                     <div class="mt-1 flex items-center gap-1.5 flex-wrap">
-                      <span class="text-[10px] text-slate-500 font-medium">${cardTipo}:</span>
                       ${getFolioStatusBadge(cardEst)}
+                      ${cardFlagBadge}
                       <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">✏️ Modificar</button>
                     </div>
                   </div>`;
@@ -3996,7 +4057,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed.lastTnrKFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrKFolio['FOLIO'] || matchProcessed.lastTnrKFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrKFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrKFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastTnrKFolio['ESTADO SUM'] || matchProcessed.lastTnrKFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastTnrKFolio))}
                 ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRK</span>`}
               </div>
             </div>
@@ -4021,7 +4082,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed.lastTnrYFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrYFolio['FOLIO'] || matchProcessed.lastTnrYFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrYFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrYFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastTnrYFolio['ESTADO SUM'] || matchProcessed.lastTnrYFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastTnrYFolio))}
                 ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRY</span>`}
               </div>
             </div>
@@ -4046,7 +4107,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed.lastTnrCFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrCFolio['FOLIO'] || matchProcessed.lastTnrCFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrCFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrCFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastTnrCFolio['ESTADO SUM'] || matchProcessed.lastTnrCFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastTnrCFolio))}
                 ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRC</span>`}
               </div>
             </div>
@@ -4071,7 +4132,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed.lastTnrMFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrMFolio['FOLIO'] || matchProcessed.lastTnrMFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrMFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrMFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastTnrMFolio['ESTADO SUM'] || matchProcessed.lastTnrMFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastTnrMFolio))}
                 ` : `<span class="text-[10px] text-slate-400 italic">Sin folio TNRM</span>`}
               </div>
             </div>
@@ -4096,7 +4157,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed.lastWtbFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastWtbFolio['FOLIO'] || matchProcessed.lastWtbFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastWtbFolio['FECHA'] ? formatDateShort(matchProcessed.lastWtbFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastWtbFolio['ESTADO SUM'] || matchProcessed.lastWtbFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastWtbFolio))}
                 ` : `<span class="text-[10px] text-slate-400 italic">Sin folio WTB</span>`}
               </div>
             </div>
@@ -4123,7 +4184,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed && matchProcessed.lastTnrFolio ? `
                   <span class="font-mono font-bold text-xs text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrFolio['FOLIO'] || matchProcessed.lastTnrFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastTnrFolio['FECHA'] ? formatDateShort(matchProcessed.lastTnrFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastTnrFolio['ESTADO SUM'] || matchProcessed.lastTnrFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastTnrFolio))}
                 ` : `
                   <span class="text-[11px] text-slate-400 italic">Sin folio de TNR registrado</span>
                 `}
@@ -4153,7 +4214,7 @@ function openEquipmentHistoryModal(serie) {
                 ${matchProcessed && matchProcessed.lastUdiFolio ? `
                   <span class="font-mono font-bold text-xs text-slate-900 dark:text-white">Folio #${matchProcessed.lastUdiFolio['FOLIO'] || matchProcessed.lastUdiFolio['FOLIO '] || ''}</span>
                   <span class="text-[10px] text-slate-500">(${matchProcessed.lastUdiFolio['FECHA'] ? formatDateShort(matchProcessed.lastUdiFolio['FECHA']) : ''})</span>
-                  ${getFolioStatusBadge(matchProcessed.lastUdiFolio['ESTADO SUM'] || matchProcessed.lastUdiFolio['ESTADO'] || 'ENTREGADO')}
+                  ${getFolioStatusBadge(getRowRealStatus(matchProcessed.lastUdiFolio))}
                 ` : `
                   <span class="text-[11px] text-slate-400 italic">Sin folio de UDI registrado</span>
                 `}
@@ -4406,35 +4467,6 @@ function closeEquipmentHistoryModal(force = false) {
   }
   const modal = document.getElementById('modalEquipmentHistory');
   if (modal) modal.classList.add('hidden');
-}
-
-// Consultar o Modificar Detalle de Folio en Ventana Emergente (Sin salir de Monitoreo)
-function goToFolioDetail(folNum, serieUpper) {
-  if (typeof sheetStore === 'undefined' || !sheetStore['FOLIOS']) {
-    alert("Base de datos de FOLIOS no disponible.");
-    return;
-  }
-  
-  const folClean = String(folNum).replace(/\D/g, '');
-  const folios = sheetStore['FOLIOS'];
-  const index = folios.findIndex(f => {
-    const fId = String(f['FOLIO'] || f['FOLIO '] || '').replace(/\D/g, '');
-    return fId === folClean;
-  });
-
-  if (index !== -1 && typeof editSalida === 'function') {
-    editSalida(index);
-  } else {
-    if (confirm(`El Folio #${folNum} no figura en la tabla activa de FOLIOS.\n¿Deseas buscar el documento PDF escaneado en Google Drive?`)) {
-      if (typeof openFolioInDrive === 'function') {
-        openFolioInDrive(folNum);
-      } else if (typeof openDriveFoliosFinder === 'function') {
-        openDriveFoliosFinder(folNum);
-      } else {
-        window.open('https://drive.google.com/drive/folders/1RODKFPm34JCowLfWQWzTc79nMMzmtxs0', '_blank');
-      }
-    }
-  }
 }
 
 // Manejadores de Drag & Drop y Selección de Archivos CSV
