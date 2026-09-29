@@ -2028,30 +2028,43 @@
 
       <!-- Filtros y Tabla / Tarjetas de Monitoreo -->
       <div class="glass-panel rounded-2xl shadow-xs overflow-hidden">
-        <!-- Barra de Búsqueda y Filtros Adaptativa -->
-        <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3 bg-slate-50/70 dark:bg-slate-800/80">
-          <div class="w-full md:flex-1 md:max-w-md">
-            <div class="relative w-full">
-              <input type="text" id="searchMonitoringInput" oninput="filterMonitoringTable()" placeholder="Buscar serie, modelo, tienda, cliente..." class="w-full text-xs pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500">
-              <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <!-- Barra de Búsqueda y Filtros Adaptativa (Diseño de 2 Niveles para PC y Móvil) -->
+        <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 space-y-3">
+          <!-- FILA 1: Búsqueda Amplia y Alternador de Vistas -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 w-full">
+            <!-- Campo de Búsqueda con Ancho Completo / Prominente en PC -->
+            <div class="relative flex-1 min-w-[240px] md:max-w-2xl">
+              <input type="text" id="searchMonitoringInput" oninput="filterMonitoringTable()" placeholder="🔍 Buscar por serie, modelo, cliente, tienda, IP..." class="w-full text-xs sm:text-sm pl-9 pr-9 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-rose-500 shadow-2xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400">
+              <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              <button type="button" id="btnClearMonitoringSearch" onclick="clearMonitoringSearch()" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-rose-600 transition" title="Borrar búsqueda">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+
+            <!-- Alternador de Vista (Tarjetas Móviles vs Tabla) + Botón Restablecer -->
+            <div class="flex items-center gap-2 justify-between sm:justify-end shrink-0">
+              <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700">
+                <button type="button" id="btnMonitoringViewCards" onclick="setMonitoringViewMode('cards')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-xs">
+                  <span>📱 Tarjetas</span>
+                </button>
+                <button type="button" id="btnMonitoringViewTable" onclick="setMonitoringViewMode('table')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                  <span>💻 Tabla</span>
+                </button>
+              </div>
+
+              <button type="button" onclick="resetAllMonitoringFilters()" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs" title="Restablecer todos los filtros y búsqueda">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <span class="hidden sm:inline">Restablecer</span>
+              </button>
             </div>
           </div>
 
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <!-- Alternador de Vista (Tarjetas Móviles vs Tabla Completa) -->
-            <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700 w-full sm:w-auto justify-center">
-              <button type="button" id="btnMonitoringViewCards" onclick="setMonitoringViewMode('cards')" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-xs">
-                <span>📱 Tarjetas</span>
-              </button>
-              <button type="button" id="btnMonitoringViewTable" onclick="setMonitoringViewMode('table')" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
-                <span>💻 Tabla</span>
-              </button>
-            </div>
-
-            <!-- Filtros en Grid Móvil de 1 a 4 columnas -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full md:w-auto">
+          <!-- FILA 2: Filtros Desplegables y Casillas de Suministros -->
+          <div class="pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2.5 w-full">
+            <!-- Grid de 4 Filtros Desplegables con Ancho Óptimo -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full">
               <!-- Filtro Diagnóstico de Stock -->
-              <select id="filterMonitoringStatusSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
+              <select id="filterMonitoringStatusSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium shadow-2xs">
                 <option value="ALL">Todos los Estados</option>
                 <option value="DESPACHO_REQUERIDO">🚨 Solo Despacho Requerido</option>
                 <option value="REPOSICION_STOCK">🔄 Solo Reponer Stock</option>
@@ -2061,14 +2074,14 @@
               </select>
 
               <!-- Filtro Tipo de Equipo (Color vs Monocromático) -->
-              <select id="filterMonitoringColorSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
+              <select id="filterMonitoringColorSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium shadow-2xs">
                 <option value="ALL">🎨 Color &amp; Mono (Todos)</option>
                 <option value="COLOR">🌈 Solo Color (CX, CS)</option>
                 <option value="MONO">⚪ Solo Monocromático (MS, MX)</option>
               </select>
 
               <!-- Filtro Suministro en Alerta -->
-              <select id="filterMonitoringSupplySelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium">
+              <select id="filterMonitoringSupplySelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium shadow-2xs">
                 <option value="ALL">Todos los Suministros</option>
                 <option value="TNR">🖨️ Cualquier Tóner (≤ 15%)</option>
                 <option value="TNRK">⚫ Tóner Negro TNRK (≤ 15%)</option>
@@ -2081,7 +2094,7 @@
               </select>
 
               <!-- Filtro de Porcentajes Relevantes -->
-              <select id="filterMonitoringPercentSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium" title="Filtrar por rango o porcentaje específico">
+              <select id="filterMonitoringPercentSelect" onchange="filterMonitoringTable()" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-700 dark:text-slate-200 font-medium shadow-2xs" title="Filtrar por rango o porcentaje específico">
                 <option value="ALL">📊 Todos los Porcentajes</option>
                 <option value="CRITICAL">🚨 Umbrales Críticos (TNR ≤15%, UDI ≤5%, KMT ≤3%)</option>
                 <option value="LE_3">🪫 Nivel ≤ 3% (Crítico absoluto)</option>
@@ -2096,7 +2109,7 @@
             </div>
 
             <!-- Botones de Acceso Rápido a Filtro por Casillas (TNR / UDI / KMT) -->
-            <div class="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-700/60 mt-1">
+            <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
               <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Filtrar por Casillas:</span>
               <button type="button" onclick="openSupplyLevelsPopover('TNR', this)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition shadow-2xs">
                 <span>🔢 Casillas TNR</span>
@@ -2115,7 +2128,7 @@
               </button>
             </div>
             <!-- Chips de Niveles Específicos Activos -->
-            <div id="activeSpecificLevelsChips" class="hidden flex flex-wrap gap-1.5 items-center pt-1 text-xs"></div>
+            <div id="activeSpecificLevelsChips" class="hidden flex flex-wrap gap-1.5 items-center pt-0.5 text-xs"></div>
           </div>
         </div>
 
@@ -2268,7 +2281,7 @@
   <!-- MODAL: HISTORIAL TÉCNICO Y EVOLUCIÓN DEL EQUIPO -->
   <div id="modalEquipmentHistory" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
     <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-4xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
-      <div class="p-3 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full">
+      <div class="p-3 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10 min-w-0 w-full shrink-0">
         <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <button type="button" onclick="closeEquipmentHistoryModal()" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shrink-0" title="Volver al monitoreo">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -2287,7 +2300,7 @@
         </button>
       </div>
 
-      <div class="p-3 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 sm:space-y-6 flex-1 min-w-0 w-full">
+      <div id="modalEquipHistoryScrollBody" class="p-3 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 sm:space-y-6 flex-1 min-h-0 min-w-0 w-full custom-scrollbar" style="overscroll-behavior: contain;">
         <!-- Ficha Resumen RDI -->
         <div id="modalEquipSummaryCard" class="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs min-w-0 w-full">
           <!-- Renderizado dinámicamente -->
@@ -2298,7 +2311,7 @@
           <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
             <span>📅 Lecturas Semanales de Monitoreo (Evolución y Caída %)</span>
           </h4>
-          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full max-w-full min-w-0">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar w-full max-w-full min-w-0">
             <table class="w-full min-w-[500px] sm:min-w-[580px] text-left text-xs border-collapse">
               <thead id="modalEquipSnapshotsThead">
                 <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
@@ -2323,7 +2336,7 @@
           <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
             <span>📦 Salidas y Despachos Registrados en FOLIOS</span>
           </h4>
-          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar touch-pan-x w-full max-w-full min-w-0">
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 custom-scrollbar w-full max-w-full min-w-0">
             <table class="w-full min-w-[540px] sm:min-w-[620px] text-left text-xs border-collapse">
               <thead>
                 <tr class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
@@ -2345,7 +2358,7 @@
         </div>
       </div>
 
-      <div class="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <div class="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-2 shrink-0">
         <button type="button" onclick="closeEquipmentHistoryModal()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl text-slate-700 dark:text-slate-200 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           <span>← Volver a Monitoreo</span>
@@ -2361,7 +2374,7 @@
   <div id="modalAppSheetDispatch" class="hidden fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
     <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-3xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
       <!-- Encabezado -->
-      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-gradient-to-r from-rose-50 via-indigo-50 to-amber-50 dark:from-slate-800 dark:to-slate-800 sticky top-0 z-10 min-w-0 w-full">
+      <div class="p-3.5 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 bg-gradient-to-r from-rose-50 via-indigo-50 to-amber-50 dark:from-slate-800 dark:to-slate-800 sticky top-0 z-10 min-w-0 w-full shrink-0">
         <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <div class="p-2 rounded-xl bg-indigo-600 text-white shrink-0 shadow-xs">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
@@ -2377,7 +2390,7 @@
       </div>
 
       <!-- Contenido / Formulario -->
-      <div class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-w-0 w-full">
+      <div id="modalAppSheetDispatchScrollBody" class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-h-0 min-w-0 w-full custom-scrollbar" style="overscroll-behavior: contain;">
         <!-- Banner de Resumen Rápido -->
         <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-2 min-w-0">
@@ -2532,7 +2545,7 @@
       </div>
 
       <!-- Barra de Acciones Inferior Optimizada para Móviles -->
-      <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div class="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
         <!-- Botón Principal Abrir en AppSheet (Máxima prominencia y área táctil de 48px+ en móvil) -->
         <button type="button" onclick="launchAppSheetOrder(event)" class="w-full sm:w-auto order-first sm:order-last inline-flex items-center justify-center gap-2 px-5 py-3.5 sm:py-2.5 text-sm sm:text-xs font-black bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl shadow-md active:scale-[0.98] transition touch-manipulation cursor-pointer select-none min-h-[48px]" title="Abrir AppSheet con los datos precargados">
           <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>

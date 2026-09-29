@@ -2039,7 +2039,53 @@ function filterMonitoringTable() {
   monitoringCurrentPage = 1;
   updateSpecificSupplyLevelBadges();
   updateActiveSlideUI(monitoringFilterStatus);
+
+  // Control de visibilidad del botón para limpiar búsqueda rápida
+  const btnClearSearch = document.getElementById('btnClearMonitoringSearch');
+  if (btnClearSearch) {
+    if (monitoringSearchQuery && monitoringSearchQuery.length > 0) {
+      btnClearSearch.classList.remove('hidden');
+    } else {
+      btnClearSearch.classList.add('hidden');
+    }
+  }
+
   renderMonitoringTable();
+}
+
+// Limpiar campo de búsqueda de monitoreo y enfocar
+function clearMonitoringSearch() {
+  const searchInput = document.getElementById('searchMonitoringInput');
+  if (searchInput) {
+    searchInput.value = '';
+    filterMonitoringTable();
+    searchInput.focus();
+  }
+}
+
+// Restablecer todos los filtros de monitoreo (búsqueda, desplegables y casillas)
+function resetAllMonitoringFilters() {
+  const searchInput = document.getElementById('searchMonitoringInput');
+  if (searchInput) searchInput.value = '';
+
+  const statusSelect = document.getElementById('filterMonitoringStatusSelect');
+  if (statusSelect) statusSelect.value = 'ALL';
+
+  const colorSelect = document.getElementById('filterMonitoringColorSelect');
+  if (colorSelect) colorSelect.value = 'ALL';
+
+  const supplySelect = document.getElementById('filterMonitoringSupplySelect');
+  if (supplySelect) supplySelect.value = 'ALL';
+
+  const percentSelect = document.getElementById('filterMonitoringPercentSelect');
+  if (percentSelect) percentSelect.value = 'ALL';
+
+  monitoringSelectedTnrLevels.clear();
+  monitoringSelectedUdiLevels.clear();
+  monitoringSelectedKmtLevels.clear();
+
+  updateSpecificSupplyLevelBadges();
+  filterMonitoringTable();
 }
 
 // ==========================================
@@ -3446,6 +3492,9 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   setVal('appsheetInputContacto', '');
   setVal('appsheetInputTelefono', '');
 
+  const scrollBody = document.getElementById('modalAppSheetDispatchScrollBody');
+  if (scrollBody) scrollBody.scrollTop = 0;
+
   if (typeof pushModalToHistory === 'function') {
     pushModalToHistory('modalAppSheetDispatch');
   } else {
@@ -4155,6 +4204,9 @@ function openEquipmentHistoryModal(serie) {
     }
   }
 
+  const scrollBody = document.getElementById('modalEquipHistoryScrollBody');
+  if (scrollBody) scrollBody.scrollTop = 0;
+
   if (typeof pushModalToHistory === 'function') {
     pushModalToHistory('modalEquipmentHistory');
   } else {
@@ -4381,6 +4433,8 @@ if (typeof window !== 'undefined') {
   window.filterMonitoringBySlide = filterMonitoringBySlide;
   window.updateActiveSlideUI = updateActiveSlideUI;
   window.goToFolioDetail = goToFolioDetail;
+  window.clearMonitoringSearch = clearMonitoringSearch;
+  window.resetAllMonitoringFilters = resetAllMonitoringFilters;
 
   // Funciones de Filtro de Casillas por Cantidades de Suministros
   window.openSupplyLevelsPopover = openSupplyLevelsPopover;
@@ -4466,6 +4520,8 @@ if (typeof module !== 'undefined' && module.exports) {
     openAppSheetOrderGeneral,
     findLastNumpartForSupply,
     cleanIpAddress,
+    clearMonitoringSearch,
+    resetAllMonitoringFilters,
     initFirebaseMonitoringSync,
     syncMonitoringToFirebase,
     getMonitoringSelectedTnrLevels: () => monitoringSelectedTnrLevels,
