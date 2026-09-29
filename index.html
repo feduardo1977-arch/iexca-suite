@@ -1312,6 +1312,12 @@
               <option value="EN TRANSITO">🚚 En Tránsito / Pendiente</option>
               <option value="CONSUMIDO">🪫 Consumido</option>
             </select>
+            <select id="filterSalidasMonitoreo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 font-medium">
+              <option value="">Todos los Monitoreos</option>
+              <option value="EN_USO">🟢 En Uso en Monitoreo</option>
+              <option value="EN_STOCK_TIENDA">🟡 Pendiente en Tienda</option>
+              <option value="NO_MONITOREADO">⚪ No Monitoreado</option>
+            </select>
             <span id="salidasCountSummary" class="text-xs text-slate-500 font-medium">0 registros</span>
           </div>
         </div>
@@ -1384,6 +1390,7 @@
                 <th class="py-2 px-2.5 w-28">Sol. AppSheet</th>
                 <th class="py-2 px-2.5 w-24">Fecha</th>
                 <th class="py-2 px-2.5 w-28 text-center">Estatus</th>
+                <th class="py-2 px-2.5 w-36 text-center">Verif. Monitoreo</th>
                 <th class="py-2 px-2.5 w-32">Serie Sum</th>
                 <th class="py-2 px-2.5 w-28">NumPart</th>
                 <th class="py-2 px-2.5 max-w-[200px]">Descripción</th>
@@ -8367,6 +8374,14 @@
         if (!r['ID_TICKET'] && r['SOLICITUD APPSHEET']) r['ID_TICKET'] = r['SOLICITUD APPSHEET'];
         if (!r['SOLICITUD APPSHEET'] && r['ID_TICKET']) r['SOLICITUD APPSHEET'] = r['ID_TICKET'];
         if (!r['IMPRESOR'] && r['SERIE']) r['IMPRESOR'] = r['SERIE'];
+        // Separación limpia de IP y Estado Real
+        const estVal = (r['ESTADO SUM'] || '').toString().trim();
+        if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(estVal) && !r['IP']) {
+          r['IP'] = estVal;
+        }
+        if (typeof getRowRealStatus === 'function') {
+          r._realStatus = getRowRealStatus(r);
+        }
         if (r._folioNum === undefined) {
           const val = r['FOLIO'] ?? r['FOLIO '] ?? r['Folio'] ?? r['No. Folio'] ?? r['NO FOLIO'] ?? r['ID FOLIO'] ?? r['No FOLIO'];
           if (val !== undefined && val !== null && String(val).trim() !== '') {
@@ -8803,8 +8818,9 @@
       card.className = 'salida-item-card p-3 sm:p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/25 border border-amber-200/80 dark:border-amber-900/60 space-y-3 relative';
       
       const rawTipoSum = (data.tipoSum || 'TNR').toString().trim().toUpperCase();
-      const rawEstadoSum = (data.estadoSum || 'EN STOCK').toString().trim().toUpperCase();
-      const rawStatusBackup = (data.statusBackup || 'EN STOCK').toString().trim().toUpperCase();
+      const isIpEst = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(String(data.estadoSum || '').trim());
+      const rawStatusBackup = (data.statusBackup || (!isIpEst ? data.estadoSum : '') || 'EN STOCK').toString().trim().toUpperCase();
+      const currentIp = (isIpEst ? data.estadoSum : (data.ip || '')).toString().trim();
 
       card.innerHTML = `
         <div class="flex items-center justify-between border-b border-amber-200/60 dark:border-amber-900/40 pb-2">
@@ -8875,25 +8891,23 @@
             <input type="number" id="itemCant_${itemIndex}" min="1" value="${data.cant || 1}" required class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-bold">
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Estado Suministro:</label>
-            <select id="itemEstadoSum_${itemIndex}" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
-              <option value="EN STOCK" ${rawEstadoSum.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-              <option value="EN USO" ${rawEstadoSum.includes('USO') ? 'selected' : ''}>⚡ EN USO</option>
-              <option value="DESECHADO" ${(rawEstadoSum.includes('DESECH') || rawEstadoSum.includes('BAJA') || rawEstadoSum.includes('DAÑ')) ? 'selected' : ''}>🗑️ DESECHADO</option>
-              <option value="ENTREGADO" ${rawEstadoSum === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="EN TRANSITO" ${rawEstadoSum.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-              <option value="INSTALADO" ${rawEstadoSum.includes('INSTALAD') ? 'selected' : ''}>🔧 INSTALADO</option>
-              <option value="CONSUMIDO" ${rawEstadoSum.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-              <option value="PENDIENTE" ${rawEstadoSum.includes('PENDIENT') ? 'selected' : ''}>⏳ PENDIENTE</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Status Backup:</label>
+            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Estatus Operativo Real:</label>
             <select id="itemStatusBackup_${itemIndex}" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-semibold">
               <option value="EN STOCK" ${rawStatusBackup.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
               <option value="EN USO" ${rawStatusBackup.includes('USO') ? 'selected' : ''}>⚡ EN USO</option>
-              <option value="DESECHADO" ${(rawStatusBackup.includes('DESECH') || rawStatusBackup.includes('BAJA')) ? 'selected' : ''}>🗑️ DESECHADO</option>
+              <option value="DESECHADO" ${(rawStatusBackup.includes('DESECH') || rawStatusBackup.includes('BAJA') || rawStatusBackup.includes('DAÑ')) ? 'selected' : ''}>🗑️ DESECHADO</option>
+              <option value="VENDIDO" ${rawStatusBackup.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
+              <option value="REUTILIZADO" ${rawStatusBackup.includes('REUTILIZ') ? 'selected' : ''}>♻️ REUTILIZADO</option>
+              <option value="ENTREGADO" ${rawStatusBackup === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+              <option value="INSTALADO" ${rawStatusBackup.includes('INSTALAD') ? 'selected' : ''}>🔧 INSTALADO</option>
+              <option value="EN TRANSITO" ${rawStatusBackup.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+              <option value="CONSUMIDO" ${rawStatusBackup.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
             </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">IP de Red del Impresor:</label>
+            <input type="text" id="itemIp_${itemIndex}" value="${escapeHtml(currentIp)}" placeholder="Ej. 10.108.47.3" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 font-mono">
+            <input type="hidden" id="itemEstadoSum_${itemIndex}" value="${escapeHtml(data.estadoSum || rawStatusBackup)}">
           </div>
         </div>
       `;
@@ -9461,6 +9475,31 @@
       window.filterDriveCatalogByYear = filterDriveCatalogByYear;
     }
 
+    function getRowRealStatus(row) {
+      if (typeof window.getRowRealStatus === 'function') return window.getRowRealStatus(row);
+      if (!row) return 'ENTREGADO';
+      const bak = String(row['STATUS BACKUP'] || row['STATUS_BACKUP'] || '').trim();
+      if (bak && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(bak) && bak !== '-' && bak !== '0.0.0.0') return bak;
+      const est = String(row['ESTADO SUM'] || row['ESTADO'] || '').trim();
+      if (est && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(est) && est !== '-' && est !== '0.0.0.0') return est;
+      return bak || 'ENTREGADO';
+    }
+
+    function getRowSupplyIp(row) {
+      if (typeof window.getRowSupplyIp === 'function') return window.getRowSupplyIp(row);
+      if (!row) return '';
+      const est = String(row['ESTADO SUM'] || '').trim();
+      if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(est) && est !== '0.0.0.0') return est;
+      const ipCol = String(row['IP'] || row['DIRECCION IP'] || row['IP_IMPRESOR'] || '').trim();
+      if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ipCol) && ipCol !== '0.0.0.0') return ipCol;
+      return '';
+    }
+
+    function getMonitoringSupplyStatusFlag(row) {
+      if (typeof window.getMonitoringSupplyStatusFlag === 'function') return window.getMonitoringSupplyStatusFlag(row);
+      return { flag: 'NONE', statusText: 'Sin Datos', badge: '<span class="text-slate-400 text-xs">-</span>' };
+    }
+
     function getFolioStatusBadge(rawEst) {
       if (typeof window.getFolioStatusBadge === 'function' && window.getFolioStatusBadge !== getFolioStatusBadge) {
         return window.getFolioStatusBadge(rawEst);
@@ -9484,6 +9523,12 @@
       if (st.includes('CONSUMID') || st === 'AGOTADO' || st === 'FINALIZADO') {
         return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">🪫 CONSUMIDO</span>`;
       }
+      if (st.includes('VENDID') || st === 'VENTA') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-300 dark:border-purple-800 shadow-2xs" title="Suministro vendido / facturado">🏷️ VENDIDO</span>`;
+      }
+      if (st.includes('REUTILIZ') || st.includes('RECUPER')) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 shadow-2xs" title="Suministro reutilizado o recuperado">♻️ REUTILIZADO</span>`;
+      }
       return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-800 shadow-2xs">✅ ${st}</span>`;
     }
 
@@ -9491,6 +9536,7 @@
       const query = (document.getElementById('searchSalidasInput')?.value || '').trim().toLowerCase();
       const tipoFilter = (document.getElementById('filterSalidasTipo')?.value || '').trim().toUpperCase();
       const estadoFilter = (document.getElementById('filterSalidasEstado')?.value || '').trim().toUpperCase();
+      const monFilter = (document.getElementById('filterSalidasMonitoreo')?.value || '').trim().toUpperCase();
       const folios = sheetStore['FOLIOS'] || [];
 
       salidasFilteredData = folios.filter(row => {
@@ -9499,16 +9545,20 @@
           if (rowTipo !== tipoFilter) return false;
         }
         if (estadoFilter) {
-          const rowEst = (row['ESTADO SUM'] || row['ESTADO'] || 'ENTREGADO').toString().trim().toUpperCase();
+          const rowEst = getRowRealStatus(row).toUpperCase();
           if (estadoFilter === 'EN STOCK') {
             if (!rowEst.includes('STOCK') && rowEst !== 'DISPONIBLE' && rowEst !== 'RESERVA') return false;
           } else if (estadoFilter === 'EN USO') {
             if (!rowEst.includes('EN USO') && rowEst !== 'USO') return false;
           } else if (estadoFilter === 'DESECHADO') {
-            if (!rowEst.includes('DESECH') && !rowEst.includes('BAJA') && !rowEst.includes('DAÑ') && !rowEst.includes('DEFECT')) return false;
+            if (!rowEst.includes('DESECH') && !rowEst.includes('BAJA') && !rowEst.includes('DAÑ') && !rowEst.includes('DAN') && !rowEst.includes('DEFECT')) return false;
           } else if (!rowEst.includes(estadoFilter)) {
             return false;
           }
+        }
+        if (monFilter) {
+          const flagInfo = getMonitoringSupplyStatusFlag(row);
+          if (flagInfo.flag !== monFilter) return false;
         }
         if (query) {
           const folVal = (row._folioStr || getRowFolio(row)).toLowerCase();
@@ -9550,8 +9600,20 @@
           const fBadge = document.getElementById('salidaRecentFechaBadge');
           if (fBadge) fBadge.textContent = formatDateShort(mostRecent['FECHA'] || mostRecent['Fecha']);
 
+          const rSt = getRowRealStatus(mostRecent);
+          const monFl = getMonitoringSupplyStatusFlag(mostRecent);
+          const ipVal = getRowSupplyIp(mostRecent);
+
           const estBadge = document.getElementById('salidaRecentEstadoBadge');
-          if (estBadge) estBadge.innerHTML = getFolioStatusBadge(mostRecent['ESTADO SUM'] || mostRecent['ESTADO'] || 'ENTREGADO');
+          if (estBadge) {
+            estBadge.innerHTML = `
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${getFolioStatusBadge(rSt)}
+                ${monFl.badge}
+                ${ipVal ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-2xs">IP: ${ipVal}</span>` : ''}
+              </div>
+            `;
+          }
 
           const sBadge = document.getElementById('salidaRecentSerieBadge');
           if (sBadge) {
@@ -9596,12 +9658,16 @@
       const pageData = salidasFilteredData.slice(start, start + salidasPageSize);
 
       if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="15" class="py-8 text-center text-xs text-slate-400">No hay registros de salidas que coincidan con la búsqueda.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="16" class="py-8 text-center text-xs text-slate-400">No hay registros de salidas que coincidan con la búsqueda.</td></tr>`;
       } else {
         pageData.forEach((row, i) => {
           const realIdx = (sheetStore['FOLIOS'] || []).indexOf(row);
           const isAbsoluteFirst = (start + i === 0);
           const folioVal = getRowFolio(row);
+          const realSt = getRowRealStatus(row);
+          const ipVal = getRowSupplyIp(row);
+          const monFlag = getMonitoringSupplyStatusFlag(row);
+
           const tr = document.createElement('tr');
           tr.className = (isAbsoluteFirst 
             ? 'bg-amber-50/70 dark:bg-amber-950/25 font-medium ' 
@@ -9635,7 +9701,11 @@
               ` : '<span class="text-slate-300 dark:text-slate-600">-</span>'}
             </td>
             <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-medium">${formatDateShort(row['FECHA'] || row['Fecha'])}</td>
-            <td class="py-1.5 px-2.5 text-center">${getFolioStatusBadge(row['ESTADO SUM'] || row['ESTADO'] || 'ENTREGADO')}</td>
+            <td class="py-1.5 px-2.5 text-center">
+              ${getFolioStatusBadge(realSt)}
+              ${ipVal ? `<div class="mt-0.5 font-mono text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1" title="IP de red del impresor: ${ipVal}"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>${ipVal}</div>` : ''}
+            </td>
+            <td class="py-1.5 px-2.5 text-center whitespace-nowrap">${monFlag.badge}</td>
             <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '-'}</td>
             <td class="py-1.5 px-2.5 font-mono text-slate-600 dark:text-slate-300">${row['NUMPART'] || '-'}</td>
             <td class="py-1.5 px-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate" title="${row['DESCRIPCION'] || ''}">${row['DESCRIPCION'] || '-'}</td>
@@ -9987,6 +10057,8 @@
       relatedRows.forEach(r => {
         const impresor = r['IMPRESOR'] || r['SERIE'] || '';
         const serieSum = r['SERIE SUM'] || (r['IMPRESOR'] ? r['SERIE'] : '') || '';
+        const realStatus = getRowRealStatus(r);
+        const ipVal = getRowSupplyIp(r);
         addSalidaItemRow({
           impresor: impresor,
           modelo: r['MODELO'] || '',
@@ -9996,8 +10068,9 @@
           descripcion: r['DESCRIPCION'] || '',
           serieSum: serieSum,
           cant: r['CANT'] || 1,
-          estadoSum: r['ESTADO SUM'] || 'EN STOCK',
-          statusBackup: r['STATUS BACKUP'] || 'EN STOCK'
+          estadoSum: r['ESTADO SUM'] || realStatus,
+          statusBackup: realStatus,
+          ip: ipVal
         });
       });
 
@@ -10037,8 +10110,9 @@
         const descripcion = (document.getElementById(`itemDescripcion_${idx}`)?.value || '').trim().toUpperCase();
         const rawSerieSum = (document.getElementById(`itemSerieSum_${idx}`)?.value || '').trim();
         const cant = parseFloat(document.getElementById(`itemCant_${idx}`)?.value) || 1;
-        const estadoSum = (document.getElementById(`itemEstadoSum_${idx}`)?.value || 'EN STOCK').trim().toUpperCase();
         const statusBackup = (document.getElementById(`itemStatusBackup_${idx}`)?.value || 'EN STOCK').trim().toUpperCase();
+        const ipInputVal = (document.getElementById(`itemIp_${idx}`)?.value || '').trim();
+        const estadoSum = ipInputVal || (document.getElementById(`itemEstadoSum_${idx}`)?.value || statusBackup);
 
         newRows.push({
           'SERIE SUM': formatSupplySerie(rawSerieSum),
@@ -10057,6 +10131,7 @@
           'CLIENTE': clienteVal,
           'ESTADO SUM': estadoSum,
           'STATUS BACKUP': statusBackup,
+          'IP': ipInputVal,
           'FOLIO': folioVal,
           'FOLIO ': folioVal,
           'FECHA': fechaVal,

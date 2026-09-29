@@ -97,13 +97,192 @@ function getFolioStatusBadge(rawEst) {
     </span>`;
   }
 
+  // VENDIDO / FACTURADO / VENTA
+  if (s.includes('VENDID') || s === 'VENTA') {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-300 dark:border-purple-800 shadow-2xs" title="Suministro vendido / facturado">
+      <span>🏷️ VENDIDO</span>
+    </span>`;
+  }
+
+  // REUTILIZADO / RECUPERADO
+  if (s.includes('REUTILIZ') || s.includes('RECUPER')) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/80 dark:text-cyan-300 border border-cyan-300 dark:border-cyan-800 shadow-2xs" title="Suministro reutilizado o recuperado">
+      <span>♻️ REUTILIZADO</span>
+    </span>`;
+  }
+
+  // Si el valor recibido es una IP de red (evita mostrar IP como estado desconocido)
+  if (isIpAddress(s)) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-2xs" title="Dirección IP de red registrada: ${s}">
+      <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+      <span>${s}</span>
+    </span>`;
+  }
+
   const safeStr = typeof escapeHtml === 'function' ? escapeHtml(rawEst) : String(rawEst).replace(/[&<>"']/g, '');
   return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
     <span>${safeStr}</span>
   </span>`;
 }
+
+// VALIDACIÓN DE DIRECCIÓN IP IPv4
+function isIpAddress(str) {
+  if (!str) return false;
+  return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(String(str).trim());
+}
+
+// OBTENER ESTADO REAL DEL SUMINISTRO (Prioriza STATUS BACKUP para no ser sobrescrito por IPs)
+function getRowRealStatus(row) {
+  if (!row) return 'ENTREGADO';
+  
+  // 1. Revisar STATUS BACKUP (aquí se encuentran los estados originales recuperados: EN USO, DESECHADO, EN STOCK, VENDIDO, etc.)
+  const bak = String(row['STATUS BACKUP'] || row['STATUS_BACKUP'] || '').trim();
+  if (bak && !isIpAddress(bak) && bak !== '-' && bak !== '0.0.0.0') {
+    return bak;
+  }
+  
+  // 2. Revisar ESTADO SUM (siempre que no contenga una dirección IP)
+  const est = String(row['ESTADO SUM'] || row['ESTADO'] || '').trim();
+  if (est && !isIpAddress(est) && est !== '-' && est !== '0.0.0.0') {
+    return est;
+  }
+  
+  return bak || 'ENTREGADO';
+}
+
+// OBTENER DIRECCIÓN IP ASOCIADA AL SUMINISTRO / EQUIPO
+function getRowSupplyIp(row) {
+  if (!row) return '';
+  const est = String(row['ESTADO SUM'] || '').trim();
+  if (isIpAddress(est) && est !== '0.0.0.0') return est;
+  const ipCol = String(row['IP'] || row['DIRECCION IP'] || row['IP_IMPRESOR'] || '').trim();
+  if (isIpAddress(ipCol) && ipCol !== '0.0.0.0') return ipCol;
+  return '';
+}
+
+// ÍNDICE EN MEMORIA PARA VERIFICACIÓN CRUZADA EN O(1) CON MONITOREO EN VIVO
+let monitoringSupplyQuickMap = null;
+let monitoringPrinterQuickMap = null;
+
+function buildMonitoringQuickMap() {
+  const supplyMap = new Map();
+  const printerMap = new Map();
+  
+  const mData = (typeof monitoringData !== 'undefined' && monitoringData && Object.keys(monitoringData).length > 0)
+    ? monitoringData
+    : ((typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) ? window.DEFAULT_MONITORING_DATA : {});
+
+  Object.keys(mData).forEach(clientKey => {
+    const snaps = mData[clientKey];
+    if (!Array.isArray(snaps) || snaps.length === 0) return;
+    const latestSnap = snaps[0];
+    if (!latestSnap || !Array.isArray(latestSnap.rows)) return;
+
+    latestSnap.rows.forEach(r => {
+      const imp = String(r.serie || '').trim().toUpperCase();
+      const tnr = String(r.tnrSerie || '').trim().toUpperCase();
+      const udi = String(r.udiSerie || '').trim().toUpperCase();
+      const ip = cleanIpAddress(r.ip || '');
+
+      if (imp) {
+        printerMap.set(imp, {
+          tnrSerie: tnr,
+          udiSerie: udi,
+          tnrNivel: r.tnrNivel,
+          udiNivel: r.udiNivel,
+          modelo: r.modelo,
+          ubicacion: r.ubicacion,
+          ip: ip,
+          client: clientKey
+        });
+      }
+      if (tnr && tnr !== '-' && tnr !== 'N/A' && tnr !== 'UNKNOWN' && tnr !== 'NULL') {
+        supplyMap.set(tnr, { type: 'TNR', imp: imp, nivel: r.tnrNivel, client: clientKey, ip: ip });
+      }
+      if (udi && udi !== '-' && udi !== 'N/A' && udi !== 'UNKNOWN' && udi !== 'NULL') {
+        supplyMap.set(udi, { type: 'UDI', imp: imp, nivel: r.udiNivel, client: clientKey, ip: ip });
+      }
+    });
+  });
+
+  monitoringSupplyQuickMap = supplyMap;
+  monitoringPrinterQuickMap = printerMap;
+  return { supplyMap, printerMap };
+}
+
+// BANDERA O FLAG DE VERIFICACIÓN EN VIVO CON MONITOREO
+function getMonitoringSupplyStatusFlag(row) {
+  if (!row) {
+    return {
+      flag: 'NONE',
+      statusText: 'Sin Datos',
+      badge: '<span class="text-slate-400 text-xs">-</span>'
+    };
+  }
+
+  const sSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '').trim().toUpperCase();
+  const imp = String(row['IMPRESOR'] || row['SERIE'] || '').trim().toUpperCase();
+
+  if (!sSum || sSum === '-' || sSum === 'SIN DATO' || sSum === 'N/A' || sSum === 'SD') {
+    return {
+      flag: 'NO_SERIE',
+      statusText: 'Sin Serie Suministro',
+      badge: `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="Registro sin serie física de suministro">⚪ Sin Serie</span>`
+    };
+  }
+
+  if (!monitoringSupplyQuickMap || !monitoringPrinterQuickMap) {
+    buildMonitoringQuickMap();
+  }
+
+  // 1. ¿El suministro está físicamente instalado y reportando en monitoreo?
+  const liveMatch = monitoringSupplyQuickMap.get(sSum);
+  if (liveMatch) {
+    const nivText = (liveMatch.nivel !== undefined && liveMatch.nivel !== null && liveMatch.nivel !== '') ? ` (${liveMatch.type}: ${liveMatch.nivel}%)` : '';
+    return {
+      flag: 'EN_USO',
+      statusText: `En Uso en Monitoreo${nivText}`,
+      nivel: liveMatch.nivel,
+      type: liveMatch.type,
+      imp: liveMatch.imp,
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs" title="CONFIRMADO EN MONITOREO: Instalado y operando en el equipo ${liveMatch.imp} ${nivText}">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>🟢 EN USO${nivText}</span>
+      </span>`
+    };
+  }
+
+  // 2. ¿El equipo está monitoreado pero reporta otra serie instalada?
+  if (imp && monitoringPrinterQuickMap.has(imp)) {
+    const pData = monitoringPrinterQuickMap.get(imp);
+    const currTnr = pData.tnrSerie ? ` (TNR en equipo: ${pData.tnrSerie})` : '';
+    return {
+      flag: 'EN_STOCK_TIENDA',
+      statusText: 'Pendiente en Tienda',
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs" title="MONITOREO ACTIVO: El impresor reporta otro suministro instalado${currTnr}. El suministro despachado aún no ha sido colocado (Stock en Tienda / Reserva)">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+        <span>🟡 PENDIENTE EN TIENDA</span>
+      </span>`
+    };
+  }
+
+  // 3. No monitoreado
+  return {
+    flag: 'NO_MONITOREADO',
+    statusText: 'No Monitoreado',
+    badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-medium bg-slate-100 text-slate-500 dark:bg-slate-800/80 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="Impresora no reporta en red o sin agente de monitoreo">
+      <span>⚪ NO MONITOREADO</span>
+    </span>`
+  };
+}
+
 if (typeof window !== 'undefined') {
   window.getFolioStatusBadge = getFolioStatusBadge;
+  window.isIpAddress = isIpAddress;
+  window.getRowRealStatus = getRowRealStatus;
+  window.getRowSupplyIp = getRowSupplyIp;
+  window.buildMonitoringQuickMap = buildMonitoringQuickMap;
+  window.getMonitoringSupplyStatusFlag = getMonitoringSupplyStatusFlag;
 }
 
 function setMonitoringViewMode(mode) {
@@ -1019,6 +1198,7 @@ function evaluateFolioStockStatus(folio, currentInstalledSerie) {
 
 // MOTOR DE DIAGNÓSTICO INTELIGENTE & CRUCE CON FOLIOS Y RDI
 function refreshMonitoringAnalysis() {
+  buildMonitoringQuickMap();
   // 1. Indexar y clasificar Folios por Serie de Equipo O(N) una sola vez
   const foliosBySerie = new Map();
   const allFolios = getFoliosStore();
