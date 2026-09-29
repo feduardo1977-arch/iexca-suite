@@ -696,8 +696,77 @@ function resetMonitoringToDefault() {
   }
 }
 
+// ==========================================
+// SINCRONIZACIÓN EN LA NUBE CON FIREBASE RTDB
+// ==========================================
+let isFirebaseSyncInitialized = false;
+let isSyncingToFirebase = false;
+
+function initFirebaseMonitoringSync() {
+  if (isFirebaseSyncInitialized) return;
+  if (typeof firebase === 'undefined' || !window.firebaseDb) return;
+  isFirebaseSyncInitialized = true;
+
+  try {
+    const dbRef = window.firebaseDb.ref('monitoring_data');
+    dbRef.on('value', (snapshot) => {
+      const cloudData = snapshot.val();
+      if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
+        const cloudStr = JSON.stringify(cloudData);
+        const localStr = JSON.stringify(monitoringData);
+        if (cloudStr !== localStr) {
+          console.log("🔥 [Firebase] Monitoreo actualizado desde la nube:", Object.keys(cloudData));
+          monitoringData = cloudData;
+          if (typeof updateMonitoringSnapshotSelect === 'function') {
+            updateMonitoringSnapshotSelect();
+          }
+          if (typeof renderMonitoringClientPills === 'function') {
+            renderMonitoringClientPills();
+          }
+          refreshMonitoringAnalysis();
+          saveMonitoringToIndexedDB(false);
+        }
+
+        const badge = document.getElementById('firebaseCloudBadge');
+        if (badge) {
+          badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>Nube en vivo</span>';
+        }
+      }
+    }, (err) => {
+      console.warn("⚠️ [Firebase] Error en listener:", err);
+      const badge = document.getElementById('firebaseCloudBadge');
+      if (badge) {
+        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 shadow-2xs';
+        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Nube offline</span>';
+      }
+    });
+  } catch (e) {
+    console.warn("⚠️ [Firebase] Fallo al suscribirse a monitoring_data:", e);
+  }
+}
+
+function syncMonitoringToFirebase() {
+  if (typeof firebase === 'undefined' || !window.firebaseDb) return;
+  if (isSyncingToFirebase) return;
+  isSyncingToFirebase = true;
+  try {
+    window.firebaseDb.ref('monitoring_data').set(monitoringData)
+      .then(() => {
+        console.log("🔥 [Firebase] Datos de monitoreo sincronizados en la nube con éxito.");
+        isSyncingToFirebase = false;
+      })
+      .catch((err) => {
+        console.warn("⚠️ [Firebase] Error al guardar en la nube:", err);
+        isSyncingToFirebase = false;
+      });
+  } catch (e) {
+    isSyncingToFirebase = false;
+  }
+}
+
 // Persistencia en IndexedDB (Unificada con IEXCA_SUITE_DATABASE)
-async function saveMonitoringToIndexedDB() {
+async function saveMonitoringToIndexedDB(syncToCloud = true) {
   if (typeof window === 'undefined') return;
   try {
     const db = typeof openIexcaDB === 'function' ? await openIexcaDB() : null;
@@ -712,6 +781,11 @@ async function saveMonitoringToIndexedDB() {
     try {
       localStorage.setItem('IEXCA_MONITORING_DATA', JSON.stringify(monitoringData));
     } catch (e) {}
+  }
+
+  // Sincronizar automáticamente hacia Firebase en la nube
+  if (syncToCloud) {
+    syncMonitoringToFirebase();
   }
 }
 
@@ -795,6 +869,9 @@ function initMonitoringModule(force = false) {
   }
 
   refreshMonitoringAnalysis();
+
+  // Inicializar sincronización en tiempo real con Firebase Cloud
+  initFirebaseMonitoringSync();
 
   // Carga asíncrona desde IndexedDB una sola vez
   if (!isMonitoringLoadingDB) {
@@ -4389,6 +4466,8 @@ if (typeof module !== 'undefined' && module.exports) {
     openAppSheetOrderGeneral,
     findLastNumpartForSupply,
     cleanIpAddress,
+    initFirebaseMonitoringSync,
+    syncMonitoringToFirebase,
     getMonitoringSelectedTnrLevels: () => monitoringSelectedTnrLevels,
     getMonitoringSelectedUdiLevels: () => monitoringSelectedUdiLevels,
     getMonitoringSelectedKmtLevels: () => monitoringSelectedKmtLevels,
@@ -4397,3 +4476,13 @@ if (typeof module !== 'undefined' && module.exports) {
     getMonitoringProcessedList: () => monitoringProcessedList
   };
 }
+
+// Inicialización automática de Firebase Sync si está en navegador
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => initFirebaseMonitoringSync());
+  } else {
+    setTimeout(initFirebaseMonitoringSync, 150);
+  }
+}
+

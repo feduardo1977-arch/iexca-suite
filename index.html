@@ -38,12 +38,39 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Chart.js para gráficos interactivos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Firebase App & Realtime Database SDKs (v10.8.0) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script>
+    // Configuración de Google Firebase para Sincronización en la Nube en Tiempo Real
+    const firebaseConfig = {
+      apiKey: "AIzaSyDfT2ykRwVqyERmp30V40A35Wjpn5gXwEU",
+      authDomain: "iexca-suite.firebaseapp.com",
+      databaseURL: "https://iexca-suite-default-rtdb.firebaseio.com",
+      projectId: "iexca-suite",
+      storageBucket: "iexca-suite.firebasestorage.app",
+      messagingSenderId: "620399657553",
+      appId: "1:620399657553:web:b12514348232cb3a30ee70",
+      measurementId: "G-673QQ940Y0"
+    };
+
+    try {
+      if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        window.firebaseApp = firebase;
+        window.firebaseDb = firebase.database();
+        console.log("🔥 [Firebase Realtime] Conectado a la nube iexca-suite.");
+      }
+    } catch (fbErr) {
+      console.warn("⚠️ [Firebase] Inicialización:", fbErr);
+    }
+  </script>
   <!-- Catálogo Maestro RDI (752 Equipos e Impresores de IEXCA) -->
-  <script src="rdi_master.js?v=20260929_2"></script>
+  <script src="rdi_master.js?v=20260929_3"></script>
   <!-- Datos Iniciales de Monitoreo de Consumibles (BAC y WALMART) -->
-  <script src="default_monitoring_data.js?v=20260929_2"></script>
+  <script src="default_monitoring_data.js?v=20260929_3"></script>
   <!-- Motor de Diagnóstico y Gestión de Monitoreo Fleet & Stock en Sitio -->
-  <script src="monitoring_engine.js?v=20260929_2"></script>
+  <script src="monitoring_engine.js?v=20260929_3"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -333,6 +360,12 @@
         <div id="safetyGuardBadge" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60" title="Protección activa: se te solicitará confirmación antes de salir o recargar la página para evitar perder tus filtros y configuraciones">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <span>Protección activa</span>
+        </div>
+
+        <!-- Insignia de Nube en Vivo Firebase -->
+        <div id="firebaseCloudBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs" title="Sincronización en la nube con Google Firebase activa en tiempo real">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Nube en vivo</span>
         </div>
 
         <!-- Selector rápido de datos demo -->
