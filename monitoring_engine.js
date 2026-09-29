@@ -765,9 +765,27 @@ function initMonitoringModule(force = false) {
   }
   isMonitoringInitialized = true;
 
-  // Inicialización síncrona inmediata si aún no hay datos en memoria
-  if ((!monitoringData || Object.keys(monitoringData).length === 0) && typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
-    monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
+  // Sincronización síncrona inmediata de snapshots maestros para que aparezcan al primer instante
+  if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
+    const def = window.DEFAULT_MONITORING_DATA;
+    if (!monitoringData || Object.keys(monitoringData).length === 0) {
+      monitoringData = JSON.parse(JSON.stringify(def));
+    } else {
+      Object.keys(def).forEach(clientKey => {
+        if (!monitoringData[clientKey] || monitoringData[clientKey].length === 0) {
+          monitoringData[clientKey] = JSON.parse(JSON.stringify(def[clientKey]));
+        } else {
+          const curList = monitoringData[clientKey];
+          def[clientKey].forEach(ds => {
+            const exists = curList.some(s => s.fileName === ds.fileName);
+            if (!exists) {
+              curList.unshift(JSON.parse(JSON.stringify(ds)));
+            }
+          });
+          curList.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+        }
+      });
+    }
   }
 
   // Detectar automáticamente modo de vista si está en 'auto'
@@ -1022,9 +1040,22 @@ function refreshMonitoringAnalysis() {
     let targetSnap = null;
     let prevSnap = null;
 
-    if (activeMonitoringSnapshot === 'LATEST' || activeMonitoringClient === 'ALL') {
+    if (activeMonitoringSnapshot === 'LATEST') {
       targetSnap = snapshots[0];
       prevSnap = snapshots.length > 1 ? snapshots[1] : null;
+    } else if (activeMonitoringClient === 'ALL') {
+      // Buscar el snapshot de este cliente que coincida con la fecha YYYY-MM-DD seleccionada
+      const matchDateIdx = snapshots.findIndex(s => s.uploadDate && s.uploadDate.startsWith(activeMonitoringSnapshot));
+      if (matchDateIdx >= 0) {
+        targetSnap = snapshots[matchDateIdx];
+        prevSnap = matchDateIdx + 1 < snapshots.length ? snapshots[matchDateIdx + 1] : null;
+      } else {
+        // Si este cliente no tuvo captura ese día exacto, tomar el snapshot más cercano previo a esa fecha
+        const prevOrLatest = snapshots.find(s => s.uploadDate && s.uploadDate.substring(0, 10) <= activeMonitoringSnapshot) || snapshots[0];
+        targetSnap = prevOrLatest;
+        const pIdx = snapshots.indexOf(prevOrLatest);
+        prevSnap = pIdx + 1 < snapshots.length ? snapshots[pIdx + 1] : null;
+      }
     } else {
       const idx = snapshots.findIndex(s => s.snapshotId === activeMonitoringSnapshot);
       if (idx >= 0) {
@@ -1698,6 +1729,7 @@ function renderMonitoringClientPills() {
   clients.forEach(c => {
     const snapshots = monitoringData[c] || [];
     const equipCount = snapshots.length > 0 && snapshots[0].rows ? snapshots[0].rows.length : 0;
+    const latestDateStr = (snapshots.length > 0 && snapshots[0].uploadDate) ? snapshots[0].uploadDate.split('T')[0].split('-').slice(1).reverse().join('/') : '';
     
     const wrapper = document.createElement('div');
     wrapper.className = 'inline-flex items-center rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700';
@@ -1709,7 +1741,7 @@ function renderMonitoringClientPills() {
         ? 'bg-rose-600 text-white'
         : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
     }`;
-    btn.textContent = `${c} (${equipCount})`;
+    btn.textContent = `${c} (${equipCount} eq.${latestDateStr ? ' • ' + latestDateStr : ''})`;
     btn.onclick = () => {
       activeMonitoringClient = c;
       activeMonitoringSnapshot = 'LATEST';
@@ -1752,6 +1784,31 @@ function updateMonitoringSnapshotSelect() {
       opt.value = s.snapshotId;
       const dStr = s.uploadDate ? formatDateTimeWithDay(s.uploadDate) : `Captura #${idx + 1}`;
       opt.textContent = `${idx === 0 ? '⭐ (Reciente) ' : ''}${dStr} [${s.rows.length} eq.]`;
+      select.appendChild(opt);
+    });
+    select.value = activeMonitoringSnapshot;
+  } else if (activeMonitoringClient === 'ALL') {
+    // Cuando está en "Todos", recopilar las fechas de capturas disponibles entre todos los clientes
+    const dateMap = new Map();
+    Object.keys(monitoringData).forEach(c => {
+      (monitoringData[c] || []).forEach(s => {
+        if (!s.uploadDate) return;
+        const dKey = s.uploadDate.split('T')[0];
+        if (!dateMap.has(dKey)) {
+          dateMap.set(dKey, { uploadDate: s.uploadDate, count: s.rows ? s.rows.length : 0, clients: [c] });
+        } else {
+          const item = dateMap.get(dKey);
+          item.count += (s.rows ? s.rows.length : 0);
+          if (!item.clients.includes(c)) item.clients.push(c);
+        }
+      });
+    });
+    const sortedDates = Array.from(dateMap.entries()).sort((a, b) => new Date(b[1].uploadDate) - new Date(a[1].uploadDate));
+    sortedDates.forEach(([dKey, info], idx) => {
+      const opt = document.createElement('option');
+      opt.value = dKey;
+      const dStr = formatDateTimeWithDay(info.uploadDate);
+      opt.textContent = `${idx === 0 ? '⭐ (Reciente) ' : ''}${dStr} [${info.count} eq. - ${info.clients.join(' + ')}]`;
       select.appendChild(opt);
     });
     select.value = activeMonitoringSnapshot;
