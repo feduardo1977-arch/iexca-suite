@@ -38,6 +38,15 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Chart.js para gráficos interactivos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- html2pdf.bundle.min.js para Exportación Directa a PDF Carta Oficial (1 Página sin Distorsión en Móvil/PC) -->
+  <script src="html2pdf.bundle.min.js"></script>
+  <script>
+    if (typeof html2pdf === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      document.head.appendChild(s);
+    }
+  </script>
   <!-- Firebase App & Realtime Database SDKs (v10.8.0) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -335,16 +344,25 @@
     }
 
     @media print {
+      @page {
+        size: letter portrait;
+        margin: 3mm 4mm 3mm 4mm !important;
+      }
+
       html, body {
         background: #ffffff !important;
         color: #000000 !important;
         margin: 0 !important;
         padding: 0 !important;
-        width: 100% !important;
+        width: 202mm !important;
+        min-width: 202mm !important;
+        max-width: 202mm !important;
         height: auto !important;
-        overflow: visible !important;
+        max-height: 268mm !important;
+        overflow: hidden !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
       }
 
       /* 1. Ocultar todos los elementos generales de la Suite en la impresión */
@@ -355,6 +373,17 @@
       /* 2. Cuando se imprime Orden de Entrega de Folio (Suministros) */
       body.is-printing-folio > *:not(#printDocumentContainer) {
         display: none !important;
+      }
+
+      body.is-printing-folio {
+        display: block !important;
+        position: relative !important;
+        width: 202mm !important;
+        min-width: 202mm !important;
+        max-width: 202mm !important;
+        height: auto !important;
+        max-height: 268mm !important;
+        overflow: hidden !important;
       }
 
       #printDocumentContainer,
@@ -369,29 +398,38 @@
         position: relative !important;
         left: 0 !important;
         top: 0 !important;
-        width: 100% !important;
-        max-width: 204mm !important;
+        width: 202mm !important;
+        min-width: 202mm !important;
+        max-width: 202mm !important;
+        height: auto !important;
+        max-height: 268mm !important;
         margin: 0 auto !important;
         padding: 0 !important;
         background: #ffffff !important;
         color: #000000 !important;
+        overflow: hidden !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+        page-break-before: avoid !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
       }
 
       #printDocumentContainer #ordenEntregaPaper {
-        width: 100% !important;
-        max-width: 204mm !important;
-        min-width: 0 !important;
+        width: 202mm !important;
+        min-width: 202mm !important;
+        max-width: 202mm !important;
+        height: auto !important;
+        max-height: 268mm !important;
         box-shadow: none !important;
         border: none !important;
         margin: 0 auto !important;
-        padding: 1.5mm 3mm !important;
+        padding: 1.5mm 2.5mm !important;
         box-sizing: border-box !important;
+        overflow: hidden !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+        page-break-before: avoid !important;
         page-break-after: avoid !important;
         break-after: avoid !important;
         zoom: 1 !important;
@@ -428,11 +466,6 @@
       .no-print * {
         display: none !important;
         visibility: hidden !important;
-      }
-
-      @page {
-        size: letter portrait;
-        margin: 4mm 5mm 4mm 5mm;
       }
     }
 
@@ -2802,16 +2835,22 @@
             <span>🔍 100%</span>
           </button>
 
-          <!-- Imprimir / PDF -->
-          <button type="button" onclick="printOrdenEntrega()" class="inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition" title="Imprimir directamente o Guardar como PDF oficial en 1 sola página">
+          <!-- Descargar PDF Oficial Carta (1 Página Directo) -->
+          <button type="button" id="btnDownloadFolioPDF" onclick="downloadFolioPDF()" class="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition cursor-pointer" title="Descargar directamente el archivo PDF oficial en 1 sola página tamaño Carta">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>📥 Descargar PDF</span>
+          </button>
+
+          <!-- Imprimir -->
+          <button type="button" onclick="printOrdenEntrega()" class="inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition cursor-pointer" title="Abrir diálogo de impresión de la orden">
             <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-            <span>🖨️ Imprimir / PDF</span>
+            <span>🖨️ Imprimir</span>
           </button>
 
           <!-- Descargar HTML -->
-          <button type="button" onclick="downloadOrdenEntregaHtml()" class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Descargar archivo HTML independiente imprimible">
+          <button type="button" onclick="downloadOrdenEntregaHtml()" class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Descargar archivo HTML independiente">
             <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            <span class="hidden sm:inline">Descargar</span>
+            <span class="hidden sm:inline">HTML</span>
           </button>
 
           <!-- Botón Cerrar en Desktop -->
@@ -2825,17 +2864,17 @@
       <div id="ordenEntregaScrollContainer" class="p-1 sm:p-4 overflow-y-auto overflow-x-auto flex flex-col items-center justify-start bg-slate-200/90 dark:bg-slate-950/70 flex-1 min-h-0 w-full relative">
         <div id="ordenEntregaPaperScaleWrapper" class="w-full flex justify-center items-start origin-top transition-transform duration-150">
           <!-- HOJA DE PAPEL FÍSICO (EXACTO FORMATO CARTA / LETTER) -->
-          <div id="ordenEntregaPaper" class="bg-white text-black shadow-2xl border border-slate-300 w-[760px] max-w-[760px] min-w-[760px] p-4 sm:p-5 text-[10px] leading-tight select-text font-sans rounded-xs my-auto" style="box-sizing: border-box; background-color: #ffffff; color: #000000; font-family: Arial, Helvetica, sans-serif;">
+          <div id="ordenEntregaPaper" class="bg-white text-black shadow-2xl border border-slate-300 w-[760px] max-w-[760px] min-w-[760px] p-3 sm:p-4 text-[9.5pt] leading-tight select-text font-sans rounded-xs my-auto" style="box-sizing: border-box; background-color: #ffffff; color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; width: 760px; min-width: 760px; max-width: 760px; letter-spacing: 0px;">
           
           <!-- ENCABEZADO SUPERIOR -->
-          <div class="flex justify-between items-start gap-3">
+          <div class="flex justify-between items-start gap-2">
             <div class="flex-1">
-              <h1 class="text-[12pt] font-black uppercase tracking-tight text-black leading-none m-0 p-0">ORDEN DE ENTREGA DE SUMINISTROS</h1>
-              <p class="text-[7pt] font-bold text-black uppercase mt-1.5 mb-0.5 leading-tight">NIT 0614-070815-101-5, No. DE REGISTRO 243196-7 CALLE CONSTITUCION Y CALLE JUPITER</p>
-              <p class="text-[7pt] font-bold text-black uppercase m-0 leading-tight">COLONIA SATELITE, PASAJE LEO #3-E, SAN SALVADOR. TELEFONO (+503) 2519-0634 / 7089-5672</p>
+              <h1 class="text-[11.5pt] font-black uppercase tracking-tight text-black leading-none m-0 p-0">ORDEN DE ENTREGA DE SUMINISTROS</h1>
+              <p class="text-[6.5pt] font-bold text-black uppercase mt-1 mb-0.5 leading-tight">NIT 0614-070815-101-5, No. DE REGISTRO 243196-7 CALLE CONSTITUCION Y CALLE JUPITER</p>
+              <p class="text-[6.5pt] font-bold text-black uppercase m-0 leading-tight">COLONIA SATELITE, PASAJE LEO #3-E, SAN SALVADOR. TELEFONO (+503) 2519-0634 / 7089-5672</p>
             </div>
             <div class="shrink-0">
-              <table class="border-collapse border border-black text-center text-[7pt]">
+              <table class="border-collapse border border-black text-center text-[6.5pt]">
                 <thead>
                   <tr class="border-b border-black font-bold bg-slate-50">
                     <th class="border-r border-black px-2 py-0.5 whitespace-nowrap">FOLIO ANTERIOR</th>
@@ -2844,7 +2883,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr class="font-bold text-[8.5pt] h-5">
+                  <tr class="font-bold text-[8pt] h-4.5">
                     <td class="border-r border-black px-2 py-0.5 font-mono" id="prtFolioAnt" contenteditable="true">-</td>
                     <td class="border-r border-black px-2 py-0.5 font-mono" id="prtDetAnt" contenteditable="true">-</td>
                     <td class="px-2 py-0.5" id="prtSumEnv" contenteditable="true">0</td>
@@ -2855,15 +2894,15 @@
           </div>
 
           <!-- BLOQUE LOGO, TABLA META Y QR -->
-          <div class="grid grid-cols-12 gap-2 items-center mt-3">
+          <div class="grid grid-cols-12 gap-2 items-center mt-2">
             <!-- LOGO IEXCA -->
             <div class="col-span-2 flex justify-center items-center">
-              <img id="prtImgLogo" src="iexca_logo.png" alt="IEXCA" class="max-h-16 w-auto object-contain">
+              <img id="prtImgLogo" src="iexca_logo.png" alt="IEXCA" class="max-h-14 w-auto object-contain">
             </div>
 
             <!-- TABLA CENTRAL META -->
             <div class="col-span-8">
-              <table class="w-full border-collapse border border-black text-[7pt] text-center table-fixed">
+              <table class="w-full border-collapse border border-black text-[6.5pt] text-center table-fixed">
                 <tbody>
                   <!-- Row 1: Headers -->
                   <tr class="border-b border-black font-bold bg-slate-50">
@@ -2873,7 +2912,7 @@
                     <td class="py-0.5 w-1/4">INC IEXCA</td>
                   </tr>
                   <!-- Row 2: Values -->
-                  <tr class="border-b border-black font-bold text-[8.5pt] h-5">
+                  <tr class="border-b border-black font-bold text-[8pt] h-4.5">
                     <td class="border-r border-black py-0.5 text-red-600 font-mono font-black" id="prtFolio" contenteditable="true">----</td>
                     <td class="border-r border-black py-0.5" id="prtFechaSalida" contenteditable="true">--</td>
                     <td class="border-r border-black py-0.5" id="prtHoraLlegadaTec" contenteditable="true"></td>
@@ -2887,7 +2926,7 @@
                     <td class="py-0.5">ID DE ENVIO XPRESS</td>
                   </tr>
                   <!-- Row 4: Values -->
-                  <tr class="font-bold text-[8.5pt] h-5">
+                  <tr class="font-bold text-[8pt] h-4.5">
                     <td class="border-r border-black py-0.5" id="prtAlmacenista" contenteditable="true">NOE POLANCO</td>
                     <td class="border-r border-black py-0.5" id="prtHoraSalidaAlm" contenteditable="true">08:00:00 a. m.</td>
                     <td class="border-r border-black py-0.5" id="prtHoraSalidaTec" contenteditable="true"></td>
@@ -2899,19 +2938,19 @@
 
             <!-- QR CODE -->
             <div class="col-span-2 flex flex-col items-center justify-center">
-              <img id="prtImgQr" src="iexca_qr.png" alt="QR" class="w-14 h-14 object-contain">
-              <span class="text-[5.5pt] font-black uppercase text-center leading-tight tracking-tighter mt-1">
+              <img id="prtImgQr" src="iexca_qr.png" alt="QR" class="w-12 h-12 object-contain">
+              <span class="text-[5pt] font-black uppercase text-center leading-tight tracking-tighter mt-0.5">
                 ¡GARANTIZAMOS RESULTADOS<br>EXCEPCIONALES EN CADA PROYECTO!
               </span>
             </div>
           </div>
 
           <!-- SECCIÓN: INFORMACION CLIENTE -->
-          <div class="mt-2.5">
-            <div class="border border-black font-bold text-[7.5pt] text-center uppercase py-0.5 bg-slate-100">
+          <div class="mt-2">
+            <div class="border border-black font-bold text-[7pt] text-center uppercase py-0.5 bg-slate-100">
               INFORMACION CLIENTE
             </div>
-            <table class="w-full border-collapse border-l border-r border-b border-black text-[7pt] text-center table-fixed">
+            <table class="w-full border-collapse border-l border-r border-b border-black text-[6.5pt] text-center table-fixed">
               <thead>
                 <tr class="border-b border-black font-bold bg-slate-50">
                   <th class="border-r border-black py-0.5 w-[14%]">DETERMINANTE</th>
@@ -2924,72 +2963,72 @@
                 </tr>
               </thead>
               <tbody>
-                <tr class="font-bold text-[8pt] h-6">
+                <tr class="font-bold text-[7.5pt] h-5">
                   <td class="border-r border-black px-1 py-0.5" id="prtDeterminante" contenteditable="true">-</td>
                   <td class="border-r border-black px-1 py-0.5 truncate" id="prtDestino" contenteditable="true">-</td>
                   <td class="border-r border-black px-1 py-0.5" id="prtFormato" contenteditable="true">-</td>
                   <td class="border-r border-black px-1 py-0.5" id="prtTipo" contenteditable="true">-</td>
                   <td class="border-r border-black px-1 py-0.5" id="prtCliente" contenteditable="true">-</td>
                   <td class="border-r border-black px-1 py-0.5 font-mono" id="prtDireccionIp" contenteditable="true">-</td>
-                  <td class="px-1 py-0.5 text-[6.5pt] leading-tight" id="prtStatus" contenteditable="true">POR AGOTARSE, EN RUTA POR IEXCA</td>
+                  <td class="px-1 py-0.5 text-[6pt] leading-tight" id="prtStatus" contenteditable="true">POR AGOTARSE, EN RUTA POR IEXCA</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <!-- TABLA DE SUMINISTROS (9 COLUMNAS) -->
-          <div class="mt-2.5">
+          <div class="mt-2">
             <table class="w-full border-collapse border border-black text-[6.5pt] text-center table-fixed">
               <thead>
                 <tr class="border-b border-black font-bold bg-slate-50 text-[6.5pt]">
-                  <th class="border-r border-black py-1 w-[14%]">SERIE SUM / REF /IMP</th>
-                  <th class="border-r border-black py-1 w-[11%]">NUMPART</th>
-                  <th class="border-r border-black py-1 w-[22%]">DESCRIPCION</th>
-                  <th class="border-r border-black py-1 w-[10%]">TIPO SUM / REF / IMP</th>
-                  <th class="border-r border-black py-1 w-[5%]">CANT</th>
-                  <th class="border-r border-black py-1 w-[14%]">SERIE IMPRESOR / SCANNER</th>
-                  <th class="border-r border-black py-1 w-[10%]">MODELO</th>
-                  <th class="border-r border-black py-1 w-[10%]">UBICACIÓN</th>
-                  <th class="py-1 w-[4%]">SUM%</th>
+                  <th class="border-r border-black py-0.5 w-[14%]">SERIE SUM / REF /IMP</th>
+                  <th class="border-r border-black py-0.5 w-[11%]">NUMPART</th>
+                  <th class="border-r border-black py-0.5 w-[22%]">DESCRIPCION</th>
+                  <th class="border-r border-black py-0.5 w-[10%]">TIPO SUM / REF / IMP</th>
+                  <th class="border-r border-black py-0.5 w-[5%]">CANT</th>
+                  <th class="border-r border-black py-0.5 w-[14%]">SERIE IMPRESOR / SCANNER</th>
+                  <th class="border-r border-black py-0.5 w-[10%]">MODELO</th>
+                  <th class="border-r border-black py-0.5 w-[10%]">UBICACIÓN</th>
+                  <th class="py-0.5 w-[4%]">SUM%</th>
                 </tr>
               </thead>
               <tbody id="prtItemsTableBody">
-                <!-- Se pueblan dinámicamente con mínimo 8 filas -->
+                <!-- Se pueblan dinámicamente -->
               </tbody>
             </table>
           </div>
 
           <!-- OBSERVACIONES -->
-          <div class="mt-2.5 flex border border-black min-h-[36px]">
-            <div class="w-[18%] border-r border-black p-1.5 flex items-center justify-center font-bold text-[7.5pt] uppercase bg-slate-50 text-center shrink-0">
+          <div class="mt-2 flex border border-black min-h-[30px]">
+            <div class="w-[18%] border-r border-black p-1 flex items-center justify-center font-bold text-[7pt] uppercase bg-slate-50 text-center shrink-0">
               OBSERVACIONES
             </div>
-            <div class="w-[82%] p-1.5 text-[7.5pt] font-semibold leading-relaxed flex items-center" id="prtObservaciones" contenteditable="true">
+            <div class="w-[82%] p-1 text-[7pt] font-semibold leading-relaxed flex items-center" id="prtObservaciones" contenteditable="true">
               ENVIO DE SUMINISTRO POR AGOTARSE SEGUN MONITOREO
             </div>
           </div>
 
           <!-- SECCIÓN FIRMAS: SOLICITANTE Y RECIBIDO POR -->
-          <div class="mt-2 sm:mt-2.5 border border-black">
+          <div class="mt-2 border border-black">
             <!-- Barra superior -->
-            <div class="grid grid-cols-12 border-b border-black font-bold text-[7.5pt] uppercase text-center bg-slate-50">
+            <div class="grid grid-cols-12 border-b border-black font-bold text-[7pt] uppercase text-center bg-slate-50">
               <div class="col-span-5 border-r border-black py-0.5">SOLICITANTE</div>
               <div class="col-span-7 py-0.5">RECIBIDO POR</div>
             </div>
             <!-- Espacio para firma física -->
-            <div class="grid grid-cols-12 h-12 border-b border-black">
+            <div class="grid grid-cols-12 h-10 border-b border-black">
               <div class="col-span-5 border-r border-black relative">
-                <span class="absolute bottom-1 left-2 text-[6.5pt] text-slate-500 font-mono" id="prtFechaFirmaSolicitante"></span>
+                <span class="absolute bottom-0.5 left-1.5 text-[6pt] text-slate-500 font-mono" id="prtFechaFirmaSolicitante"></span>
               </div>
               <div class="col-span-4 border-r border-black relative">
-                <span class="absolute bottom-1 left-2 text-[6.5pt] text-slate-500 font-mono" id="prtFechaFirmaRecibido1"></span>
+                <span class="absolute bottom-0.5 left-1.5 text-[6pt] text-slate-500 font-mono" id="prtFechaFirmaRecibido1"></span>
               </div>
               <div class="col-span-3 relative">
-                <span class="absolute bottom-1 left-2 text-[6.5pt] text-slate-500 font-mono" id="prtFechaFirmaRecibido2"></span>
+                <span class="absolute bottom-0.5 left-1.5 text-[6pt] text-slate-500 font-mono" id="prtFechaFirmaRecibido2"></span>
               </div>
             </div>
             <!-- Subtítulos de firmas -->
-            <div class="grid grid-cols-12 font-bold text-[6.5pt] uppercase text-center py-1">
+            <div class="grid grid-cols-12 font-bold text-[6pt] uppercase text-center py-0.5">
               <div class="col-span-5 border-r border-black px-1">NOMBRE Y FIRMA TECNICO (ENTREGA)</div>
               <div class="col-span-4 border-r border-black px-1">NOMBRE Y APELLIDO (LEGIBLE)</div>
               <div class="col-span-3 px-1">FIRMA</div>
@@ -2997,19 +3036,19 @@
           </div>
 
           <!-- PIE DE PÁGINA: SELLO Y REDES -->
-          <div class="mt-2 sm:mt-2.5 flex justify-between items-start">
-            <div class="text-[7pt] font-bold text-slate-700 uppercase pt-2">
+          <div class="mt-1.5 flex justify-between items-start">
+            <div class="text-[6.5pt] font-bold text-slate-700 uppercase pt-1">
               ORIGINAL CLIENTE
             </div>
-            <div class="flex flex-col items-end gap-1">
+            <div class="flex flex-col items-end gap-0.5">
               <!-- CAJA SELLO AQUI -->
-              <div class="border border-black w-32 h-20 flex flex-col justify-between p-1 bg-white">
-                <div class="text-center font-bold text-[7pt] uppercase tracking-wider">SELLO AQUI</div>
+              <div class="border border-black w-32 h-14 flex flex-col justify-between p-1 bg-white">
+                <div class="text-center font-bold text-[6.5pt] uppercase tracking-wider">SELLO AQUI</div>
               </div>
               <!-- ICONOS REDES SOCIALES -->
-              <div class="flex items-center gap-1.5 pt-1 text-slate-800">
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+              <div class="flex items-center gap-1.5 pt-0.5 text-slate-800">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
               </div>
             </div>
           </div>
@@ -3932,32 +3971,32 @@
       }
       document.getElementById('prtStatus').textContent = rawStatus;
 
-      // 5. Tabla de Suministros (Generar 8 filas exactas como en el formato físico)
+      // 5. Tabla de Suministros (Formato optimizado para 1 sola página tamaño Carta)
       const tbody = document.getElementById('prtItemsTableBody');
       if (tbody) {
         tbody.innerHTML = '';
         const items = data.items || [];
-        const TOTAL_ROWS = Math.max(8, items.length);
+        const TOTAL_ROWS = Math.max(6, items.length);
 
         for (let i = 0; i < TOTAL_ROWS; i++) {
           const item = items[i];
           const tr = document.createElement('tr');
-          tr.className = 'border-b border-black text-[7pt] h-5.5 ' + (item ? 'font-bold' : '');
+          tr.className = 'border-b border-black text-[6.5pt] h-5 ' + (item ? 'font-bold' : '');
           
           if (item) {
             tr.innerHTML = `
-              <td class="border-r border-black px-1 py-0.5 font-mono text-[7.5pt]">${escapeHtml(item.serieSum || '-')}</td>
-              <td class="border-r border-black px-1 py-0.5 font-mono text-[7pt]">${escapeHtml(item.numPart || '-')}</td>
+              <td class="border-r border-black px-1 py-0.5 font-mono text-[7pt]">${escapeHtml(item.serieSum || '-')}</td>
+              <td class="border-r border-black px-1 py-0.5 font-mono text-[6.5pt]">${escapeHtml(item.numPart || '-')}</td>
               <td class="border-r border-black px-1 py-0.5 text-left truncate max-w-[170px]" title="${escapeHtml(item.descripcion || '')}">${escapeHtml(item.descripcion || '-')}</td>
               <td class="border-r border-black px-1 py-0.5">${escapeHtml(item.tipoSum || 'TNR')}</td>
               <td class="border-r border-black px-1 py-0.5 font-bold">${item.cant || 1}</td>
-              <td class="border-r border-black px-1 py-0.5 font-mono text-[7.5pt]">${escapeHtml(item.impresor || '-')}</td>
+              <td class="border-r border-black px-1 py-0.5 font-mono text-[7pt]">${escapeHtml(item.impresor || '-')}</td>
               <td class="border-r border-black px-1 py-0.5">${escapeHtml(item.modelo || '-')}</td>
               <td class="border-r border-black px-1 py-0.5 text-left truncate max-w-[80px]">${escapeHtml(item.ubicacion || '-')}</td>
               <td class="px-1 py-0.5 font-mono">${escapeHtml(item.sumPorc || '0%')}</td>
             `;
           } else {
-            // Fila vacía para conservar la altura exacta de la hoja
+            // Fila vacía para conservar el formato oficial
             tr.innerHTML = `
               <td class="border-r border-black px-1 py-0.5">&nbsp;</td>
               <td class="border-r border-black px-1 py-0.5">&nbsp;</td>
@@ -4060,55 +4099,278 @@
       triggerModalClose('modalPrintOrdenEntrega', force);
     }
 
+    // DESCARGAR ARCHIVO PDF OFICIAL TAMAÑO CARTA (1 PÁGINA EXACTA SIN DISTORSIÓN EN MÓVIL/PC)
+    async function downloadFolioPDF() {
+      const paper = document.getElementById('ordenEntregaPaper');
+      if (!paper) return;
+
+      const btn = document.getElementById('btnDownloadFolioPDF');
+      const originalBtnHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+        btn.innerHTML = `<svg class="animate-spin -ml-0.5 mr-1 h-3.5 w-3.5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Generando PDF...</span>`;
+      }
+
+      const folioText = (document.getElementById('prtFolio')?.textContent || '').trim();
+      const cleanFolio = folioText.replace(/[^\w-]/g, '') || 'DESPACHO';
+      const fileName = `FOLIO ${cleanFolio}.pdf`;
+
+      // 1. Clonar el elemento de papel
+      const clone = paper.cloneNode(true);
+
+      // Quitar todo contenteditable del clon para evitar artefactos visuales y bugs de medición en html2canvas
+      clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+
+      // 2. Asegurar que las imágenes usen base64 absoluto para evitar demoras o bloqueos
+      const imgLogo = clone.querySelector('#prtImgLogo');
+      if (imgLogo) imgLogo.src = IEXCA_LOGO_BASE64;
+      const imgQr = clone.querySelector('#prtImgQr');
+      if (imgQr) imgQr.src = IEXCA_QR_BASE64;
+
+      // 3. Sanitizar estilos inline del clone para evitar heredar zoom responsivo del visor móvil
+      clone.removeAttribute('style');
+      clone.style.cssText = "box-sizing: border-box !important; background-color: #ffffff !important; color: #000000 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important; width: 760px !important; min-width: 760px !important; max-width: 760px !important; margin: 0 auto !important; padding: 10px 14px !important; border: none !important; box-shadow: none !important; zoom: 1 !important; transform: none !important; letter-spacing: 0px !important;";
+
+      // Asegurar que todas las tablas y celdas tengan tipografía y espaciado consistente
+      clone.querySelectorAll('table').forEach(t => {
+        t.style.borderCollapse = 'collapse';
+        t.style.width = '100%';
+        t.style.letterSpacing = '0px';
+      });
+      clone.querySelectorAll('th, td').forEach(c => {
+        c.style.letterSpacing = '0px';
+        c.style.lineHeight = '1.25';
+      });
+
+      // 4. Crear un contenedor temporal en viewport activo pero 100% invisible (evita bugs de left:-9999px en navegadores móviles)
+      const offscreen = document.createElement('div');
+      offscreen.id = 'pdfRenderHiddenWrapper';
+      offscreen.style.cssText = "position: fixed !important; top: 0 !important; left: 0 !important; width: 760px !important; min-width: 760px !important; max-width: 760px !important; background: #ffffff !important; z-index: -9999 !important; opacity: 0 !important; pointer-events: none !important; zoom: 1 !important; transform: none !important;";
+
+      offscreen.appendChild(clone);
+      document.body.appendChild(offscreen);
+
+      try {
+        // Verificar disponibilidad de html2pdf
+        if (typeof html2pdf === 'undefined') {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'html2pdf.bundle.min.js';
+            script.onload = resolve;
+            script.onerror = () => {
+              const cdnScript = document.createElement('script');
+              cdnScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+              cdnScript.onload = resolve;
+              cdnScript.onerror = reject;
+              document.head.appendChild(cdnScript);
+            };
+            document.head.appendChild(script);
+          });
+        }
+
+        const opt = {
+          margin: [3, 4, 3, 4], // mm: top, left, bottom, right
+          filename: fileName,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2, // Nitidez retina de alta resolución
+            useCORS: true,
+            logging: false,
+            letterRendering: true,
+            windowWidth: 760, // Ancho exacto del papel de escritorio
+            width: 760,
+            scrollX: 0,
+            scrollY: 0,
+            backgroundColor: '#ffffff'
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: 'letter',
+            orientation: 'portrait'
+          },
+          pagebreak: { mode: ['avoid-all'] }
+        };
+
+        await html2pdf().set(opt).from(clone).save();
+        if (typeof showToast === 'function') {
+          showToast(`📄 PDF ${fileName} descargado en 1 sola página Carta con éxito.`);
+        }
+      } catch (err) {
+        console.error("Error al generar PDF con html2pdf:", err);
+        // Respaldo inmediato: abrir diálogo de impresión para Guardar como PDF
+        printOrdenEntrega();
+      } finally {
+        if (offscreen && offscreen.parentNode) {
+          offscreen.parentNode.removeChild(offscreen);
+        }
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('opacity-75', 'cursor-not-allowed');
+          btn.innerHTML = originalBtnHtml;
+        }
+      }
+    }
+
     // IMPRIMIR O GUARDAR COMO PDF NATIVO (ORDEN DE ENTREGA FOLIOS)
     function printOrdenEntrega() {
       const paper = document.getElementById('ordenEntregaPaper');
       const container = document.getElementById('printDocumentContainer');
-      if (!paper || !container) return;
+      if (!paper) return;
 
+      const folioText = (document.getElementById('prtFolio')?.textContent || '').trim();
+      const cleanFolio = folioText.replace(/[^\w-]/g, '') || 'DESPACHO';
+      const docTitle = `FOLIO ${cleanFolio}`;
+
+      // 1. Clonar papel de manera limpia
       const clone = paper.cloneNode(true);
 
-      // Asegurar que las imágenes usen base64 absoluto para renderizado instantáneo en PDF
+      // Asegurar que las imágenes usen base64 absoluto para renderizado instantáneo
       const imgLogo = clone.querySelector('#prtImgLogo');
-      if (imgLogo) {
-        imgLogo.src = IEXCA_LOGO_BASE64;
-      }
+      if (imgLogo) imgLogo.src = IEXCA_LOGO_BASE64;
       const imgQr = clone.querySelector('#prtImgQr');
-      if (imgQr) {
-        imgQr.src = IEXCA_QR_BASE64;
-      }
+      if (imgQr) imgQr.src = IEXCA_QR_BASE64;
 
-      // Resetear zooms o transforms en el clone para que en papel físico o PDF sea 100% nativo
+      // Quitar todo contenteditable del clon para evitar artefactos visuales
+      clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+
+      // Resetear estilos inline en el clon
       clone.style.zoom = '1';
       clone.style.transform = 'none';
       clone.style.margin = '0 auto';
+      clone.style.width = '202mm';
+      clone.style.minWidth = '202mm';
+      clone.style.maxWidth = '202mm';
+      clone.style.boxSizing = 'border-box';
+      clone.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
-      // Inyectar en el contenedor de impresión
-      container.innerHTML = '';
-      container.appendChild(clone);
-      container.classList.remove('hidden');
-      document.body.classList.add('is-printing-folio');
+      // 2. Establecer el título del documento exactamente como 'FOLIO XXXX' para que el diálogo del sistema use ese nombre
+      const originalTitle = document.title;
+      document.title = docTitle;
 
-      // Escuchador seguro para limpieza al terminar o cancelar el diálogo de impresión
-      const cleanupPrint = () => {
+      // 3. Método Preferido para Móvil y Desktop: Impresión mediante Iframe Aislado
+      // En móviles, imprimir desde un iframe con viewport de 760px garantiza 1 página exacta sin colapso a 360px
+      let printFrame = document.getElementById('folioHiddenPrintFrame');
+      if (printFrame) {
+        try { printFrame.remove(); } catch(e){}
+      }
+      printFrame = document.createElement('iframe');
+      printFrame.id = 'folioHiddenPrintFrame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.top = '-10000px';
+      printFrame.style.left = '-10000px';
+      printFrame.style.width = '760px';
+      printFrame.style.height = '1000px';
+      printFrame.style.border = '0';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      // Copiar todos los tags <style> y <link> existentes para conservar tipografías y Tailwind
+      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+        .map(el => el.outerHTML)
+        .join('\n');
+
+      const frameDoc = printFrame.contentWindow.document;
+      frameDoc.open();
+      frameDoc.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=760, initial-scale=1.0">
+  <title>${docTitle}</title>
+  ${styles}
+  <style>
+    @page {
+      size: letter portrait;
+      margin: 3mm 4mm 3mm 4mm !important;
+    }
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      box-sizing: border-box !important;
+    }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      color: #000000 !important;
+      width: 202mm !important;
+      max-width: 202mm !important;
+      min-width: 202mm !important;
+      height: auto !important;
+      max-height: 268mm !important;
+      overflow: hidden !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }
+    .print-frame-container {
+      width: 202mm !important;
+      max-width: 202mm !important;
+      min-width: 202mm !important;
+      height: auto !important;
+      max-height: 268mm !important;
+      margin: 0 auto !important;
+      padding: 1.5mm 2.5mm !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    #ordenEntregaPaper {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 100% !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      zoom: 1 !important;
+      transform: none !important;
+    }
+    table {
+      border-collapse: collapse !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-frame-container">
+    ${clone.outerHTML}
+  </div>
+</body>
+</html>`);
+      frameDoc.close();
+
+      // También poblar el contenedor del documento principal como respaldo
+      if (container) {
+        container.innerHTML = '';
+        container.appendChild(clone.cloneNode(true));
+        container.classList.remove('hidden');
+        document.body.classList.add('is-printing-folio');
+      }
+
+      const restoreOriginalState = () => {
+        document.title = originalTitle;
         document.body.classList.remove('is-printing-folio');
         if (container) {
           container.classList.add('hidden');
           container.innerHTML = '';
         }
-        window.removeEventListener('afterprint', cleanupPrint);
       };
-      window.addEventListener('afterprint', cleanupPrint, { once: true });
 
-      // Fallback para dispositivos móviles donde afterprint no siempre se dispara al cancelar
-      setTimeout(() => {
-        document.body.classList.remove('is-printing-folio');
-      }, 3500);
+      window.addEventListener('afterprint', restoreOriginalState, { once: true });
+      setTimeout(restoreOriginalState, 30000);
 
-      // Disparar diálogo de impresión nativo del navegador con tiempo suficiente para rasterización
+      // Disparar diálogo de impresión
       setTimeout(() => {
-        window.print();
-      }, 250);
+        try {
+          printFrame.contentWindow.focus();
+          printFrame.contentWindow.print();
+        } catch (e) {
+          console.warn("Iframe print falló o bloqueado, ejecutando impresión en ventana principal:", e);
+          window.print();
+        }
+      }, 350);
     }
 
     // IMPRIMIR O GUARDAR COMO PDF BOLETA ODS
@@ -4129,7 +4391,9 @@
       const paper = document.getElementById('ordenEntregaPaper');
       if (!paper) return;
 
-      const folio = document.getElementById('prtFolio')?.textContent || 'ORDEN';
+      const folioText = (document.getElementById('prtFolio')?.textContent || '').trim();
+      const cleanFolio = folioText.replace(/[^\w-]/g, '') || 'DESPACHO';
+      const fileName = `FOLIO ${cleanFolio}.html`;
       const clone = paper.cloneNode(true);
       
       // Asegurar que las imágenes usen base64 absoluto para que funcione sin conexión en cualquier lugar
@@ -4138,24 +4402,30 @@
       const imgQr = clone.querySelector('#prtImgQr');
       if (imgQr) imgQr.src = IEXCA_QR_BASE64;
 
+      clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+
       clone.style.zoom = '1';
       clone.style.transform = 'none';
       clone.style.margin = '0 auto';
+      clone.style.width = '202mm';
+      clone.style.maxWidth = '202mm';
+      clone.style.minWidth = '202mm';
+      clone.style.boxSizing = 'border-box';
 
       const fullHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Orden de Entrega IEXCA - Folio #${folio}</title>
+  <meta name="viewport" content="width=760, initial-scale=1.0">
+  <title>FOLIO ${cleanFolio}</title>
   <script src="https://cdn.tailwindcss.com"><\/script>
   <style>
     @page {
       size: letter portrait;
-      margin: 4mm 5mm 4mm 5mm;
+      margin: 3mm 4mm 3mm 4mm !important;
     }
     html, body {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: #f1f5f9;
       margin: 0;
       padding: 0;
@@ -4170,12 +4440,14 @@
       align-items: center;
       min-height: 100vh;
       box-sizing: border-box;
+      overflow-x: auto;
     }
     .sheet {
       background: #fff;
-      width: 100%;
-      max-width: 204mm;
-      padding: 16px 20px;
+      width: 202mm;
+      max-width: 202mm;
+      min-width: 202mm;
+      padding: 10px 14px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.15);
       box-sizing: border-box;
       border: 1px solid #cbd5e1;
@@ -4185,9 +4457,9 @@
       break-after: avoid !important;
     }
     @media print {
-      body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
+      body { background: #fff !important; padding: 0 !important; margin: 0 !important; width: 202mm !important; }
       .sheet-wrapper { padding: 0 !important; min-height: 0 !important; }
-      .sheet { box-shadow: none !important; border: none !important; max-width: 204mm !important; width: 100% !important; padding: 2mm 3mm !important; margin: 0 auto !important; }
+      .sheet { box-shadow: none !important; border: none !important; width: 202mm !important; min-width: 202mm !important; max-width: 202mm !important; max-height: 268mm !important; padding: 1.5mm 2.5mm !important; margin: 0 auto !important; overflow: hidden !important; }
       .no-print { display: none !important; }
     }
     table { border-collapse: collapse; }
@@ -4197,7 +4469,7 @@
   <div class="no-print" style="position: sticky; top: 0; z-index: 999; background: #0f172a; color: #fff; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
     <div style="font-weight: bold; font-size: 13px; display: flex; align-items: center; gap: 8px;">
       <span>📄 ORDEN DE ENTREGA IEXCA</span>
-      <span style="background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-family: monospace;">FOLIO #${folio}</span>
+      <span style="background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-family: monospace;">FOLIO #${cleanFolio}</span>
     </div>
     <button onclick="window.print()" style="background: #4f46e5; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
       <span>🖨️ Imprimir / Guardar como PDF</span>
@@ -4215,12 +4487,12 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `ORDEN_ENTREGA_IEXCA_FOLIO_${folio}.html`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast(`Documento de la Orden Folio #${folio} descargado.`);
+      showToast(`Documento ${fileName} descargado.`);
     }
 
     // ESTADO GLOBAL DE LA APLICACIÓN
