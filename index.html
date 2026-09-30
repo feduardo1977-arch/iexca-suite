@@ -507,9 +507,9 @@
         </div>
 
         <!-- Botón / Indicador Sincronización Google Sheets en Vivo -->
-        <button id="btnSyncGoogleSheets" type="button" onclick="syncSalidasFoliosFromGoogleSheet(true)" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 shadow-2xs transition" title="Sincronizar salidas de folios en tiempo real desde Google Sheets (SALIDAS ACTUALIZADAS)">
+        <button id="btnSyncGoogleSheets" type="button" onclick="syncAllGoogleSheets(true)" class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 dark:hover:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 shadow-2xs transition" title="Sincronizar salidas de folios y tickets de AppSheet en tiempo real desde Google Sheets">
           <svg id="syncGoogleSheetsIcon" class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-          <span id="syncGoogleSheetsText" class="hidden sm:inline">Sync Nube Folios</span>
+          <span id="syncGoogleSheetsText" class="hidden sm:inline">Sync Google Sheets</span>
           <span class="sm:hidden">Sync</span>
           <span id="syncGoogleSheetsBadge" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-indigo-200/80 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-100">Live</span>
         </button>
@@ -1655,6 +1655,11 @@
         </div>
 
         <div class="flex items-center gap-2.5 flex-wrap">
+          <button type="button" onclick="syncTicketsFromGoogleSheet(true)" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs transition active:scale-95 cursor-pointer" title="Sincronizar tickets y solicitudes de AppSheet en tiempo real desde Google Sheets">
+            <svg id="syncTicketsIcon" class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <span id="btnSyncTicketsText">🔄 Sync Google Sheets</span>
+            <span id="syncTicketsBadge" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-indigo-200/80 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-100">Live</span>
+          </button>
           <button type="button" onclick="syncOdsToFirebase(true)" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs transition active:scale-95 cursor-pointer" title="Sincronizar y respaldar todas las órdenes ODS en Google Firebase Realtime Database">
             <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3zm-5.5-9h-3v3H8l4 4 4-4h-2.5z"/></svg>
             <span id="btnSyncOdsFirebaseText">☁️ Sincronizar Nube</span>
@@ -2869,7 +2874,7 @@
             <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
             <span>📋 Resumen</span>
           </button>
-          <button type="button" onclick="copyAppSheetOrderRowTabbed()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition min-h-[40px] touch-manipulation" title="Copiar 20 columnas separadas por tabulador">
+          <button type="button" onclick="copyAppSheetOrderRowTabbed()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl shadow-2xs transition min-h-[40px] touch-manipulation" title="Copiar 26 columnas separadas por tabulador (Alineadas con Google Sheets)">
             <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             <span>📑 Fila Tab</span>
           </button>
@@ -9830,27 +9835,123 @@
         }
       });
 
-      // 3. Prioridad 3: Tickets y Solicitudes de AppSheet / ODS (sheetStore['ODS'])
-      const odsSource = sheetStore['ODS'] || [];
+      // 3. Prioridad 3: Tickets y Solicitudes de AppSheet / ODS (sheetStore['ODS'] y sheetStore['TICKETS'])
+      const odsSource = (sheetStore['ODS'] && sheetStore['ODS'].length > 0) ? sheetStore['ODS'] : (sheetStore['TICKETS'] || []);
       odsSource.forEach(r => {
         const rawTicket = String(r['ID TICKET'] || r['ID_TICKET'] || r['ID'] || r['TICKET'] || '').trim();
         if (!rawTicket) return;
         const upTicket = rawTicket.toUpperCase();
         
-        const rawDet = String(r['DET'] || r['CECO'] || r['CECO/DET'] || '').trim();
-        const rawDest = String(r['TIENDA'] || r['DESTINO'] || r['SUCURSAL'] || r['DIRECCION'] || '').trim();
-        const rawCli = String(r['CLIENTE'] || r['Cliente'] || '').trim();
-        const rawImp = String(r['SERIE'] || r['IMPRESOR'] || '').trim();
-        const rawMod = String(r['MOD'] || r['MODELO'] || '').trim();
-        const rawUbi = String(r['UBICACION'] || r['UBICACIÓN'] || r['DEPTO'] || '').trim();
-        const rawFalla = String(r['PROBLEMA REPORTADO'] || r['PROBLEMA'] || r['FALLA'] || r['DESCRIPCION'] || '').trim();
-        const rawEstado = String(r['ESTADO'] || r['Estado'] || 'ABIERTO').trim().toUpperCase();
-        const rawFmt = String(r['FORMATO'] || '').trim();
-        const rawTipo = String(r['TIPO'] || '').trim();
+        let rawDet = String(r['DET'] || r['CECO'] || r['CECO/DET'] || '').trim();
+        let rawDest = String(r['TIENDA'] || r['DESTINO'] || r['SUCURSAL'] || r['DIRECCION'] || '').trim();
+        let rawCli = String(r['CLIENTE'] || r['Cliente'] || '').trim();
+        let rawImp = String(r['SERIE'] || r['IMPRESOR'] || '').trim();
+        let rawMod = String(r['MOD'] || r['MODELO'] || '').trim();
+        let rawUbi = String(r['UBICACION'] || r['UBICACIÓN'] || r['DEPTO'] || '').trim();
+        let rawFalla = String(r['PROBLEMA REPORTADO'] || r['PROBLEMA'] || r['FALLA'] || r['DESCRIPCION'] || r['SOLICITUD'] || '').trim();
+        let rawEstado = String(r['STATUS'] || r['ESTADO'] || r['Estado'] || 'ABIERTO').trim().toUpperCase();
+        let rawFmt = String(r['FORMATO'] || '').trim();
+        let rawTipo = String(r['TIPO'] || '').trim();
+        let rawNumpart = String(r['NUMPART'] || '').trim();
+        let rawPercent = String(r['PERCENT'] || r['PORCENTAJE'] || '').trim();
+        let rawTecnico = String(r['TECNICO'] || '').trim();
+        let rawDireccion = String(r['DIRECCION PARA ENVIO XPRESS'] || r['DIRECCION'] || '').trim();
+        let rawContacto = String(r['CONTACTO PARA RECIBIR XPRESS'] || r['CONTACTO'] || '').trim();
+        let rawTelefono = String(r['NUEMERO DE CONTACTO'] || r['NUMERO DE CONTACTO'] || r['TELEFONO'] || '').trim();
+        let rawIp = cleanIpAddress(r['IP']);
+
+        // Heurística de Formato si no venía explícito
+        if (!rawFmt) {
+          const combined = (rawDest + ' ' + rawCli).toUpperCase();
+          if (combined.includes('DESPENSA FAMILIAR')) rawFmt = 'DESCUENTO';
+          else if (combined.includes('MAXI DESPENSA') || combined.includes('MAXI')) rawFmt = 'BODEGA';
+          else if (combined.includes('WALMART')) rawFmt = 'SUPERCENTER';
+          else if (combined.includes('DESPENSA DE DON JUAN') || combined.includes('DON JUAN')) rawFmt = 'SUPERMERCADO';
+          else if (combined.includes('BAC') || combined.includes('PROSEGUR')) rawFmt = 'BANCARIA';
+          else if (combined.includes('BIMBO')) rawFmt = 'BIMBO';
+          else if (combined.includes('BARCEL')) rawFmt = 'BARCEL';
+          else if (combined.includes('ICI') || combined.includes('CEDI') || combined.includes('PLANTA') || combined.includes('HORTIFRUTI')) rawFmt = 'PLANTAS';
+          else if (combined.includes('NOVABES')) rawFmt = 'NOVABES';
+        }
+
+        if (!rawTipo) {
+          const combined = (rawDest + ' ' + rawCli + ' ' + rawFmt).toUpperCase();
+          rawTipo = (combined.includes('WALMART') || combined.includes('WM') || combined.includes('DESPENSA') || combined.includes('MAXI')) ? 'WM' : ((combined.includes('BAC') || combined.includes('PROSEGUR')) ? 'BANCARIA' : 'EMPRESA');
+        }
+
+        if (!rawCli) {
+          const combined = (rawDest + ' ' + rawFmt).toUpperCase();
+          if (combined.includes('DESPENSA') || combined.includes('MAXI') || combined.includes('WALMART')) rawCli = 'WALMART';
+          else if (combined.includes('BAC')) rawCli = 'BAC';
+          else if (combined.includes('BIMBO')) rawCli = 'BIMBO';
+        }
 
         if (rawDet) uniqueDets.add(rawDet);
         if (rawDest) uniqueDestinos.add(rawDest);
         if (rawCli) uniqueClientes.add(rawCli);
+        if (rawFmt) uniqueFormatos.add(rawFmt);
+        if (rawTipo) uniqueTipos.add(rawTipo);
+
+        // Alimentar foliosDetCatalogMap y foliosDestinoCatalogMap
+        if (rawDet) {
+          const upDet = rawDet.toUpperCase();
+          const existingInfo = foliosDetCatalogMap.get(upDet);
+          if (!existingInfo) {
+            foliosDetCatalogMap.set(upDet, {
+              det: rawDet,
+              destino: rawDest,
+              formato: rawFmt,
+              tipo: rawTipo,
+              cliente: rawCli,
+              printers: []
+            });
+            const noZeros = upDet.replace(/^0+/, '');
+            if (noZeros && !foliosDetCatalogMap.has(noZeros)) {
+              foliosDetCatalogMap.set(noZeros, foliosDetCatalogMap.get(upDet));
+            }
+          } else {
+            if (!existingInfo.formato && rawFmt) existingInfo.formato = rawFmt;
+            if (!existingInfo.destino && rawDest) existingInfo.destino = rawDest;
+            if (!existingInfo.cliente && rawCli) existingInfo.cliente = rawCli;
+          }
+        }
+
+        if (rawDest) {
+          const upDest = rawDest.toUpperCase();
+          const existingDest = foliosDestinoCatalogMap.get(upDest);
+          if (!existingDest) {
+            foliosDestinoCatalogMap.set(upDest, {
+              det: rawDet,
+              destino: rawDest,
+              formato: rawFmt,
+              tipo: rawTipo,
+              cliente: rawCli,
+              printers: []
+            });
+          } else {
+            if (!existingDest.formato && rawFmt) existingDest.formato = rawFmt;
+            if (!existingDest.det && rawDet) existingDest.det = rawDet;
+            if (!existingDest.cliente && rawCli) existingDest.cliente = rawCli;
+          }
+        }
+
+        if (rawImp) {
+          const upImp = rawImp.toUpperCase();
+          if (!uniqueImpresores.has(upImp)) {
+            uniqueImpresores.set(upImp, {
+              impresor: rawImp,
+              modelo: rawMod,
+              ubicacion: rawUbi || rawDest,
+              ip: rawIp,
+              det: rawDet,
+              destino: rawDest,
+              cliente: rawCli,
+              formato: rawFmt,
+              tipo: rawTipo,
+              statusBackup: 'EN USO'
+            });
+          }
+        }
 
         if (!foliosTicketCatalogMap.has(upTicket)) {
           foliosTicketCatalogMap.set(upTicket, {
@@ -9865,6 +9966,12 @@
             ubicacion: rawUbi,
             falla: rawFalla,
             estado: rawEstado,
+            numPart: rawNumpart,
+            percent: rawPercent,
+            tecnico: rawTecnico,
+            direccion: rawDireccion,
+            contacto: rawContacto,
+            telefono: rawTelefono,
             source: 'ODS'
           });
         } else {
@@ -9875,7 +9982,14 @@
           if (!existing.det && rawDet) existing.det = rawDet;
           if (!existing.destino && rawDest) existing.destino = rawDest;
           if (!existing.cliente && rawCli) existing.cliente = rawCli;
+          if (!existing.formato && rawFmt) existing.formato = rawFmt;
           if (!existing.falla && rawFalla) existing.falla = rawFalla;
+          if (!existing.numPart && rawNumpart) existing.numPart = rawNumpart;
+          if (!existing.percent && rawPercent) existing.percent = rawPercent;
+          if (!existing.tecnico && rawTecnico) existing.tecnico = rawTecnico;
+          if (!existing.direccion && rawDireccion) existing.direccion = rawDireccion;
+          if (!existing.contacto && rawContacto) existing.contacto = rawContacto;
+          if (!existing.telefono && rawTelefono) existing.telefono = rawTelefono;
         }
       });
 
@@ -10111,30 +10225,66 @@
           helper.className = 'mt-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold leading-tight';
         }
 
-        // 2. Autocompletar DET / Tienda
-        if (match.det) {
+        // 2. Autocompletar DET / Tienda / Cliente / Formato con cascada blindada
+        let detVal = (match.det || '').trim().toUpperCase();
+        let destVal = (match.destino || '').trim().toUpperCase();
+        let cliVal = (match.cliente || '').trim().toUpperCase();
+        let fmtVal = (match.formato || '').trim().toUpperCase();
+        let tipoVal = (match.tipo || '').trim().toUpperCase();
+
+        if (fmtVal === 'DESCONOCIDO') fmtVal = '';
+        if (detVal === 'DESCONOCIDO' || detVal === 'IEXCA D') detVal = '';
+
+        // Si falta formato o DET, consultar catálogo de destino o DET
+        if (!fmtVal && destVal && typeof foliosDestinoCatalogMap !== 'undefined' && foliosDestinoCatalogMap.has(destVal)) {
+          const dCat = foliosDestinoCatalogMap.get(destVal);
+          if (dCat && dCat.formato && dCat.formato !== 'DESCONOCIDO') fmtVal = dCat.formato;
+          if (!detVal && dCat && dCat.det && dCat.det !== 'DESCONOCIDO') detVal = dCat.det;
+        }
+        if (!detVal && destVal) {
+          const mNum = destVal.match(/\b(BACSV\d+|BMB\d+|BAR\d+|PRO\d+|NVB\d+|ADM\d+|\d{3,5})\b/i);
+          if (mNum) detVal = mNum[1].toUpperCase();
+        }
+        if (!fmtVal) {
+          const checkStr = `${destVal} ${cliVal} ${detVal}`.toUpperCase();
+          if (checkStr.includes('DESPENSA FAMILIAR')) fmtVal = 'DESCUENTO';
+          else if (checkStr.includes('MAXI DESPENSA') || checkStr.includes('MAXI')) fmtVal = 'BODEGA';
+          else if (checkStr.includes('WALMART')) fmtVal = 'SUPERCENTER';
+          else if (checkStr.includes('DESPENSA DE DON JUAN') || checkStr.includes('DON JUAN')) fmtVal = 'SUPERMERCADO';
+          else if (checkStr.includes('BAC') || checkStr.startsWith('BACSV')) fmtVal = 'BANCARIA';
+          else if (checkStr.includes('BIMBO') || checkStr.startsWith('BMB')) fmtVal = 'BIMBO';
+          else if (checkStr.includes('BARCEL') || checkStr.startsWith('BAR')) fmtVal = 'BARCEL';
+          else if (checkStr.includes('PROSEGUR') || checkStr.startsWith('PRO')) fmtVal = 'BANCARIA';
+          else if (checkStr.includes('ICI') || checkStr.includes('CEDI') || checkStr.includes('HORTIFRUTI') || checkStr.includes('PLANTA')) fmtVal = 'PLANTAS';
+          else if (checkStr.includes('NOVABES') || checkStr.startsWith('NVB')) fmtVal = 'NOVABES';
+          else if (cliVal) fmtVal = cliVal;
+        }
+
+        if (detVal) {
           const elDet = document.getElementById('salidaDet');
-          if (elDet) elDet.value = match.det;
-          onSalidaDetInput(match.det);
-        } else if (match.destino) {
+          if (elDet) elDet.value = detVal;
+          onSalidaDetInput(detVal);
+        } else if (destVal) {
           const elDest = document.getElementById('salidaDestino');
-          if (elDest) elDest.value = match.destino;
-          onSalidaDestinoInput(match.destino);
+          if (elDest) elDest.value = destVal;
+          onSalidaDestinoInput(destVal);
         }
 
-        if (match.cliente) {
+        if (destVal) {
+          const elDest = document.getElementById('salidaDestino');
+          if (elDest && !elDest.value) elDest.value = destVal;
+        }
+        if (cliVal) {
           const elCli = document.getElementById('salidaCliente');
-          if (elCli && !elCli.value) elCli.value = match.cliente;
+          if (elCli && !elCli.value) elCli.value = cliVal;
         }
-
-        if (match.formato) {
+        if (fmtVal) {
           const elFmt = document.getElementById('salidaFormato');
-          if (elFmt && !elFmt.value) elFmt.value = match.formato;
+          if (elFmt) elFmt.value = fmtVal;
         }
-
-        if (match.tipo) {
+        if (tipoVal) {
           const elTipo = document.getElementById('salidaTipo');
-          if (elTipo && !elTipo.value) elTipo.value = match.tipo;
+          if (elTipo && !elTipo.value) elTipo.value = tipoVal;
         }
 
         // 3. Autocompletar la primera tarjeta de suministro
@@ -10836,9 +10986,187 @@
         if (btnIcon) btnIcon.classList.remove('animate-spin');
         if (headerIcon) headerIcon.classList.remove('animate-spin');
         if (btnText) btnText.textContent = '🔄 Sincronizar Nube';
+        // Disparar sincronización asíncrona de tickets de Google Sheets en paralelo
+        setTimeout(() => {
+          if (typeof syncTicketsFromGoogleSheet === 'function') syncTicketsFromGoogleSheet(false);
+        }, 500);
       }
     }
     window.syncSalidasFoliosFromGoogleSheet = syncSalidasFoliosFromGoogleSheet;
+
+    // =========================================================================
+    // CONEXIÓN Y SINCRONIZACIÓN EN TIEMPO REAL CON GOOGLE SHEETS (TICKETS / ODS)
+    // =========================================================================
+    const GOOGLE_SHEETS_TICKETS_CSV_URL = "https://docs.google.com/spreadsheets/d/1nCdCvZwEKhOhpaqojV-nhoNzP3aLAp8shIdajNiFOLc/export?format=csv&gid=922130287";
+    let isSyncingTicketsGoogleSheets = false;
+    let lastTicketsGoogleSheetsSyncTimestamp = 0;
+
+    async function syncTicketsFromGoogleSheet(isManual = false) {
+      if (isSyncingTicketsGoogleSheets) return;
+      isSyncingTicketsGoogleSheets = true;
+
+      const btnIcon = document.getElementById('syncTicketsIcon');
+      const btnText = document.getElementById('btnSyncTicketsText');
+      const headerBadge = document.getElementById('syncTicketsBadge');
+
+      if (btnIcon) btnIcon.classList.add('animate-spin');
+      if (btnText) btnText.textContent = 'Sincronizando...';
+      if (headerBadge) {
+        headerBadge.textContent = 'Sync...';
+        headerBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-200/80 dark:bg-amber-800 text-amber-900 dark:text-amber-100';
+      }
+
+      try {
+        console.log("[SYNC TICKETS] Consultando Google Sheets de tickets en tiempo real...");
+        const resp = await fetch(GOOGLE_SHEETS_TICKETS_CSV_URL + '&_t=' + Date.now(), {
+          cache: 'no-store'
+        });
+        if (!resp.ok) {
+          throw new Error(`Error HTTP ${resp.status} al consultar tickets`);
+        }
+
+        const csvText = await resp.text();
+        if (!csvText || csvText.length < 100) {
+          throw new Error("Respuesta vacía o incompleta de Google Sheets de tickets");
+        }
+
+        const wb = XLSX.read(csvText, { type: 'string', raw: false });
+        const firstSheetName = wb.SheetNames[0];
+        const rawRows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { defval: '' });
+
+        if (!Array.isArray(rawRows) || rawRows.length === 0) {
+          throw new Error("No se obtuvieron registros de tickets de Google Sheets");
+        }
+
+        const incomingTickets = [];
+        rawRows.forEach((r, idx) => {
+          const rawId = String(r['ID_TICKET'] || r['ID TICKET'] || r['ID'] || r['TICKET'] || '').trim();
+          if (!rawId) return;
+
+          const serie = String(r['SERIE'] || r['IMPRESOR'] || '').trim().toUpperCase();
+          const det = String(r['DET'] || '').trim().toUpperCase();
+          const tienda = String(r['TIENDA'] || r['DESTINO'] || '').trim().toUpperCase();
+          const tecnico = String(r['TECNICO'] || '').trim().toUpperCase();
+          let formato = String(r['FORMATO'] || '').trim().toUpperCase();
+          const modelo = String(r['MODELO'] || r['MOD'] || '').trim().toUpperCase();
+          const numpart = String(r['NUMPART'] || '').trim().toUpperCase();
+          const percent = String(r['PERCENT'] || r['PORCENTAJE'] || '').trim();
+          const status = String(r['STATUS'] || r['ESTADO'] || 'PENDIENTE DE DESPACHAR').trim().toUpperCase();
+          const solicitud = String(r['SOLICITUD'] || r['DESCRIPCION'] || r['FALLA'] || '').trim();
+          const fecha = String(r['FECHA'] || '').trim();
+          const ubicacion = String(r['UBICACION'] || r['UBICACIÓN'] || '').trim().toUpperCase();
+          const marca = String(r['MARCA'] || 'LEXMARK').trim().toUpperCase();
+          const ip = cleanIpAddress(r['IP']);
+          const envioPor = String(r['ENVIO POR'] || r['ENVIO_POR'] || 'XPRESS').trim().toUpperCase();
+          const prioridad = String(r['PRIORIDAD'] || 'ALTA').trim().toUpperCase();
+          const direccion = String(r['DIRECCION PARA ENVIO XPRESS'] || r['DIRECCION'] || '').trim().toUpperCase();
+          const contacto = String(r['CONTACTO PARA RECIBIR XPRESS'] || r['CONTACTO'] || '').trim().toUpperCase();
+          const telefono = String(r['NUEMERO DE CONTACTO'] || r['NUMERO DE CONTACTO'] || r['TELEFONO'] || '').trim();
+
+          // Rescate de Formato por tienda si venía vacío
+          if (!formato) {
+            const check = tienda.toUpperCase();
+            if (check.includes('DESPENSA FAMILIAR')) formato = 'DESCUENTO';
+            else if (check.includes('MAXI DESPENSA') || check.includes('MAXI')) formato = 'BODEGA';
+            else if (check.includes('WALMART')) formato = 'SUPERCENTER';
+            else if (check.includes('DESPENSA DE DON JUAN')) formato = 'SUPERMERCADO';
+            else if (check.includes('BAC') || check.includes('PROSEGUR')) formato = 'BANCARIA';
+            else if (check.includes('BIMBO')) formato = 'BIMBO';
+            else if (check.includes('BARCEL')) formato = 'BARCEL';
+            else if (check.includes('ICI') || check.includes('CEDI') || check.includes('PLANTA') || check.includes('HORTIFRUTI')) formato = 'PLANTAS';
+            else if (check.includes('NOVABES')) formato = 'NOVABES';
+          }
+
+          let cliente = (tienda.includes('DESPENSA') || tienda.includes('MAXI') || tienda.includes('WALMART')) ? 'WALMART' : (tienda.includes('BAC') ? 'BAC' : (tienda.includes('BIMBO') ? 'BIMBO' : ''));
+
+          incomingTickets.push({
+            'ID TICKET': rawId,
+            'ID_TICKET': rawId,
+            'ID': rawId,
+            'DET': det,
+            'TIENDA': tienda,
+            'CLIENTE': cliente,
+            'TECNICO': tecnico,
+            'FORMATO': formato,
+            'SERIE': serie,
+            'IMPRESOR': serie,
+            'MODELO': modelo,
+            'MOD': modelo,
+            'NUMPART': numpart,
+            'PERCENT': percent,
+            'PORCENTAJE': percent,
+            'STATUS': status,
+            'ESTADO': status,
+            'SOLICITUD': solicitud,
+            'PROBLEMA REPORTADO': solicitud,
+            'FECHA': fecha,
+            'UBICACION': ubicacion,
+            'UBICACIÓN': ubicacion,
+            'MARCA': marca,
+            'IP': ip,
+            'ENVIO POR': envioPor,
+            'PRIORIDAD': prioridad,
+            'DIRECCION PARA ENVIO XPRESS': direccion,
+            'CONTACTO PARA RECIBIR XPRESS': contacto,
+            'NUEMERO DE CONTACTO': telefono,
+            'NUMERO DE CONTACTO': telefono,
+            _origIdx: idx
+          });
+        });
+
+        if (incomingTickets.length === 0) {
+          throw new Error("No se detectaron tickets válidos en el archivo");
+        }
+
+        // Asignar al almacén central en memoria
+        sheetStore['ODS'] = incomingTickets;
+        sheetStore['TICKETS'] = incomingTickets;
+
+        // Re-indexar metadatos numéricos y catálogos
+        indexOdsMetadata(sheetStore['ODS']);
+        buildSalidasActualizadasCatalog(true);
+
+        if (typeof updateOdsKPIs === 'function') updateOdsKPIs();
+        if (typeof filterOdsTable === 'function') filterOdsTable();
+
+        lastTicketsGoogleSheetsSyncTimestamp = Date.now();
+
+        if (headerBadge) {
+          headerBadge.textContent = `${incomingTickets.length.toLocaleString()} TKTS`;
+          headerBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-200/80 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100';
+        }
+
+        const nextTktEl = document.getElementById('badgeNextTicketId');
+        if (nextTktEl) {
+          nextTktEl.textContent = getNextTicketId();
+        }
+
+        console.log(`[SYNC TICKETS] Éxito. Total tickets sincronizados: ${incomingTickets.length}`);
+        if (isManual) {
+          showToast(`🟢 ¡Sincronización exitosa de Tickets! ${incomingTickets.length.toLocaleString()} tickets cargados desde Google Sheets.`);
+        }
+      } catch (err) {
+        console.error("[SYNC TICKETS] Error al sincronizar con Google Sheets:", err);
+        if (headerBadge) {
+          headerBadge.textContent = 'Offline';
+          headerBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300';
+        }
+        if (isManual) {
+          showToast(`⚠️ No se pudo sincronizar tickets: ${err.message}.`);
+        }
+      } finally {
+        isSyncingTicketsGoogleSheets = false;
+        if (btnIcon) btnIcon.classList.remove('animate-spin');
+        if (btnText) btnText.textContent = '🔄 Sync Google Sheets';
+      }
+    }
+    window.syncTicketsFromGoogleSheet = syncTicketsFromGoogleSheet;
+
+    async function syncAllGoogleSheets(isManual = false) {
+      await syncSalidasFoliosFromGoogleSheet(isManual);
+      await syncTicketsFromGoogleSheet(isManual);
+    }
+    window.syncAllGoogleSheets = syncAllGoogleSheets;
 
     // CONTROL DE SALIDAS (FOLIOS)
     function updateSalidasKPIs() {
@@ -12178,17 +12506,18 @@
           if (elTicket) elTicket.value = prefill.idTicket;
           onSalidaTicketInput(prefill.idTicket);
         }
-        if (prefill.destino) document.getElementById('salidaDestino').value = prefill.destino;
-        if (prefill.det) document.getElementById('salidaDet').value = prefill.det;
-        if (prefill.cliente) document.getElementById('salidaCliente').value = prefill.cliente;
-        if (prefill.formato) document.getElementById('salidaFormato').value = prefill.formato;
-        if (prefill.tipo) document.getElementById('salidaTipo').value = prefill.tipo;
-
         if (prefill.det) {
           onSalidaDetInput(prefill.det);
         } else if (prefill.destino) {
           onSalidaDestinoInput(prefill.destino);
         }
+
+        // Asegurar que valores explícitos de prefill tengan prioridad absoluta sobre los catálogos
+        if (prefill.destino) document.getElementById('salidaDestino').value = prefill.destino;
+        if (prefill.det) document.getElementById('salidaDet').value = prefill.det;
+        if (prefill.cliente) document.getElementById('salidaCliente').value = prefill.cliente;
+        if (prefill.formato) document.getElementById('salidaFormato').value = prefill.formato;
+        if (prefill.tipo) document.getElementById('salidaTipo').value = prefill.tipo;
 
         // Si después de onSalidaTicketInput no se creó tarjeta o se requiere asegurar valores:
         if (document.querySelectorAll('.salida-item-card').length === 0) {
