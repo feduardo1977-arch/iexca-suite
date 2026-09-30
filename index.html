@@ -79,7 +79,7 @@
   <!-- Datos Iniciales de Monitoreo de Consumibles (BAC y WALMART) -->
   <script src="default_monitoring_data.js?v=20260929_3"></script>
   <!-- Motor de Diagnóstico y Gestión de Monitoreo Fleet & Stock en Sitio -->
-  <script src="monitoring_engine.js?v=20260930_3"></script>
+  <script src="monitoring_engine.js?v=20260930_4"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -4857,17 +4857,27 @@
         if (savedState && savedState.sheetStore && Object.keys(savedState.sheetStore).length > 0) {
           console.log("[INIT] Restoring from IndexedDB...");
           const folios = savedState.sheetStore['FOLIOS'];
-          // Si la base local guardada no tiene folios o está vacía, preferir cargar SUITE.xlsm limpio
-          if (Array.isArray(folios) && folios.length > 0) {
+          // Validar que la base guardada sea completa (>= 5000 folios para incluir los 10,778 folios históricos de IEXCA)
+          if (Array.isArray(folios) && folios.length >= 5000) {
+            sheetStore = savedState.sheetStore;
+            deduplicateSalidasFoliosStore();
             const restored = restoreSuiteFromSavedState(savedState);
             if (restored) {
-              showToast(`🟢 Base local restaurada (${folios.length.toLocaleString()} folios, ${new Date(savedState.timestamp).toLocaleTimeString()}).`);
+              showToast(`🟢 Base local restaurada (${(sheetStore['FOLIOS'] || []).length.toLocaleString()} folios, ${new Date(savedState.timestamp).toLocaleTimeString()}).`);
               // Sincronización automática silenciosa en segundo plano con Google Sheets
               setTimeout(() => syncSalidasFoliosFromGoogleSheet(false), 800);
               return;
             }
           } else {
-            console.warn("[INIT] IndexedDB contiene 0 folios o estado incompleto. Procediendo a cargar directamente SUITE.xlsm fresco...");
+            console.warn(`[INIT] IndexedDB contiene estado incompleto (${folios ? folios.length : 0} folios < 5000). Procediendo a cargar directamente SUITE.xlsm completo...`);
+            // Limpiar datos parciales para asegurar carga limpia y homogénea
+            try {
+              const db = await openIexcaDB();
+              if (db) {
+                const tx = db.transaction(IEXCA_STORE_WORKBOOK, 'readwrite');
+                tx.objectStore(IEXCA_STORE_WORKBOOK).clear();
+              }
+            } catch (errClear) {}
           }
         }
       } catch (e) {
@@ -4877,6 +4887,7 @@
       // 2. Intentar auto-cargar SUITE.xlsm local si está en la misma carpeta
       try {
         console.log("[INIT] Step 2: Fetching SUITE.xlsm...");
+        showToast("📥 Descargando e inicializando base completa SUITE.xlsm (10,778 folios)...");
         const resp = await fetch('./SUITE.xlsm?v=' + Date.now());
         if (resp.ok) {
           console.log("[INIT] SUITE.xlsm fetched successfully, parsing...");
@@ -4905,11 +4916,12 @@
           }
 
           initSuiteModules();
+          deduplicateSalidasFoliosStore();
           populateDashboardSheetsSelector();
           switchSuiteTab('dashboard');
           closeDashboardAnalysis(true);
           saveToIndexedDB();
-          showToast(`⚡ SUITE.xlsm preparado (${wb.SheetNames.length} hojas listas).`);
+          showToast(`⚡ SUITE.xlsm preparado (${(sheetStore['FOLIOS'] || []).length.toLocaleString()} folios listos).`);
           // Sincronización automática silenciosa en segundo plano con Google Sheets y Firebase Nube
           setTimeout(() => {
             syncSalidasFoliosFromGoogleSheet(false);
@@ -8943,6 +8955,7 @@
       rawWorkbook = wb;
 
       // Indexar metadatos numéricos y timestamps en O(N) una sola vez
+      deduplicateSalidasFoliosStore();
       indexFoliosMetadata(sheetStore['FOLIOS']);
       indexOdsMetadata(sheetStore['ODS']);
 
@@ -9197,6 +9210,28 @@
     let rdiCurrentPage = 1;
     let rdiPageSize = 50;
 
+    // DEDUPLICACIÓN EXACTA Y BLINDADA DE FOLIOS EN MEMORIA
+    function deduplicateSalidasFoliosStore() {
+      if (!sheetStore || !sheetStore['FOLIOS'] || !Array.isArray(sheetStore['FOLIOS'])) return;
+      const seen = new Set();
+      const unique = [];
+      sheetStore['FOLIOS'].forEach((r) => {
+        const fNum = r._folioNum !== undefined ? r._folioNum : parseInt(String(r['FOLIO'] || r['FOLIO '] || r['Folio'] || '').replace(/\D/g, ''), 10);
+        const sSum = (r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '').toString().trim().toUpperCase();
+        const np = (r['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
+        // Llave única inequívoca: Folio + Serie del Suministro (o Parte si no tiene serie de suministro)
+        const key = sSum ? `${fNum}|${sSum}` : `${fNum}|${np}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(r);
+        }
+      });
+      if (unique.length !== sheetStore['FOLIOS'].length) {
+        console.log(`[DEDUP] Removidos ${sheetStore['FOLIOS'].length - unique.length} folios duplicados. Quedan ${unique.length} únicos.`);
+        sheetStore['FOLIOS'] = unique;
+      }
+    }
+
     // INDEXADORES O(N) PARA BÚSQUEDA Y ORDENAMIENTO INSTANTÁNEO
     function indexFoliosMetadata(folios) {
       if (!Array.isArray(folios)) return;
@@ -9213,8 +9248,14 @@
           if (!r['SERIE SUM']) r['SERIE SUM'] = r['SERIE'];
           r['IMPRESOR'] = r['SERIE2'];
           r['SERIE'] = r['SERIE2'];
-        } else if (!r['IMPRESOR'] && r['SERIE']) {
-          r['IMPRESOR'] = r['SERIE'];
+        } else {
+          // Si r['SERIE SUM'] no está asignado y r['SERIE'] parece serie de suministro (SCAB, SCAA, etc.)
+          if (!r['SERIE SUM'] && r['SERIE'] && /^SCA/i.test(r['SERIE'])) {
+            r['SERIE SUM'] = r['SERIE'];
+          }
+          if (!r['IMPRESOR'] && r['SERIE'] && !/^SCA/i.test(r['SERIE'])) {
+            r['IMPRESOR'] = r['SERIE'];
+          }
         }
 
         // Separación limpia de IP y Estado Real
@@ -10645,7 +10686,7 @@
 
         // Si los folios locales solo eran de prueba o versión demo inicial (<= 50 registros),
         // adoptar la colección completa de 2026 directamente
-        const isSampleOrEmpty = currentFolios.length < 50 && (!currentFolios[0] || (currentFolios[0]._folioNum || 0) <= 7923);
+        const isSampleOrEmpty = currentFolios.length < 50;
 
         let newCount = 0;
         let updatedCount = 0;
@@ -10654,14 +10695,14 @@
           sheetStore['FOLIOS'] = incomingRows;
           newCount = incomingRows.length;
         } else {
-          // Construir mapa de registros existentes en memoria: "folioNum|serieSum|impresor|numpart"
+          // Construir mapa de registros existentes en memoria: "fNum|sSum" o "fNum|np"
+          // Llave única inequívoca normalizada: Folio + Serie del Suministro (o Parte normalizado)
           const existingMap = new Map();
           currentFolios.forEach((r, idx) => {
             const fNum = r._folioNum !== undefined ? r._folioNum : parseInt(String(getRowFolio(r)).replace(/\D/g, ''), 10);
-            const sSum = (r['SERIE SUM'] || r['SERIE'] || '').toString().trim().toUpperCase();
-            const imp = (r['IMPRESOR'] || r['SERIE2'] || '').toString().trim().toUpperCase();
-            const np = (r['NUMPART'] || '').toString().trim().toUpperCase();
-            const key = `${fNum}|${sSum}|${imp}|${np}`;
+            const sSum = (r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '').toString().trim().toUpperCase();
+            const np = (r['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
+            const key = sSum ? `${fNum}|${sSum}` : `${fNum}|${np}`;
             if (!existingMap.has(key)) {
               existingMap.set(key, idx);
             }
@@ -10669,7 +10710,11 @@
 
           const newItemsToPrepend = [];
           incomingRows.forEach(incRow => {
-            const key = `${incRow['FOLIO']}|${incRow['SERIE']}|${incRow['IMPRESOR']}|${incRow['NUMPART'].toUpperCase()}`;
+            const fNum = incRow['FOLIO'];
+            const sSum = (incRow['SERIE SUM'] || incRow['SERIE'] || '').toString().trim().toUpperCase();
+            const np = (incRow['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
+            const key = sSum ? `${fNum}|${sSum}` : `${fNum}|${np}`;
+
             if (existingMap.has(key)) {
               const existIdx = existingMap.get(key);
               const existRow = currentFolios[existIdx];
@@ -10708,6 +10753,8 @@
             } else {
               // Registro totalmente nuevo (ej. 7938 a 7943)
               newItemsToPrepend.push(incRow);
+              // Registrar en el mapa para no agregarlo repetido si viniera duplicado en la misma hoja
+              existingMap.set(key, currentFolios.length + newItemsToPrepend.length);
               newCount++;
             }
           });
@@ -10716,6 +10763,9 @@
             sheetStore['FOLIOS'] = [...newItemsToPrepend, ...sheetStore['FOLIOS']];
           }
         }
+
+        // Limpiar cualquier residuo de duplicados que pudiera existir previamente
+        deduplicateSalidasFoliosStore();
 
         // 3. Re-indexar metadatos numéricos y fechas O(N)
         indexFoliosMetadata(sheetStore['FOLIOS']);
