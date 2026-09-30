@@ -652,6 +652,18 @@ if (typeof window !== 'undefined') {
   window.isColorPrinterModel = isColorPrinterModel;
 }
 
+// Helper universal y seguro para formatear porcentajes de suministros
+// Previene completamente que aparezca "undefined%", "null%" o "NaN%"
+function formatLevelPercent(val, defaultText = 'N/D') {
+  if (val === undefined || val === null || val === '' || isNaN(Number(val))) {
+    return defaultText;
+  }
+  return `${Math.round(Number(val))}%`;
+}
+if (typeof window !== 'undefined') {
+  window.formatLevelPercent = formatLevelPercent;
+}
+
 // Parseo robusto de CSV Fleet Manager
 function parseLexmarkFleetCsv(csvText, fileName) {
   if (!csvText || typeof csvText !== 'string') return [];
@@ -837,30 +849,32 @@ function parseLexmarkFleetCsv(csvText, fileName) {
 
     const kmtNivel = kmtNivelIdx >= 0 ? parseNivel(cols[kmtNivelIdx]) : null;
 
+    const parseSafeNum = (val) => (val !== undefined && val !== null && !isNaN(val)) ? Number(val) : null;
+
     rows.push({
       ip: cleanIpAddress(ipIdx >= 0 ? cols[ipIdx] : ''),
       ubicacion: (kwIdx >= 0 ? cols[kwIdx] : '').trim().toUpperCase(),
       modelo: cleanMod,
       serie: serie,
       isColor: isColor,
-      tnrKNivel: tnrKNivel,
+      tnrKNivel: parseSafeNum(tnrKNivel),
       tnrKSerie: tnrKSerie,
-      tnrYNivel: isColor ? tnrYNivel : null,
+      tnrYNivel: isColor ? parseSafeNum(tnrYNivel) : null,
       tnrYSerie: isColor ? tnrYSerie : '',
-      tnrCNivel: isColor ? tnrCNivel : null,
+      tnrCNivel: isColor ? parseSafeNum(tnrCNivel) : null,
       tnrCSerie: isColor ? tnrCSerie : '',
-      tnrMNivel: isColor ? tnrMNivel : null,
+      tnrMNivel: isColor ? parseSafeNum(tnrMNivel) : null,
       tnrMSerie: isColor ? tnrMSerie : '',
-      desechoNivel: isColor ? desechoNivel : null,
+      desechoNivel: isColor ? parseSafeNum(desechoNivel) : null,
       // Retrocompatibilidad con equipo monocromático
-      tnrNivel: tnrKNivel,
+      tnrNivel: parseSafeNum(tnrKNivel),
       tnrSerie: tnrKSerie,
       paginasCarro: pagCarroIdx >= 0 ? cols[pagCarroIdx] : '',
       capacidadTnr: capTnrIdx >= 0 ? cols[capTnrIdx] : '',
       fechaInstalacionTnr: fecInstIdx >= 0 ? cols[fecInstIdx] : '',
-      udiNivel: udiNivel,
+      udiNivel: parseSafeNum(udiNivel),
       udiSerie: udiSerie,
-      kmtNivel: kmtNivel,
+      kmtNivel: parseSafeNum(kmtNivel),
       estadoSuministro: (estadoIdx >= 0 ? cols[estadoIdx] : 'Aceptar').trim().toUpperCase()
     });
   }
@@ -950,46 +964,46 @@ function addMonitoringSnapshot(clientName, fileName, rows) {
     rows
   };
 
-  // Complementariedad inteligente de suministros:
-  // Si en este cliente ya existe un snapshot del mismo día (ej. Monitoreo_Color y Monitoreo_Consumibles),
+  // Complementariedad inteligente y bidireccional de suministros:
+  // Si en este cliente ya existen otros snapshots (ej. Monitoreo_Color y Monitoreo_Consumibles),
   // transferir valores no nulos entre filas del mismo impresor (serie) para que ninguna métrica quede vacía.
-  const sameDaySnaps = monitoringData[cleanClient].filter(s => {
-    return s.fileName !== fileName && s.uploadDate && uploadDate && s.uploadDate.split('T')[0] === uploadDate.split('T')[0];
-  });
-  if (sameDaySnaps.length > 0) {
-    sameDaySnaps.forEach(otherSnap => {
+  const otherClientSnaps = (monitoringData[cleanClient] || []).filter(s => s.fileName !== fileName);
+  if (otherClientSnaps.length > 0) {
+    otherClientSnaps.forEach(otherSnap => {
       if (Array.isArray(otherSnap.rows)) {
         rows.forEach(r => {
-          const match = otherSnap.rows.find(or => or.serie === r.serie);
+          const rSerie = (r.serie || '').trim().toUpperCase();
+          if (!rSerie) return;
+          const match = otherSnap.rows.find(or => (or.serie || '').trim().toUpperCase() === rSerie);
           if (match) {
             // Sincronizar UDI y KMT si r no los tiene y match sí
-            if ((r.udiNivel === null || r.udiNivel === undefined) && match.udiNivel !== null && match.udiNivel !== undefined) {
-              r.udiNivel = match.udiNivel;
+            if ((r.udiNivel === null || r.udiNivel === undefined || isNaN(r.udiNivel)) && match.udiNivel !== null && match.udiNivel !== undefined && !isNaN(match.udiNivel)) {
+              r.udiNivel = Number(match.udiNivel);
               if (!r.udiSerie && match.udiSerie) r.udiSerie = match.udiSerie;
             }
-            if ((r.kmtNivel === null || r.kmtNivel === undefined) && match.kmtNivel !== null && match.kmtNivel !== undefined) {
-              r.kmtNivel = match.kmtNivel;
+            if ((r.kmtNivel === null || r.kmtNivel === undefined || isNaN(r.kmtNivel)) && match.kmtNivel !== null && match.kmtNivel !== undefined && !isNaN(match.kmtNivel)) {
+              r.kmtNivel = Number(match.kmtNivel);
             }
             // Sincronizar colores si r es de color y no los tiene
             if (r.isColor) {
-              if (r.tnrYNivel === null && match.tnrYNivel !== null) { r.tnrYNivel = match.tnrYNivel; r.tnrYSerie = match.tnrYSerie; }
-              if (r.tnrCNivel === null && match.tnrCNivel !== null) { r.tnrCNivel = match.tnrCNivel; r.tnrCSerie = match.tnrCSerie; }
-              if (r.tnrMNivel === null && match.tnrMNivel !== null) { r.tnrMNivel = match.tnrMNivel; r.tnrMSerie = match.tnrMSerie; }
-              if (r.desechoNivel === null && match.desechoNivel !== null) { r.desechoNivel = match.desechoNivel; }
+              if ((r.tnrYNivel === null || r.tnrYNivel === undefined) && match.tnrYNivel !== null && match.tnrYNivel !== undefined) { r.tnrYNivel = match.tnrYNivel; r.tnrYSerie = match.tnrYSerie || ''; }
+              if ((r.tnrCNivel === null || r.tnrCNivel === undefined) && match.tnrCNivel !== null && match.tnrCNivel !== undefined) { r.tnrCNivel = match.tnrCNivel; r.tnrCSerie = match.tnrCSerie || ''; }
+              if ((r.tnrMNivel === null || r.tnrMNivel === undefined) && match.tnrMNivel !== null && match.tnrMNivel !== undefined) { r.tnrMNivel = match.tnrMNivel; r.tnrMSerie = match.tnrMSerie || ''; }
+              if ((r.desechoNivel === null || r.desechoNivel === undefined) && match.desechoNivel !== null && match.desechoNivel !== undefined) { r.desechoNivel = match.desechoNivel; }
             }
             // Y viceversa hacia match para que ambos snapshots estén completos
-            if ((match.udiNivel === null || match.udiNivel === undefined) && r.udiNivel !== null && r.udiNivel !== undefined) {
-              match.udiNivel = r.udiNivel;
+            if ((match.udiNivel === null || match.udiNivel === undefined || isNaN(match.udiNivel)) && r.udiNivel !== null && r.udiNivel !== undefined && !isNaN(r.udiNivel)) {
+              match.udiNivel = Number(r.udiNivel);
               if (!match.udiSerie && r.udiSerie) match.udiSerie = r.udiSerie;
             }
-            if ((match.kmtNivel === null || match.kmtNivel === undefined) && r.kmtNivel !== null && r.kmtNivel !== undefined) {
-              match.kmtNivel = r.kmtNivel;
+            if ((match.kmtNivel === null || match.kmtNivel === undefined || isNaN(match.kmtNivel)) && r.kmtNivel !== null && r.kmtNivel !== undefined && !isNaN(r.kmtNivel)) {
+              match.kmtNivel = Number(r.kmtNivel);
             }
             if (match.isColor) {
-              if (match.tnrYNivel === null && r.tnrYNivel !== null) { match.tnrYNivel = r.tnrYNivel; match.tnrYSerie = r.tnrYSerie; }
-              if (match.tnrCNivel === null && r.tnrCNivel !== null) { match.tnrCNivel = r.tnrCNivel; match.tnrCSerie = r.tnrCSerie; }
-              if (match.tnrMNivel === null && r.tnrMNivel !== null) { match.tnrMNivel = r.tnrMNivel; match.tnrMSerie = r.tnrMSerie; }
-              if (match.desechoNivel === null && r.desechoNivel !== null) { match.desechoNivel = r.desechoNivel; }
+              if ((match.tnrYNivel === null || match.tnrYNivel === undefined) && r.tnrYNivel !== null && r.tnrYNivel !== undefined) { match.tnrYNivel = r.tnrYNivel; match.tnrYSerie = r.tnrYSerie || ''; }
+              if ((match.tnrCNivel === null || match.tnrCNivel === undefined) && r.tnrCNivel !== null && r.tnrCNivel !== undefined) { match.tnrCNivel = r.tnrCNivel; match.tnrCSerie = r.tnrCSerie || ''; }
+              if ((match.tnrMNivel === null || match.tnrMNivel === undefined) && r.tnrMNivel !== null && r.tnrMNivel !== undefined) { match.tnrMNivel = r.tnrMNivel; match.tnrMSerie = r.tnrMSerie || ''; }
+              if ((match.desechoNivel === null || match.desechoNivel === undefined) && r.desechoNivel !== null && r.desechoNivel !== undefined) { match.desechoNivel = r.desechoNivel; }
             }
           }
         });
@@ -1272,6 +1286,98 @@ function initMonitoringModule(force = false) {
           }
         }
       }
+
+      // Saneamiento universal y complementación cruzada en memoria para todos los snapshots
+      let hasRepairs = false;
+      if (monitoringData && typeof monitoringData === 'object') {
+        Object.keys(monitoringData).forEach(clientKey => {
+          const snaps = monitoringData[clientKey];
+          if (!Array.isArray(snaps)) return;
+
+          // Mapa de suministros válidos por serie en este cliente
+          const validSupplyBySerie = new Map();
+          snaps.forEach(s => {
+            if (Array.isArray(s.rows)) {
+              s.rows.forEach(r => {
+                if (!r || !r.serie) return;
+                const sKey = r.serie.trim().toUpperCase();
+                if (!validSupplyBySerie.has(sKey)) {
+                  validSupplyBySerie.set(sKey, { udiNivel: null, udiSerie: '', kmtNivel: null, tnrKNivel: null, tnrKSerie: '', tnrYNivel: null, tnrYSerie: '', tnrCNivel: null, tnrCSerie: '', tnrMNivel: null, tnrMSerie: '', desechoNivel: null });
+                }
+                const v = validSupplyBySerie.get(sKey);
+                if (v.udiNivel === null && r.udiNivel !== null && r.udiNivel !== undefined && !isNaN(r.udiNivel)) {
+                  v.udiNivel = Number(r.udiNivel);
+                  if (!v.udiSerie && r.udiSerie) v.udiSerie = r.udiSerie;
+                }
+                if (v.kmtNivel === null && r.kmtNivel !== null && r.kmtNivel !== undefined && !isNaN(r.kmtNivel)) {
+                  v.kmtNivel = Number(r.kmtNivel);
+                }
+                if (v.tnrKNivel === null && r.tnrKNivel !== null && r.tnrKNivel !== undefined && !isNaN(r.tnrKNivel)) {
+                  v.tnrKNivel = Number(r.tnrKNivel);
+                  if (!v.tnrKSerie && (r.tnrKSerie || r.tnrSerie)) v.tnrKSerie = r.tnrKSerie || r.tnrSerie;
+                }
+                if (v.tnrYNivel === null && r.tnrYNivel !== null && r.tnrYNivel !== undefined && !isNaN(r.tnrYNivel)) {
+                  v.tnrYNivel = Number(r.tnrYNivel);
+                  if (!v.tnrYSerie && r.tnrYSerie) v.tnrYSerie = r.tnrYSerie;
+                }
+                if (v.tnrCNivel === null && r.tnrCNivel !== null && r.tnrCNivel !== undefined && !isNaN(r.tnrCNivel)) {
+                  v.tnrCNivel = Number(r.tnrCNivel);
+                  if (!v.tnrCSerie && r.tnrCSerie) v.tnrCSerie = r.tnrCSerie;
+                }
+                if (v.tnrMNivel === null && r.tnrMNivel !== null && r.tnrMNivel !== undefined && !isNaN(r.tnrMNivel)) {
+                  v.tnrMNivel = Number(r.tnrMNivel);
+                  if (!v.tnrMSerie && r.tnrMSerie) v.tnrMSerie = r.tnrMSerie;
+                }
+                if (v.desechoNivel === null && r.desechoNivel !== null && r.desechoNivel !== undefined && !isNaN(r.desechoNivel)) {
+                  v.desechoNivel = Number(r.desechoNivel);
+                }
+              });
+            }
+          });
+
+          // Reparar y sanear cada fila de cada snapshot
+          snaps.forEach(s => {
+            if (Array.isArray(s.rows)) {
+              s.rows.forEach(r => {
+                if (!r || !r.serie) return;
+                const sKey = r.serie.trim().toUpperCase();
+                const v = validSupplyBySerie.get(sKey) || {};
+
+                // Sanear undefined a null
+                if (r.udiNivel === undefined) { r.udiNivel = null; hasRepairs = true; }
+                if (r.kmtNivel === undefined) { r.kmtNivel = null; hasRepairs = true; }
+                if (r.tnrKNivel === undefined) { r.tnrKNivel = null; hasRepairs = true; }
+                if (r.desechoNivel === undefined) { r.desechoNivel = null; hasRepairs = true; }
+
+                // Enriquecer UDI si falta
+                if ((r.udiNivel === null || isNaN(r.udiNivel)) && v.udiNivel !== null && v.udiNivel !== undefined) {
+                  r.udiNivel = v.udiNivel;
+                  if (!r.udiSerie && v.udiSerie) r.udiSerie = v.udiSerie;
+                  hasRepairs = true;
+                }
+
+                // Enriquecer KMT si falta
+                if ((r.kmtNivel === null || isNaN(r.kmtNivel)) && v.kmtNivel !== null && v.kmtNivel !== undefined) {
+                  r.kmtNivel = v.kmtNivel;
+                  hasRepairs = true;
+                }
+
+                // Enriquecer colores si es de color
+                if (r.isColor) {
+                  if ((r.tnrYNivel === null || isNaN(r.tnrYNivel)) && v.tnrYNivel !== null && v.tnrYNivel !== undefined) { r.tnrYNivel = v.tnrYNivel; r.tnrYSerie = v.tnrYSerie || ''; hasRepairs = true; }
+                  if ((r.tnrCNivel === null || isNaN(r.tnrCNivel)) && v.tnrCNivel !== null && v.tnrCNivel !== undefined) { r.tnrCNivel = v.tnrCNivel; r.tnrCSerie = v.tnrCSerie || ''; hasRepairs = true; }
+                  if ((r.tnrMNivel === null || isNaN(r.tnrMNivel)) && v.tnrMNivel !== null && v.tnrMNivel !== undefined) { r.tnrMNivel = v.tnrMNivel; r.tnrMSerie = v.tnrMSerie || ''; hasRepairs = true; }
+                  if ((r.desechoNivel === null || isNaN(r.desechoNivel)) && v.desechoNivel !== null && v.desechoNivel !== undefined) { r.desechoNivel = v.desechoNivel; hasRepairs = true; }
+                }
+              });
+            }
+          });
+        });
+      }
+      if (hasRepairs) {
+        saveMonitoringToIndexedDB();
+      }
+
       refreshMonitoringAnalysis();
     });
   }
@@ -1494,18 +1600,74 @@ function refreshMonitoringAnalysis() {
 
     if (!targetSnap || !targetSnap.rows) return;
 
+    // Mapa acumulativo de últimas lecturas válidas de suministros por serie para este cliente
+    // Garantiza que si targetSnap carece de columnas UDI/KMT (ej. reporte de color), se hereden automáticamente.
+    const clientSupplyHistoryBySerie = new Map();
+    snapshots.forEach(s => {
+      if (Array.isArray(s.rows)) {
+        s.rows.forEach(sr => {
+          if (!sr || !sr.serie) return;
+          const sKey = sr.serie.trim().toUpperCase();
+          if (!clientSupplyHistoryBySerie.has(sKey)) {
+            clientSupplyHistoryBySerie.set(sKey, {
+              udiNivel: null,
+              udiSerie: '',
+              kmtNivel: null,
+              tnrKNivel: null,
+              tnrKSerie: '',
+              tnrYNivel: null,
+              tnrYSerie: '',
+              tnrCNivel: null,
+              tnrCSerie: '',
+              tnrMNivel: null,
+              tnrMSerie: '',
+              desechoNivel: null
+            });
+          }
+          const rec = clientSupplyHistoryBySerie.get(sKey);
+          if (rec.udiNivel === null && sr.udiNivel !== null && sr.udiNivel !== undefined && !isNaN(sr.udiNivel)) {
+            rec.udiNivel = Number(sr.udiNivel);
+            if (!rec.udiSerie && sr.udiSerie) rec.udiSerie = sr.udiSerie;
+          }
+          if (rec.kmtNivel === null && sr.kmtNivel !== null && sr.kmtNivel !== undefined && !isNaN(sr.kmtNivel)) {
+            rec.kmtNivel = Number(sr.kmtNivel);
+          }
+          if (rec.tnrKNivel === null && sr.tnrKNivel !== null && sr.tnrKNivel !== undefined && !isNaN(sr.tnrKNivel)) {
+            rec.tnrKNivel = Number(sr.tnrKNivel);
+            if (!rec.tnrKSerie && (sr.tnrKSerie || sr.tnrSerie)) rec.tnrKSerie = sr.tnrKSerie || sr.tnrSerie;
+          }
+          if (rec.tnrYNivel === null && sr.tnrYNivel !== null && sr.tnrYNivel !== undefined && !isNaN(sr.tnrYNivel)) {
+            rec.tnrYNivel = Number(sr.tnrYNivel);
+            if (!rec.tnrYSerie && sr.tnrYSerie) rec.tnrYSerie = sr.tnrYSerie;
+          }
+          if (rec.tnrCNivel === null && sr.tnrCNivel !== null && sr.tnrCNivel !== undefined && !isNaN(sr.tnrCNivel)) {
+            rec.tnrCNivel = Number(sr.tnrCNivel);
+            if (!rec.tnrCSerie && sr.tnrCSerie) rec.tnrCSerie = sr.tnrCSerie;
+          }
+          if (rec.tnrMNivel === null && sr.tnrMNivel !== null && sr.tnrMNivel !== undefined && !isNaN(sr.tnrMNivel)) {
+            rec.tnrMNivel = Number(sr.tnrMNivel);
+            if (!rec.tnrMSerie && sr.tnrMSerie) rec.tnrMSerie = sr.tnrMSerie;
+          }
+          if (rec.desechoNivel === null && sr.desechoNivel !== null && sr.desechoNivel !== undefined && !isNaN(sr.desechoNivel)) {
+            rec.desechoNivel = Number(sr.desechoNivel);
+          }
+        });
+      }
+    });
+
     // Mapa del snapshot previo para cálculo de deltas
     const prevMapBySerie = new Map();
     if (prevSnap && prevSnap.rows) {
       prevSnap.rows.forEach(r => {
-        prevMapBySerie.set(r.serie.toUpperCase(), r);
+        if (r && r.serie) prevMapBySerie.set(r.serie.trim().toUpperCase(), r);
       });
     }
 
     targetSnap.rows.forEach(row => {
       countTotalEquipos++;
-      const serieUpper = row.serie.toUpperCase();
+      const serieUpper = (row.serie || '').trim().toUpperCase();
       const prevRow = prevMapBySerie.get(serieUpper);
+      const historySupply = clientSupplyHistoryBySerie.get(serieUpper) || {};
 
       // Datos RDI
       const rdiInfo = (typeof rdiMapBySerie !== 'undefined') ? rdiMapBySerie.get(serieUpper) : null;
@@ -1534,20 +1696,69 @@ function refreshMonitoringAnalysis() {
       }
 
       // Detección estricta de Equipo de Color vs Monocromático:
-      // - Equipos de color: Comienzan con CX o CS (ej: CX725, CX522, CX625, CS521, CS820)
-      // - Equipos monocromáticos: Comienzan con MS o MX (ej: MS811, MX711, MS823, MX622, etc.)
-      // SOLO a los equipos que comienzan con CX o CS se les toman en cuenta los colores (Y, C, M, Desecho).
       const isColor = isColorPrinterModel(displayModelo) || isColorPrinterModel(row.modelo);
 
-      const tnrKNivel = row.tnrKNivel !== undefined && row.tnrKNivel !== null ? row.tnrKNivel : row.tnrNivel;
-      const tnrKSerie = formatSupplySerie(row.tnrKSerie || row.tnrSerie);
-      const tnrYNivel = isColor && row.tnrYNivel !== undefined ? row.tnrYNivel : null;
-      const tnrYSerie = isColor ? formatSupplySerie(row.tnrYSerie) : '';
-      const tnrCNivel = isColor && row.tnrCNivel !== undefined ? row.tnrCNivel : null;
-      const tnrCSerie = isColor ? formatSupplySerie(row.tnrCSerie) : '';
-      const tnrMNivel = isColor && row.tnrMNivel !== undefined ? row.tnrMNivel : null;
-      const tnrMSerie = isColor ? formatSupplySerie(row.tnrMSerie) : '';
-      const desechoNivel = isColor && row.desechoNivel !== undefined ? row.desechoNivel : null;
+      // Resolución y enriquecimiento de Tóner K / Mono
+      let tnrKNivel = row.tnrKNivel !== undefined && row.tnrKNivel !== null && !isNaN(row.tnrKNivel)
+        ? Number(row.tnrKNivel)
+        : (row.tnrNivel !== undefined && row.tnrNivel !== null && !isNaN(row.tnrNivel) ? Number(row.tnrNivel) : null);
+      if (tnrKNivel === null && historySupply.tnrKNivel !== null && historySupply.tnrKNivel !== undefined) {
+        tnrKNivel = historySupply.tnrKNivel;
+        row.tnrKNivel = tnrKNivel;
+        row.tnrNivel = tnrKNivel;
+      }
+      let tnrKSerie = formatSupplySerie(row.tnrKSerie || row.tnrSerie || historySupply.tnrKSerie);
+      if (!row.tnrKSerie && tnrKSerie) { row.tnrKSerie = tnrKSerie; row.tnrSerie = tnrKSerie; }
+
+      // Resolución y enriquecimiento de Colores para máquinas de color
+      let tnrYNivel = isColor && row.tnrYNivel !== undefined && row.tnrYNivel !== null && !isNaN(row.tnrYNivel) ? Number(row.tnrYNivel) : null;
+      let tnrYSerie = isColor ? formatSupplySerie(row.tnrYSerie) : '';
+      if (isColor && tnrYNivel === null && historySupply.tnrYNivel !== null && historySupply.tnrYNivel !== undefined) {
+        tnrYNivel = historySupply.tnrYNivel;
+        tnrYSerie = formatSupplySerie(historySupply.tnrYSerie);
+        row.tnrYNivel = tnrYNivel;
+        row.tnrYSerie = tnrYSerie;
+      }
+
+      let tnrCNivel = isColor && row.tnrCNivel !== undefined && row.tnrCNivel !== null && !isNaN(row.tnrCNivel) ? Number(row.tnrCNivel) : null;
+      let tnrCSerie = isColor ? formatSupplySerie(row.tnrCSerie) : '';
+      if (isColor && tnrCNivel === null && historySupply.tnrCNivel !== null && historySupply.tnrCNivel !== undefined) {
+        tnrCNivel = historySupply.tnrCNivel;
+        tnrCSerie = formatSupplySerie(historySupply.tnrCSerie);
+        row.tnrCNivel = tnrCNivel;
+        row.tnrCSerie = tnrCSerie;
+      }
+
+      let tnrMNivel = isColor && row.tnrMNivel !== undefined && row.tnrMNivel !== null && !isNaN(row.tnrMNivel) ? Number(row.tnrMNivel) : null;
+      let tnrMSerie = isColor ? formatSupplySerie(row.tnrMSerie) : '';
+      if (isColor && tnrMNivel === null && historySupply.tnrMNivel !== null && historySupply.tnrMNivel !== undefined) {
+        tnrMNivel = historySupply.tnrMNivel;
+        tnrMSerie = formatSupplySerie(historySupply.tnrMSerie);
+        row.tnrMNivel = tnrMNivel;
+        row.tnrMSerie = tnrMSerie;
+      }
+
+      let desechoNivel = isColor && row.desechoNivel !== undefined && row.desechoNivel !== null && !isNaN(row.desechoNivel) ? Number(row.desechoNivel) : null;
+      if (isColor && desechoNivel === null && historySupply.desechoNivel !== null && historySupply.desechoNivel !== undefined) {
+        desechoNivel = historySupply.desechoNivel;
+        row.desechoNivel = desechoNivel;
+      }
+
+      // Resolución y enriquecimiento de UDI y KMT
+      let rowUdi = (row.udiNivel !== undefined && row.udiNivel !== null && !isNaN(row.udiNivel)) ? Number(row.udiNivel) : null;
+      let rowUdiSerie = formatSupplySerie(row.udiSerie || '');
+      if (rowUdi === null && historySupply.udiNivel !== null && historySupply.udiNivel !== undefined) {
+        rowUdi = historySupply.udiNivel;
+        if (!rowUdiSerie && historySupply.udiSerie) rowUdiSerie = formatSupplySerie(historySupply.udiSerie);
+        row.udiNivel = rowUdi;
+        row.udiSerie = rowUdiSerie;
+      }
+
+      let rowKmt = (row.kmtNivel !== undefined && row.kmtNivel !== null && !isNaN(row.kmtNivel)) ? Number(row.kmtNivel) : null;
+      if (rowKmt === null && historySupply.kmtNivel !== null && historySupply.kmtNivel !== undefined) {
+        rowKmt = historySupply.kmtNivel;
+        row.kmtNivel = rowKmt;
+      }
 
       // Cálculo de Deltas y Detección de Reemplazo (Mono y Color)
       let deltaTnr = null;
@@ -1607,26 +1818,34 @@ function refreshMonitoringAnalysis() {
       let deltaUdi = null;
       let udiReplaced = false;
       if (prevRow) {
-        if (prevRow.udiNivel !== null && row.udiNivel !== null) {
-          deltaUdi = prevRow.udiNivel - row.udiNivel;
+        const prevUdi = (prevRow.udiNivel !== undefined && prevRow.udiNivel !== null && !isNaN(prevRow.udiNivel))
+          ? Number(prevRow.udiNivel)
+          : (historySupply.udiNivel !== null && historySupply.udiNivel !== undefined ? historySupply.udiNivel : null);
+        if (prevUdi !== null && rowUdi !== null) {
+          deltaUdi = prevUdi - rowUdi;
         }
-        if ((prevRow.udiSerie && row.udiSerie && prevRow.udiSerie !== row.udiSerie) ||
-            (prevRow.udiNivel !== null && prevRow.udiNivel <= 5 && row.udiNivel !== null && row.udiNivel >= 80)) {
+        if ((prevRow.udiSerie && rowUdiSerie && prevRow.udiSerie !== rowUdiSerie) ||
+            (prevUdi !== null && prevUdi <= 5 && rowUdi !== null && rowUdi >= 80)) {
           udiReplaced = true;
         }
       }
 
       let deltaKmt = null;
-      if (prevRow && prevRow.kmtNivel !== null && row.kmtNivel !== null) {
-        deltaKmt = prevRow.kmtNivel - row.kmtNivel;
+      if (prevRow) {
+        const prevKmt = (prevRow.kmtNivel !== undefined && prevRow.kmtNivel !== null && !isNaN(prevRow.kmtNivel))
+          ? Number(prevRow.kmtNivel)
+          : (historySupply.kmtNivel !== null && historySupply.kmtNivel !== undefined ? historySupply.kmtNivel : null);
+        if (prevKmt !== null && rowKmt !== null) {
+          deltaKmt = prevKmt - rowKmt;
+        }
       }
 
       // Alertas de Nivel Bajo
       const isTnrLow = (tnrKNivel !== null && tnrKNivel <= 15) || 
                        (row.estadoSuministro === 'Advertencia' && (tnrKNivel === null || tnrKNivel <= 15));
-      const isUdiLow = (row.udiNivel !== null && row.udiNivel <= 5) || 
-                       (row.estadoSuministro === 'Advertencia' && row.udiNivel <= 5);
-      const isKmtLow = (row.kmtNivel !== null && row.kmtNivel <= 3);
+      const isUdiLow = (rowUdi !== null && rowUdi <= 5) || 
+                       (row.estadoSuministro === 'Advertencia' && rowUdi !== null && rowUdi <= 5);
+      const isKmtLow = (rowKmt !== null && rowKmt <= 3);
 
       const isTnrKLow = isTnrLow;
       const isTnrYLow = isColor ? (tnrYNivel !== null && tnrYNivel <= 15) : false;
@@ -1694,11 +1913,11 @@ function refreshMonitoringAnalysis() {
         if (!stockTnrEvaluation || (!stockTnrEvaluation.inStock && !stockTnrEvaluation.inTransit)) {
           diagTnr = 'DESPACHO_REQUERIDO';
           if (stockTnrEvaluation && stockTnrEvaluation.discarded) {
-            reasonTnr = `🚨 Tóner en ${tnrKNivel !== null ? tnrKNivel + '%' : 'bajo'}. Último suministro (Folio #${stockTnrEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
+            reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Último suministro (Folio #${stockTnrEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
           } else if (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE')) {
-            reasonTnr = `🚨 Tóner en ${tnrKNivel !== null ? tnrKNivel + '%' : 'bajo'}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/en uso. Requiere nuevo despacho.`;
+            reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/en uso. Requiere nuevo despacho.`;
           } else {
-            reasonTnr = `🚨 Tóner en ${tnrKNivel !== null ? tnrKNivel + '%' : 'bajo'}. Sin registro de tóner en stock en FOLIOS.`;
+            reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Sin registro de tóner en stock en FOLIOS.`;
           }
         } else if (stockTnrEvaluation.inTransit) {
           diagTnr = 'EN_TRANSITO';
@@ -1719,11 +1938,11 @@ function refreshMonitoringAnalysis() {
         if (!stockUdiEvaluation || (!stockUdiEvaluation.inStock && !stockUdiEvaluation.inTransit)) {
           diagUdi = 'DESPACHO_REQUERIDO';
           if (stockUdiEvaluation && stockUdiEvaluation.discarded) {
-            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. Último suministro (Folio #${stockUdiEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
+            reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. Último suministro (Folio #${stockUdiEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
           } else if (stockUdiEvaluation && (stockUdiEvaluation.consumed || stockUdiEvaluation.status === 'IN_USE')) {
-            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. UDI de Folio #${stockUdiEvaluation.folNum} ya fue instalada/en uso. Requiere nuevo despacho.`;
+            reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. UDI de Folio #${stockUdiEvaluation.folNum} ya fue instalada/en uso. Requiere nuevo despacho.`;
           } else {
-            reasonUdi = `🚨 UDI en ${row.udiNivel !== null ? row.udiNivel + '%' : 'baja'}. Sin registro de UDI en stock en FOLIOS.`;
+            reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. Sin registro de UDI en stock en FOLIOS.`;
           }
         } else if (stockUdiEvaluation.inTransit) {
           diagUdi = 'EN_TRANSITO';
@@ -1740,7 +1959,7 @@ function refreshMonitoringAnalysis() {
       if (isKmtLow) {
         if (!stockKmtEvaluation || (!stockKmtEvaluation.inStock && !stockKmtEvaluation.inTransit)) {
           diagKmt = 'DESPACHO_REQUERIDO';
-          reasonKmt = `🚨 Kit de Mantenimiento en ${row.kmtNivel}%. Sin salidas registradas en FOLIOS.`;
+          reasonKmt = `🚨 Kit de Mantenimiento en ${formatLevelPercent(rowKmt, 'bajo')}. Sin salidas registradas en FOLIOS.`;
         } else if (stockKmtEvaluation.inTransit) {
           diagKmt = 'EN_TRANSITO';
           reasonKmt = `🚚 Kit de Mantenimiento en camino (Folio #${stockKmtEvaluation.folNum})`;
@@ -1823,9 +2042,9 @@ function refreshMonitoringAnalysis() {
         // 1. DESPACHO REQUERIDO (Alerta Urgente)
         if (diagTnr === 'DESPACHO_REQUERIDO' && diagUdi === 'DESPACHO_REQUERIDO') {
           overallDiag = 'DESPACHO_REQUERIDO';
-          primaryReason = `🚨 Despacho requerido: Tóner (${tnrKNivel}%) y UDI (${row.udiNivel}%) críticos sin stock en sitio.`;
-          alertSupplyType = ((tnrKNivel !== null ? tnrKNivel : 15) <= (row.udiNivel !== null ? row.udiNivel : 5) ? 'TNR' : 'UDI');
-          alertLevel = Math.min(tnrKNivel !== null ? tnrKNivel : 15, row.udiNivel !== null ? row.udiNivel : 5);
+          primaryReason = `🚨 Despacho requerido: Tóner (${formatLevelPercent(tnrKNivel)}) y UDI (${formatLevelPercent(rowUdi)}) críticos sin stock en sitio.`;
+          alertSupplyType = ((tnrKNivel !== null ? tnrKNivel : 15) <= (rowUdi !== null ? rowUdi : 5) ? 'TNR' : 'UDI');
+          alertLevel = Math.min(tnrKNivel !== null ? tnrKNivel : 15, rowUdi !== null ? rowUdi : 5);
           relevantFolio = (alertSupplyType === 'TNR' ? lastTnrFolio : lastUdiFolio) || sortedFolios[0];
         } else if (diagTnr === 'DESPACHO_REQUERIDO') {
           overallDiag = 'DESPACHO_REQUERIDO';
@@ -1837,13 +2056,13 @@ function refreshMonitoringAnalysis() {
           overallDiag = 'DESPACHO_REQUERIDO';
           primaryReason = reasonUdi + (diagTnr === 'STOCK_EN_SITIO' ? ` (Tóner cuenta con stock en tienda: Folio #${stockTnrEvaluation.folNum})` : '');
           alertSupplyType = 'UDI';
-          alertLevel = row.udiNivel;
+          alertLevel = rowUdi;
           relevantFolio = lastUdiFolio || sortedFolios[0];
         } else if (diagKmt === 'DESPACHO_REQUERIDO') {
           overallDiag = 'DESPACHO_REQUERIDO';
           primaryReason = reasonKmt;
           alertSupplyType = 'KMT';
-          alertLevel = row.kmtNivel;
+          alertLevel = rowKmt;
           relevantFolio = lastKmtFolio || sortedFolios[0];
         } 
         // 2. REPOSICIÓN DE STOCK (Consumido recientemente en sitio)
@@ -1956,15 +2175,15 @@ function refreshMonitoringAnalysis() {
         reasonTnr,
         isTnrLow: isColor ? isTnrKLow : isTnrLow,
 
-        udiNivel: row.udiNivel,
-        udiSerie: formatSupplySerie(row.udiSerie),
+        udiNivel: rowUdi,
+        udiSerie: rowUdiSerie,
         deltaUdi,
         udiReplaced,
         diagUdi,
         reasonUdi,
         isUdiLow,
 
-        kmtNivel: row.kmtNivel,
+        kmtNivel: rowKmt,
         deltaKmt,
         diagKmt,
         reasonKmt,
@@ -3260,7 +3479,7 @@ function renderMonitoringTable() {
             <div class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
               <div class="flex items-center justify-between text-[10px] font-bold">
                 <span class="inline-flex items-center gap-1 text-slate-900 dark:text-slate-100"><span class="w-2 h-2 rounded-full bg-slate-900 dark:bg-white inline-block"></span> K</span>
-                <span class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrKNivel !== null ? r.tnrKNivel + '%' : 'N/D'}</span>
+                <span class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(r.tnrKNivel)}</span>
               </div>
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-600' : 'bg-slate-800 dark:bg-slate-300'} h-1 rounded-full" style="width: ${r.tnrKNivel || 0}%"></div>
@@ -3275,7 +3494,7 @@ function renderMonitoringTable() {
             <div class="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800">
               <div class="flex items-center justify-between text-[10px] font-bold">
                 <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Y</span>
-                <span class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrYNivel !== null ? r.tnrYNivel + '%' : 'N/D'}</span>
+                <span class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(r.tnrYNivel)}</span>
               </div>
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-600' : 'bg-amber-400'} h-1 rounded-full" style="width: ${r.tnrYNivel || 0}%"></div>
@@ -3290,7 +3509,7 @@ function renderMonitoringTable() {
             <div class="p-1.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-800">
               <div class="flex items-center justify-between text-[10px] font-bold">
                 <span class="inline-flex items-center gap-1 text-cyan-700 dark:text-cyan-300"><span class="w-2 h-2 rounded-full bg-cyan-500 inline-block"></span> C</span>
-                <span class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrCNivel !== null ? r.tnrCNivel + '%' : 'N/D'}</span>
+                <span class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(r.tnrCNivel)}</span>
               </div>
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-600' : 'bg-cyan-500'} h-1 rounded-full" style="width: ${r.tnrCNivel || 0}%"></div>
@@ -3305,7 +3524,7 @@ function renderMonitoringTable() {
             <div class="p-1.5 rounded-lg bg-pink-50 dark:bg-pink-950/40 border border-pink-300 dark:border-pink-800">
               <div class="flex items-center justify-between text-[10px] font-bold">
                 <span class="inline-flex items-center gap-1 text-pink-700 dark:text-pink-300"><span class="w-2 h-2 rounded-full bg-pink-500 inline-block"></span> M</span>
-                <span class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${r.tnrMNivel !== null ? r.tnrMNivel + '%' : 'N/D'}</span>
+                <span class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'text-rose-600 font-bold' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(r.tnrMNivel)}</span>
               </div>
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-0.5 overflow-hidden">
                 <div class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-600' : 'bg-pink-500'} h-1 rounded-full" style="width: ${r.tnrMNivel || 0}%"></div>
@@ -3320,11 +3539,11 @@ function renderMonitoringTable() {
         ` : `
         <td class="py-2.5 px-3">
           <div class="flex items-center justify-between gap-1 mb-1">
-            <span class="font-bold text-slate-800 dark:text-slate-200">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+            <span class="font-bold text-slate-800 dark:text-slate-200">${formatLevelPercent(r.tnrNivel)}</span>
             ${deltaTnrBadge}
           </div>
           <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-            <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+            <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null && r.tnrNivel !== undefined && !isNaN(r.tnrNivel) ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
           </div>
           <div class="mt-1 flex items-center gap-1">
             <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie TNR instalada: ${r.tnrSerie || 'N/D'}">
@@ -3338,21 +3557,21 @@ function renderMonitoringTable() {
         <td class="py-2.5 px-3">
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="font-bold text-[10px] text-purple-700 dark:text-purple-300">🪣 Desecho Residual</span>
-            <span class="font-bold text-slate-800 dark:text-slate-200 ${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'text-rose-600 font-black' : ''}">${r.desechoNivel !== null ? r.desechoNivel + '%' : 'N/D'}</span>
+            <span class="font-bold text-slate-800 dark:text-slate-200 ${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'text-rose-600 font-black' : ''}">${formatLevelPercent(r.desechoNivel)}</span>
           </div>
           <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-            <div class="${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'bg-rose-600' : 'bg-purple-500'} h-1.5 rounded-full" style="width: ${r.desechoNivel !== null ? Math.max(3, Math.min(100, r.desechoNivel)) : 0}%"></div>
+            <div class="${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'bg-rose-600' : 'bg-purple-500'} h-1.5 rounded-full" style="width: ${r.desechoNivel !== null && r.desechoNivel !== undefined && !isNaN(r.desechoNivel) ? Math.max(3, Math.min(100, r.desechoNivel)) : 0}%"></div>
           </div>
           <span class="text-[9px] text-slate-400 mt-1 block">Contenedor WTB</span>
         </td>
         ` : `
         <td class="py-2.5 px-3">
           <div class="flex items-center justify-between gap-1 mb-1">
-            <span class="font-bold text-slate-800 dark:text-slate-200">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+            <span class="font-bold text-slate-800 dark:text-slate-200">${formatLevelPercent(r.udiNivel)}</span>
             ${deltaUdiBadge}
           </div>
           <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-            <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
+            <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null && r.udiNivel !== undefined && !isNaN(r.udiNivel) ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
           </div>
           <div class="mt-1 flex items-center gap-1">
             <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie UDI instalada: ${r.udiSerie || 'N/D'}">
@@ -3363,8 +3582,8 @@ function renderMonitoringTable() {
         </td>
         `}
         <td class="py-2.5 px-3">
-          ${r.kmtNivel !== null ? `
-            <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${r.kmtNivel}%</span>
+          ${(r.kmtNivel !== null && r.kmtNivel !== undefined && !isNaN(r.kmtNivel)) ? `
+            <span class="font-bold text-slate-800 dark:text-slate-200 mb-1 block">${formatLevelPercent(r.kmtNivel)}</span>
             <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
               <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel}%"></div>
             </div>
@@ -3469,18 +3688,18 @@ function renderMonitoringTable() {
           ${r.isColor ? `
             <div class="flex items-center gap-1.5 flex-wrap text-[10px] font-mono py-1 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60">
               <span class="font-sans font-bold text-[9px] text-slate-500 uppercase tracking-wider">Tóner:</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">K: ${r.tnrKNivel !== null ? r.tnrKNivel + '%' : 'N/D'}</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}">Y: ${r.tnrYNivel !== null ? r.tnrYNivel + '%' : 'N/D'}</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300'}">C: ${r.tnrCNivel !== null ? r.tnrCNivel + '%' : 'N/D'}</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300'}">M: ${r.tnrMNivel !== null ? r.tnrMNivel + '%' : 'N/D'}</span>
-              ${r.desechoNivel !== null ? `<span class="px-1.5 py-0.5 rounded font-bold ${r.desechoNivel >= 85 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'}">WTB: ${r.desechoNivel}%</span>` : ''}
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">K: ${formatLevelPercent(r.tnrKNivel)}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}">Y: ${formatLevelPercent(r.tnrYNivel)}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300'}">C: ${formatLevelPercent(r.tnrCNivel)}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300'}">M: ${formatLevelPercent(r.tnrMNivel)}</span>
+              ${r.desechoNivel !== null && r.desechoNivel !== undefined ? `<span class="px-1.5 py-0.5 rounded font-bold ${r.desechoNivel >= 85 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'}">WTB: ${formatLevelPercent(r.desechoNivel)}</span>` : ''}
             </div>
           ` : `
             <div class="flex items-center gap-1.5 flex-wrap text-[10px] font-mono py-1 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60">
               <span class="font-sans font-bold text-[9px] text-slate-500 uppercase tracking-wider">Niveles:</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrNivel !== null && r.tnrNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">TNR: ${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.udiNivel !== null && r.udiNivel <= 5 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">UDI: ${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
-              <span class="px-1.5 py-0.5 rounded font-black ${r.kmtNivel !== null && r.kmtNivel <= 3 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">KMT: ${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrNivel !== null && r.tnrNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">TNR: ${formatLevelPercent(r.tnrNivel)}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.udiNivel !== null && r.udiNivel <= 5 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">UDI: ${formatLevelPercent(r.udiNivel)}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.kmtNivel !== null && r.kmtNivel <= 3 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">KMT: ${formatLevelPercent(r.kmtNivel, 'No aplica')}</span>
             </div>
           `}
 
@@ -3507,7 +3726,7 @@ function renderMonitoringTable() {
               <div>
                 <div class="flex items-center justify-between text-[10px] font-bold text-slate-800 dark:text-slate-200">
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-900 dark:bg-white inline-block"></span> Negro (K)</span>
-                  <span class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrKNivel !== null ? r.tnrKNivel + '%' : 'N/D'}</span>
+                  <span class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'text-rose-600 font-black' : ''}">${formatLevelPercent(r.tnrKNivel)}</span>
                 </div>
                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
                   <div class="${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-600' : 'bg-slate-800 dark:bg-slate-300'} h-1.5 rounded-full" style="width: ${r.tnrKNivel || 0}%"></div>
@@ -3527,7 +3746,7 @@ function renderMonitoringTable() {
               <div>
                 <div class="flex items-center justify-between text-[10px] font-bold text-amber-800 dark:text-amber-300">
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Amarillo (Y)</span>
-                  <span class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrYNivel !== null ? r.tnrYNivel + '%' : 'N/D'}</span>
+                  <span class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'text-rose-600 font-black' : ''}">${formatLevelPercent(r.tnrYNivel)}</span>
                 </div>
                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
                   <div class="${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-600' : 'bg-amber-400'} h-1.5 rounded-full" style="width: ${r.tnrYNivel || 0}%"></div>
@@ -3547,7 +3766,7 @@ function renderMonitoringTable() {
               <div>
                 <div class="flex items-center justify-between text-[10px] font-bold text-cyan-800 dark:text-cyan-300">
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-500 inline-block"></span> Cian (C)</span>
-                  <span class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrCNivel !== null ? r.tnrCNivel + '%' : 'N/D'}</span>
+                  <span class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'text-rose-600 font-black' : ''}">${formatLevelPercent(r.tnrCNivel)}</span>
                 </div>
                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
                   <div class="${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-600' : 'bg-cyan-500'} h-1.5 rounded-full" style="width: ${r.tnrCNivel || 0}%"></div>
@@ -3567,7 +3786,7 @@ function renderMonitoringTable() {
               <div>
                 <div class="flex items-center justify-between text-[10px] font-bold text-pink-800 dark:text-pink-300">
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pink-500 inline-block"></span> Magenta (M)</span>
-                  <span class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'text-rose-600 font-black' : ''}">${r.tnrMNivel !== null ? r.tnrMNivel + '%' : 'N/D'}</span>
+                  <span class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'text-rose-600 font-black' : ''}">${formatLevelPercent(r.tnrMNivel)}</span>
                 </div>
                 <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
                   <div class="${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-600' : 'bg-pink-500'} h-1.5 rounded-full" style="width: ${r.tnrMNivel || 0}%"></div>
@@ -3587,7 +3806,7 @@ function renderMonitoringTable() {
           <div class="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 flex items-center justify-between text-xs">
             <span class="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">🪣 Contenedor de Desecho (WTB):</span>
             <div class="flex items-center gap-2">
-              <span class="font-bold ${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'text-rose-600 font-black' : 'text-purple-800 dark:text-purple-200'}">${r.desechoNivel !== null ? r.desechoNivel + '%' : 'N/D'}</span>
+              <span class="font-bold ${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'text-rose-600 font-black' : 'text-purple-800 dark:text-purple-200'}">${formatLevelPercent(r.desechoNivel)}</span>
               <div class="w-20 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                 <div class="${r.desechoNivel !== null && r.desechoNivel >= 85 ? 'bg-rose-600' : 'bg-purple-500'} h-1.5 rounded-full" style="width: ${r.desechoNivel || 0}%"></div>
               </div>
@@ -3601,10 +3820,10 @@ function renderMonitoringTable() {
             <div>
               <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
                 <span>Tóner (TNR)</span>
-                <span class="${r.tnrNivel !== null && r.tnrNivel <= 5 ? 'text-rose-600 font-bold' : (r.tnrNivel !== null && r.tnrNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+                <span class="${r.tnrNivel !== null && r.tnrNivel <= 5 ? 'text-rose-600 font-bold' : (r.tnrNivel !== null && r.tnrNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${formatLevelPercent(r.tnrNivel)}</span>
               </div>
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
-                <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
+                <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null && r.tnrNivel !== undefined && !isNaN(r.tnrNivel) ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
               </div>
               <div class="mt-1">${deltaTnrBadge}</div>
             </div>
@@ -3623,10 +3842,10 @@ function renderMonitoringTable() {
             <div>
               <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
                 <span>Imagen (UDI)</span>
-                <span class="${r.udiNivel !== null && r.udiNivel <= 5 ? 'text-rose-600 font-bold' : (r.udiNivel !== null && r.udiNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+                <span class="${r.udiNivel !== null && r.udiNivel <= 5 ? 'text-rose-600 font-bold' : (r.udiNivel !== null && r.udiNivel <= 15 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${formatLevelPercent(r.udiNivel)}</span>
               </div>
               <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
-                <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
+                <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null && r.udiNivel !== undefined && !isNaN(r.udiNivel) ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
               </div>
               <div class="mt-1">${deltaUdiBadge}</div>
             </div>
@@ -3644,10 +3863,10 @@ function renderMonitoringTable() {
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl">
             <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
               <span>Mantto (KMT)</span>
-              <span class="${r.kmtNivel !== null && r.kmtNivel <= 3 ? 'text-rose-600 font-bold' : (r.kmtNivel !== null && r.kmtNivel <= 10 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+              <span class="${r.kmtNivel !== null && r.kmtNivel <= 3 ? 'text-rose-600 font-bold' : (r.kmtNivel !== null && r.kmtNivel <= 10 ? 'text-amber-600 font-bold' : 'text-slate-700 dark:text-slate-200')}">${formatLevelPercent(r.kmtNivel, 'No aplica')}</span>
             </div>
             <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
-              <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
+              <div class="${kmtBarColor} h-1.5 rounded-full" style="width: ${r.kmtNivel !== null && r.kmtNivel !== undefined && !isNaN(r.kmtNivel) ? Math.max(3, Math.min(100, r.kmtNivel)) : 0}%"></div>
             </div>
           </div>
         </div>
@@ -4445,7 +4664,7 @@ function openEquipmentHistoryModal(serie) {
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-900 dark:bg-white inline-block"></span> Tóner Negro (TNRK)</span>
-                <span class="font-bold text-xs ${matchProcessed.isTnrKLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrKNivel !== null ? matchProcessed.tnrKNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrKLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrKNivel)}</span>
               </div>
               <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrKSerie || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -4470,7 +4689,7 @@ function openEquipmentHistoryModal(serie) {
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Tóner Amarillo (TNRY)</span>
-                <span class="font-bold text-xs ${matchProcessed.isTnrYLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrYNivel !== null ? matchProcessed.tnrYNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrYLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrYNivel)}</span>
               </div>
               <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrYSerie || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -4495,7 +4714,7 @@ function openEquipmentHistoryModal(serie) {
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-cyan-800 dark:text-cyan-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block"></span> Tóner Cian (TNRC)</span>
-                <span class="font-bold text-xs ${matchProcessed.isTnrCLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrCNivel !== null ? matchProcessed.tnrCNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrCLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrCNivel)}</span>
               </div>
               <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrCSerie || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -4520,7 +4739,7 @@ function openEquipmentHistoryModal(serie) {
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-pink-800 dark:text-pink-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span> Tóner Magenta (TNRM)</span>
-                <span class="font-bold text-xs ${matchProcessed.isTnrMLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${matchProcessed.tnrMNivel !== null ? matchProcessed.tnrMNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed.isTnrMLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrMNivel)}</span>
               </div>
               <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrMSerie || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -4545,7 +4764,7 @@ function openEquipmentHistoryModal(serie) {
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1">🪣 Desecho (WTB)</span>
-                <span class="font-bold text-xs ${matchProcessed.isWtbCritical ? 'text-rose-600' : 'text-purple-800 dark:text-purple-200'}">${matchProcessed.desechoNivel !== null ? matchProcessed.desechoNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed.isWtbCritical ? 'text-rose-600' : 'text-purple-800 dark:text-purple-200'}">${formatLevelPercent(matchProcessed.desechoNivel)}</span>
               </div>
               <div class="text-[10px] text-slate-500 mt-1">Contenedor Residual de Tóner</div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -4573,7 +4792,7 @@ function openEquipmentHistoryModal(serie) {
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-bold text-slate-800 dark:text-slate-100">🖨️ Tóner (TNR):</span>
-                <span class="font-bold text-xs ${matchProcessed && matchProcessed.isTnrLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${matchProcessed && matchProcessed.tnrNivel !== null ? matchProcessed.tnrNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed && matchProcessed.isTnrLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${formatLevelPercent(matchProcessed ? matchProcessed.tnrNivel : null)}</span>
               </div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${matchProcessed && matchProcessed.lastTnrFolio ? `
@@ -4603,7 +4822,7 @@ function openEquipmentHistoryModal(serie) {
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-bold text-slate-800 dark:text-slate-100">⚙️ UDI (Imagen):</span>
-                <span class="font-bold text-xs ${matchProcessed && matchProcessed.isUdiLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${matchProcessed && matchProcessed.udiNivel !== null ? matchProcessed.udiNivel + '%' : 'N/D'}</span>
+                <span class="font-bold text-xs ${matchProcessed && matchProcessed.isUdiLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}">${formatLevelPercent(matchProcessed ? matchProcessed.udiNivel : null)}</span>
               </div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${matchProcessed && matchProcessed.lastUdiFolio ? `
@@ -4712,10 +4931,10 @@ function openEquipmentHistoryModal(serie) {
             <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatDateTimeWithDay(h.uploadDate)}</td>
             <td class="py-2 px-3">
               <div class="flex items-center gap-1.5 flex-wrap text-[11px] font-bold">
-                <span class="text-slate-900 dark:text-white" title="Negro (K)">⚫ ${h.tnrKNivel !== null ? h.tnrKNivel + '%' : 'N/D'}</span>
-                <span class="text-amber-600 dark:text-amber-400" title="Amarillo (Y)">🟡 ${h.tnrYNivel !== null ? h.tnrYNivel + '%' : 'N/D'}</span>
-                <span class="text-cyan-600 dark:text-cyan-400" title="Cian (C)">🔵 ${h.tnrCNivel !== null ? h.tnrCNivel + '%' : 'N/D'}</span>
-                <span class="text-pink-600 dark:text-pink-400" title="Magenta (M)">🔴 ${h.tnrMNivel !== null ? h.tnrMNivel + '%' : 'N/D'}</span>
+                <span class="text-slate-900 dark:text-white" title="Negro (K)">⚫ ${formatLevelPercent(h.tnrKNivel)}</span>
+                <span class="text-amber-600 dark:text-amber-400" title="Amarillo (Y)">🟡 ${formatLevelPercent(h.tnrYNivel)}</span>
+                <span class="text-cyan-600 dark:text-cyan-400" title="Cian (C)">🔵 ${formatLevelPercent(h.tnrCNivel)}</span>
+                <span class="text-pink-600 dark:text-pink-400" title="Magenta (M)">🔴 ${formatLevelPercent(h.tnrMNivel)}</span>
               </div>
             </td>
             <td class="py-2 px-3 font-mono text-slate-500 text-[10px]">
@@ -4724,7 +4943,7 @@ function openEquipmentHistoryModal(serie) {
               </span>
             </td>
             <td class="py-2 px-3 font-bold text-purple-700 dark:text-purple-300">
-              🪣 ${h.desechoNivel !== null ? h.desechoNivel + '%' : 'N/D'}
+              🪣 ${formatLevelPercent(h.desechoNivel)}
             </td>
             <td class="py-2 px-3 text-slate-400 italic">No aplica</td>
             <td class="py-2 px-3 font-mono text-slate-500">${h.paginasCarro || 'N/D'}</td>
@@ -4739,10 +4958,10 @@ function openEquipmentHistoryModal(serie) {
         } else {
           tr.innerHTML = `
             <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatDateTimeWithDay(h.uploadDate)}</td>
-            <td class="py-2 px-3 font-bold text-slate-900 dark:text-white">${h.tnrNivel !== null ? h.tnrNivel + '%' : 'N/D'}${deltaTnrText}</td>
+            <td class="py-2 px-3 font-bold text-slate-900 dark:text-white">${formatLevelPercent(h.tnrNivel)}${deltaTnrText}</td>
             <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-300 text-[11px]">${h.tnrSerie || 'N/D'}</td>
-            <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">${h.udiNivel !== null ? h.udiNivel + '%' : 'N/D'}</td>
-            <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${h.kmtNivel !== null ? h.kmtNivel + '%' : 'N/D'}</td>
+            <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">${formatLevelPercent(h.udiNivel)}</td>
+            <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatLevelPercent(h.kmtNivel, 'No aplica')}</td>
             <td class="py-2 px-3 font-mono text-slate-500">${h.paginasCarro || 'N/D'}</td>
             <td class="py-2 px-3">
               <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -4970,17 +5189,17 @@ function exportMonitoringAuditToExcel() {
       'MODELO': r.modelo,
       'DIRECCIÓN IP': r.ip,
       'TIENDA / UBICACIÓN': r.ubicacion,
-      'DET': r.det,
-      'TNR (%)': r.tnrNivel !== null ? r.tnrNivel : '',
-      'CAÍDA TNR (Δ %)': r.deltaTnr !== null ? r.deltaTnr : '',
-      'SERIE TNR INSTALADA': r.tnrSerie,
+      'DET': r.det || '',
+      'TNR (%)': (r.tnrNivel !== null && r.tnrNivel !== undefined && !isNaN(r.tnrNivel)) ? r.tnrNivel : '',
+      'CAÍDA TNR (Δ %)': (r.deltaTnr !== null && r.deltaTnr !== undefined && !isNaN(r.deltaTnr)) ? r.deltaTnr : '',
+      'SERIE TNR INSTALADA': r.tnrSerie || '',
       'TÓNER REEMPLAZADO': r.tnrReplaced ? 'SÍ' : 'NO',
-      'PÁGINAS CARRO': r.paginasCarro,
-      'UDI (%)': r.udiNivel !== null ? r.udiNivel : '',
-      'CAÍDA UDI (Δ %)': r.deltaUdi !== null ? r.deltaUdi : '',
-      'SERIE UDI INSTALADA': r.udiSerie,
+      'PÁGINAS CARRO': r.paginasCarro || '',
+      'UDI (%)': (r.udiNivel !== null && r.udiNivel !== undefined && !isNaN(r.udiNivel)) ? r.udiNivel : '',
+      'CAÍDA UDI (Δ %)': (r.deltaUdi !== null && r.deltaUdi !== undefined && !isNaN(r.deltaUdi)) ? r.deltaUdi : '',
+      'SERIE UDI INSTALADA': r.udiSerie || '',
       'UDI REEMPLAZADA': r.udiReplaced ? 'SÍ' : 'NO',
-      'KMT (%)': r.kmtNivel !== null ? r.kmtNivel : '',
+      'KMT (%)': (r.kmtNivel !== null && r.kmtNivel !== undefined && !isNaN(r.kmtNivel)) ? r.kmtNivel : '',
       'DIAGNÓSTICO STOCK EN SITIO': r.overallDiag,
       'DETALLE DE DIAGNÓSTICO': r.primaryReason,
       'ÚLTIMO FOLIO DESPACHADO': fNum,
