@@ -79,7 +79,7 @@
   <!-- Datos Iniciales de Monitoreo de Consumibles (BAC y WALMART) -->
   <script src="default_monitoring_data.js?v=20260929_3"></script>
   <!-- Motor de Diagnóstico y Gestión de Monitoreo Fleet & Stock en Sitio -->
-  <script src="monitoring_engine.js?v=20260930_1"></script>
+  <script src="monitoring_engine.js?v=20260930_3"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -8976,10 +8976,14 @@
       switchSuiteTab('dashboard');
       closeDashboardAnalysis(true);
 
-      // Sincronización en segundo plano de ODS con Firebase Nube
+      // Sincronización en segundo plano de ODS con Firebase Nube y Google Sheets para Folios
       setTimeout(() => {
         syncOdsToFirebase(false);
         initFirebaseOdsSync();
+        syncSalidasFoliosFromGoogleSheet(false);
+        if (typeof initFirebaseMonitoringSync === 'function') {
+          initFirebaseMonitoringSync();
+        }
       }, 900);
 
       updateStorageUI('loaded', state.timestamp);
@@ -9450,9 +9454,18 @@
       if (tabId === 'ods') tabId = 'tickets';
       if (tabId === 'folios') tabId = 'salidas';
 
-      // Si ya está en la pestaña solicitada y visible, evitar trabajo redundante
+      // Si ya está en la pestaña solicitada y visible, forzar refresco de datos en vivo (útil en móvil al volver a tocar la pestaña)
       const targetView = document.getElementById(tabId + 'ViewModule');
       if (currentActiveSuiteTab === tabId && targetView && !targetView.classList.contains('hidden')) {
+        if (tabId === 'salidas') {
+          syncSalidasFoliosFromGoogleSheet(false);
+          updateSalidasKPIs();
+          filterSalidasTable();
+        } else if (tabId === 'monitoreo') {
+          if (typeof updateMonitoringSnapshotSelect === 'function') updateMonitoringSnapshotSelect();
+          if (typeof renderMonitoringClientPills === 'function') renderMonitoringClientPills();
+          if (typeof refreshMonitoringAnalysis === 'function') refreshMonitoringAnalysis();
+        }
         return;
       }
 
@@ -9530,23 +9543,20 @@
       // Desplazamiento instantáneo al tope (auto en vez de smooth para no secuestrar frames táctiles en móvil)
       window.scrollTo({ top: 0, behavior: 'auto' });
 
-      // 2. EJECUCIÓN ASÍNCRONA DESACOPLADA (Solo si la pestaña está sucia o requiere primer render)
+      // 2. EJECUCIÓN ASÍNCRONA DESACOPLADA
       const isDirty = suiteTabsDirty[tabId];
 
       if (tabId === 'salidas') {
-        // Auto-sincronizar si han pasado más de 2 minutos desde la última consulta
-        if (Date.now() - lastGoogleSheetsSyncTimestamp > 120000) {
+        // Auto-sincronizar si han pasado más de 1 minuto desde la última consulta
+        if (Date.now() - lastGoogleSheetsSyncTimestamp > 60000) {
           syncSalidasFoliosFromGoogleSheet(false);
         }
-        const tbody = document.getElementById('salidasTableBody');
-        const needsRender = isDirty || !tbody || tbody.children.length === 0;
-        if (needsRender) {
-          pendingTabTaskTimeout = setTimeout(() => {
-            updateSalidasKPIs();
-            filterSalidasTable();
-            suiteTabsDirty.salidas = false;
-          }, 0);
-        }
+        // En móvil y escritorio, siempre refrescar KPIs y tarjetas/tabla de Salidas
+        pendingTabTaskTimeout = setTimeout(() => {
+          updateSalidasKPIs();
+          filterSalidasTable();
+          suiteTabsDirty.salidas = false;
+        }, 0);
       } else if (tabId === 'tickets') {
         const tbody = document.getElementById('odsTableBody');
         const needsRender = isDirty || !tbody || tbody.children.length === 0;
@@ -9573,6 +9583,12 @@
         }, 0);
       } else if (tabId === 'monitoreo') {
         pendingTabTaskTimeout = setTimeout(() => {
+          if (typeof updateMonitoringSnapshotSelect === 'function') {
+            updateMonitoringSnapshotSelect();
+          }
+          if (typeof renderMonitoringClientPills === 'function') {
+            renderMonitoringClientPills();
+          }
           if (typeof initMonitoringModule === 'function') {
             initMonitoringModule(true);
           }
@@ -10657,12 +10673,38 @@
             if (existingMap.has(key)) {
               const existIdx = existingMap.get(key);
               const existRow = currentFolios[existIdx];
-              // Actualizar datos complementarios (como ticket de AppSheet) SIN alterar el estado local existente
-              if (!existRow['ID_TICKET'] && incRow['ID_TICKET']) {
+              let changed = false;
+              if (incRow['STATUS BACKUP'] && incRow['STATUS BACKUP'] !== existRow['STATUS BACKUP']) {
+                existRow['STATUS BACKUP'] = incRow['STATUS BACKUP'];
+                existRow['ESTADO SUM'] = incRow['ESTADO SUM'];
+                changed = true;
+              }
+              if (incRow['ID_TICKET'] && incRow['ID_TICKET'] !== existRow['ID_TICKET']) {
                 existRow['ID_TICKET'] = incRow['ID_TICKET'];
                 existRow['SOLICITUD APPSHEET'] = incRow['SOLICITUD APPSHEET'];
-                updatedCount++;
+                changed = true;
               }
+              if (incRow['FECHA'] && incRow['FECHA'] !== existRow['FECHA']) {
+                existRow['FECHA'] = incRow['FECHA'];
+                changed = true;
+              }
+              if (incRow['DESTINO'] && incRow['DESTINO'] !== existRow['DESTINO']) {
+                existRow['DESTINO'] = incRow['DESTINO'];
+                changed = true;
+              }
+              if (incRow['UBICACIÓN'] && incRow['UBICACIÓN'] !== existRow['UBICACIÓN']) {
+                existRow['UBICACIÓN'] = incRow['UBICACIÓN'];
+                changed = true;
+              }
+              if (incRow['CLIENTE'] && incRow['CLIENTE'] !== existRow['CLIENTE']) {
+                existRow['CLIENTE'] = incRow['CLIENTE'];
+                changed = true;
+              }
+              if (incRow['IP'] && incRow['IP'] !== existRow['IP']) {
+                existRow['IP'] = incRow['IP'];
+                changed = true;
+              }
+              if (changed) updatedCount++;
             } else {
               // Registro totalmente nuevo (ej. 7938 a 7943)
               newItemsToPrepend.push(incRow);
@@ -10697,6 +10739,10 @@
           filterSalidasTable();
         }
 
+        // Marcar pestañas sincronizadas
+        suiteTabsDirty.salidas = false;
+        suiteTabsDirty.monitoreo = false;
+
         // 6. Guardar en almacenamiento permanente del navegador (IndexedDB)
         saveToIndexedDB();
 
@@ -10717,7 +10763,9 @@
 
         const msg = newCount > 0
           ? `🟢 ¡Sincronización exitosa con Google Sheets! Se incorporaron ${newCount} registro(s) nuevos. Último folio: #${maxFolio}.`
-          : `🟢 Folios al día con Google Sheets. Último folio registrado: #${maxFolio}.`;
+          : (updatedCount > 0 
+            ? `🟢 Se actualizaron ${updatedCount} folios con datos frescos de Google Sheets. Último: #${maxFolio}.`
+            : `🟢 Folios al día con Google Sheets. Último folio registrado: #${maxFolio}.`);
 
         if (isManual || newCount > 0) {
           showToast(msg);
@@ -11326,7 +11374,7 @@
     };
     let currentDrawerFolioIndex = null;
 
-    function setSalidasViewMode(mode) {
+    function setSalidasViewMode(mode, skipRender = false) {
       salidasViewMode = mode;
       try { localStorage.setItem('iexca_salidas_view_mode', mode); } catch(e) {}
       const btnCards = document.getElementById('btnSalidasViewCards');
@@ -11352,6 +11400,10 @@
         }
         if (cardsCont) cardsCont.classList.add('hidden');
         if (tableCont) tableCont.classList.remove('hidden');
+      }
+
+      if (!skipRender && salidasFilteredData && salidasFilteredData.length > 0) {
+        renderSalidasTable();
       }
     }
     window.setSalidasViewMode = setSalidasViewMode;
@@ -11569,8 +11621,8 @@
         }
       }
 
-      // Asegurar modo de vista
-      setSalidasViewMode(salidasViewMode);
+      // Asegurar modo de vista sin provocar bucle de re-render
+      setSalidasViewMode(salidasViewMode, true);
 
       const start = (salidasCurrentPage - 1) * salidasPageSize;
       const pageData = salidasFilteredData.slice(start, start + salidasPageSize);
