@@ -3013,6 +3013,35 @@ function renderMonitoringTable() {
   const renderCards = monitoringViewMode === 'cards' || (monitoringViewMode === 'auto' && isMobileScreen);
   const renderTable = monitoringViewMode === 'table' || (monitoringViewMode === 'auto' && !isMobileScreen);
 
+  // Sincronizar visibilidad de contenedores y estilos de botones
+  const cardsCont = document.getElementById('monitoringMobileCardsContainer');
+  const tableCont = document.getElementById('monitoringTableContainer');
+  const swipeBanner = document.getElementById('monitoringMobileSwipeBanner');
+  const btnCards = document.getElementById('btnMonitoringViewCards');
+  const btnTable = document.getElementById('btnMonitoringViewTable');
+
+  if (renderCards) {
+    if (cardsCont) cardsCont.classList.remove('hidden');
+    if (tableCont) tableCont.classList.add('hidden');
+    if (swipeBanner) swipeBanner.classList.add('hidden');
+    if (btnCards) {
+      btnCards.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-xs';
+    }
+    if (btnTable) {
+      btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+    }
+  } else {
+    if (cardsCont) cardsCont.classList.add('hidden');
+    if (tableCont) tableCont.classList.remove('hidden');
+    if (swipeBanner) swipeBanner.classList.remove('hidden');
+    if (btnCards) {
+      btnCards.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+    }
+    if (btnTable) {
+      btnTable.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-xs';
+    }
+  }
+
   const fragment = renderTable ? document.createDocumentFragment() : null;
   const cardsFragment = renderCards ? document.createDocumentFragment() : null;
 
@@ -3439,7 +3468,7 @@ function renderMonitoringTable() {
           `}
 
           <!-- Botón Acordeón para Ver Suministros y Series -->
-          <button type="button" onclick="toggleMonitoringCardDetails('mon_card_details_${i}', this); event.stopPropagation();" class="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-between border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs">
+          <button type="button" onclick="toggleMonitoringCardDetails('mon_card_details_${idx}', this); event.stopPropagation();" class="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-between border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs">
             <span class="flex items-center gap-1.5">
               <span>👁️ Ver desglose de suministros y series</span>
             </span>
@@ -3451,7 +3480,7 @@ function renderMonitoringTable() {
         </div>
 
         <!-- Contenedor Colapsable de Suministros (Oculto por Defecto para Evitar Saturación) -->
-        <div id="mon_card_details_${i}" class="hidden space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+        <div id="mon_card_details_${idx}" class="hidden space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
         ${r.isColor ? `
         <!-- Suministros a Color (TNRK, TNRY, TNRC, TNRM y Desecho) -->
         <div class="space-y-2">

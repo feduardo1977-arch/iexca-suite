@@ -79,7 +79,7 @@
   <!-- Datos Iniciales de Monitoreo de Consumibles (BAC y WALMART) -->
   <script src="default_monitoring_data.js?v=20260929_3"></script>
   <!-- Motor de Diagnóstico y Gestión de Monitoreo Fleet & Stock en Sitio -->
-  <script src="monitoring_engine.js?v=20260929_3"></script>
+  <script src="monitoring_engine.js?v=20260930_1"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -2007,7 +2007,7 @@
     <!-- MÓDULO 5: AUDITORÍA Y MONITOREO DE SUMINISTROS (CSV MPS / FLEET) & STOCK EN SITIO -->
     <div id="monitoreoViewModule" class="hidden space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden min-w-0">
       <!-- Encabezado del Módulo y Botones Principales -->
-      <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 w-full min-w-0 max-w-full overflow-hidden">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl p-3.5 sm:p-5 border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 w-full min-w-0 max-w-full overflow-visible">
         <div class="min-w-0 flex-1">
           <div class="flex items-start sm:items-center gap-2.5 min-w-0">
             <span class="p-2 sm:p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 shrink-0">
@@ -2035,13 +2035,13 @@
           </button>
 
           <!-- Menú Desplegable: Más Herramientas & Exportación -->
-          <div class="relative inline-block text-left" id="monitoringToolsMenuContainer">
-            <button type="button" onclick="toggleMonitoringToolsMenu()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shadow-2xs border border-slate-200 dark:border-slate-600">
+          <div class="relative inline-block text-left z-30" id="monitoringToolsMenuContainer">
+            <button type="button" onclick="event.stopPropagation(); toggleMonitoringToolsMenu()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shadow-2xs border border-slate-200 dark:border-slate-600">
               <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
               <span>⚙️ Más Herramientas</span>
               <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
             </button>
-            <div id="monitoringToolsMenu" class="hidden absolute right-0 mt-2 w-64 rounded-2xl shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs divide-y divide-slate-100 dark:divide-slate-700/60 animate-in fade-in zoom-in-95 duration-100">
+            <div id="monitoringToolsMenu" class="hidden absolute right-0 mt-2 w-64 rounded-2xl shadow-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs divide-y divide-slate-100 dark:divide-slate-700/60 animate-in fade-in zoom-in-95 duration-100">
               <div class="py-1">
                 <button type="button" onclick="exportMonitoringAuditToExcel(); toggleMonitoringToolsMenu(false);" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
                   <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
