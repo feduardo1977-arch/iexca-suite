@@ -1403,21 +1403,74 @@
 
       <!-- Filtro y Tabla de Salidas -->
       <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
-        <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-800/80">
-          <div class="flex items-center gap-2 flex-1 max-w-md">
+        <div class="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-800/80">
+          <div class="flex items-center gap-2 flex-1 min-w-[220px] max-w-md">
             <div class="relative w-full">
-              <input type="text" id="searchSalidasInput" oninput="filterSalidasTable()" placeholder="Buscar por Folio, solicitud AppSheet (ticket), serie sum, numpart, impresor, cliente..." class="w-full text-xs pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-amber-500">
+              <input type="text" id="searchSalidasInput" oninput="filterSalidasTable()" placeholder="Buscar por Folio, ticket, serie sum, numpart, impresor..." class="w-full text-xs pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-amber-500">
               <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <select id="filterSalidasTipo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2">
-              <option value="">Todos los Tipos (TNR, IMP, REP...)</option>
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- Alternador de Vista (Tarjetas Móviles vs Tabla Completa) -->
+            <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700 shrink-0">
+              <button type="button" id="btnSalidasViewCards" onclick="setSalidasViewMode('cards')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-2xs transition flex items-center gap-1">
+                <span>📱 Tarjetas</span>
+              </button>
+              <button type="button" id="btnSalidasViewTable" onclick="setSalidasViewMode('table')" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-1">
+                <span>💻 Tabla</span>
+              </button>
+            </div>
+
+            <!-- Selector de Columnas Visibles (PC) -->
+            <div class="relative inline-block text-left" id="salidasColumnMenuContainer">
+              <button type="button" onclick="toggleSalidasColumnMenu()" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1 shadow-2xs text-slate-700 dark:text-slate-200" title="Personalizar columnas visibles en la tabla">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                <span class="hidden sm:inline">Columnas</span>
+              </button>
+              <div id="salidasColumnMenu" class="hidden absolute right-0 mt-2 w-52 rounded-2xl shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-2 px-3 z-50 space-y-1.5 text-xs">
+                <div class="font-bold text-[11px] text-slate-500 dark:text-slate-400 pb-1 border-b border-slate-200 dark:border-slate-700">Columnas de Tabla</div>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleAppsheet" onchange="toggleSalidasColumn('appsheet', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>📱 Sol. AppSheet</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleNumpart" onchange="toggleSalidasColumn('numpart', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>🔢 NumPart</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleDesc" onchange="toggleSalidasColumn('desc', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>📝 Descripción</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleCant" onchange="toggleSalidasColumn('cant', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>📦 Cantidad</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleModelo" onchange="toggleSalidasColumn('modelo', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>🖨️ Modelo</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleDestino" onchange="toggleSalidasColumn('destino', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>🏢 Destino / Tienda</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleCliente" onchange="toggleSalidasColumn('cliente', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>👥 Cliente</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-amber-600">
+                  <input type="checkbox" id="colToggleDet" onchange="toggleSalidasColumn('det', this.checked)" checked class="rounded text-amber-500 focus:ring-amber-400">
+                  <span>🏷️ DET</span>
+                </label>
+              </div>
+            </div>
+
+            <select id="filterSalidasTipo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2 py-1.5 font-medium">
+              <option value="">Tipo (Todos)</option>
               <option value="TNR">Tóners (TNR)</option>
               <option value="IMP">Impresores (IMP)</option>
               <option value="REP">Repuestos (REP)</option>
             </select>
-            <select id="filterSalidasEstado" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 font-medium">
+            <select id="filterSalidasEstado" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2 py-1.5 font-medium">
               <option value="">Todos los Estatus</option>
               <option value="EN STOCK">📦 En Stock (Disponible)</option>
               <option value="EN USO">⚡ En Uso (Operando)</option>
@@ -1427,15 +1480,15 @@
               <option value="EN TRANSITO">🚚 En Tránsito / Pendiente</option>
               <option value="CONSUMIDO">🪫 Consumido</option>
             </select>
-            <select id="filterSalidasMonitoreo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 font-medium">
-              <option value="">🔍 Todos los Monitoreos</option>
-              <option value="EN_USO">🟢 Verificados en Monitoreo (En Uso Activo)</option>
-              <option value="EN_STOCK_TIENDA">🟡 En Resguardo en Tienda (Pendiente Colocación)</option>
-              <option value="SUSTITUIDO_DESECHO">⚠️ Sustituidos en Equipo (Pasar a Desecho)</option>
+            <select id="filterSalidasMonitoreo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2 py-1.5 font-medium">
+              <option value="">🔍 Monitoreo</option>
+              <option value="EN_USO">🟢 Verificados (En Uso)</option>
+              <option value="EN_STOCK_TIENDA">🟡 En Resguardo</option>
+              <option value="SUSTITUIDO_DESECHO">⚠️ Sustituidos (Desecho)</option>
               <option value="DESECHADO">🗑️ Desechados</option>
               <option value="NO_MONITOREADO">⚪ No Monitoreado</option>
             </select>
-            <span id="salidasCountSummary" class="text-xs text-slate-500 font-medium">0 registros</span>
+            <span id="salidasCountSummary" class="text-xs text-slate-500 font-medium">0 reg</span>
           </div>
         </div>
 
@@ -1525,26 +1578,31 @@
           </div>
         </div>
 
-        <!-- Contenedor con Scroll Horizontal Fluido y Vista Compacta -->
-        <div class="overflow-x-auto max-h-[600px] custom-scrollbar">
+        <!-- VISTA 1: TARJETAS MÓVILES (Estilo Ticket / Smartphone Friendly) -->
+        <div id="salidasMobileCardsContainer" class="p-3 space-y-2.5 bg-slate-50/50 dark:bg-slate-900/30">
+          <!-- Renderizado dinámicamente con tarjetas de folios -->
+        </div>
+
+        <!-- VISTA 2: TABLA EXTENDIDA CON SCROLL HORIZONTAL (ESCRITORIO / TABLET) -->
+        <div id="salidasTableContainer" class="hidden overflow-x-auto max-h-[600px] custom-scrollbar">
           <table class="w-full text-left text-[11px] whitespace-nowrap">
             <thead class="bg-slate-100 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 uppercase tracking-wider sticky top-0 z-10 select-none border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th class="py-2 px-2.5 text-center w-10">#</th>
                 <th class="py-2 px-2.5 w-24">Folio (ID)</th>
-                <th class="py-2 px-2.5 w-28">Sol. AppSheet</th>
+                <th class="py-2 px-2.5 w-28 col-appsheet">Sol. AppSheet</th>
                 <th class="py-2 px-2.5 w-24">Fecha</th>
                 <th class="py-2 px-2.5 w-28 text-center">Estatus</th>
                 <th class="py-2 px-2.5 w-36 text-center">Verif. Monitoreo</th>
                 <th class="py-2 px-2.5 w-32">Serie Sum</th>
-                <th class="py-2 px-2.5 w-28">NumPart</th>
-                <th class="py-2 px-2.5 max-w-[200px]">Descripción</th>
-                <th class="py-2 px-2.5 text-center w-14">Cant</th>
+                <th class="py-2 px-2.5 w-28 col-numpart">NumPart</th>
+                <th class="py-2 px-2.5 max-w-[200px] col-desc">Descripción</th>
+                <th class="py-2 px-2.5 text-center w-14 col-cant">Cant</th>
                 <th class="py-2 px-2.5 w-32">Serie Equipo</th>
-                <th class="py-2 px-2.5 w-24">Modelo</th>
-                <th class="py-2 px-2.5 max-w-[150px]">Destino / Tienda</th>
-                <th class="py-2 px-2.5 max-w-[150px]">Cliente</th>
-                <th class="py-2 px-2.5 w-20">DET</th>
+                <th class="py-2 px-2.5 w-24 col-modelo">Modelo</th>
+                <th class="py-2 px-2.5 max-w-[150px] col-destino">Destino / Tienda</th>
+                <th class="py-2 px-2.5 max-w-[150px] col-cliente">Cliente</th>
+                <th class="py-2 px-2.5 w-20 col-det">DET</th>
                 <th class="py-2 px-2.5 text-center w-20">Acciones</th>
               </tr>
             </thead>
@@ -1965,36 +2023,59 @@
           </div>
         </div>
 
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+        <div class="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
           <input type="file" id="monitoringFileInput" multiple accept=".csv" class="hidden" onchange="handleMonitoringFileInput(event)">
-          <button type="button" onclick="document.getElementById('monitoringFileInput').click()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
+          <button type="button" onclick="document.getElementById('monitoringFileInput').click()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            <span>📥 Cargar Archivos CSV</span>
+            <span>📥 Cargar CSV</span>
           </button>
-          <button type="button" onclick="openAppSheetOrderGeneral()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition" title="Abrir Aplicación de Pedidos en AppSheet (Freshdesk)">
+          <button type="button" onclick="openAppSheetOrderGeneral()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition" title="Abrir Aplicación de Pedidos en AppSheet (Freshdesk)">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
             <span>📱 AppSheet Pedidos</span>
           </button>
-          <button type="button" onclick="exportMonitoringAuditToExcel()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Exportar reporte de auditoría del corte activo a Excel">
-            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            <span>Auditoría Activa (.xlsx)</span>
-          </button>
 
-          <!-- Botón Exportar Histórico Completo de Todos los Cortes -->
-          <button type="button" onclick="exportMonitoringHistoricalToExcel()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition shadow-2xs" title="Descargar histórico completo de todos los cortes y fechas de monitoreo almacenados en Firebase">
-            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            <span>📊 Histórico Completo (.xlsx)</span>
-          </button>
-
-          <!-- Botón Inspector de Base de Datos Firebase -->
-          <button type="button" onclick="openFirebaseInspectorModal()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition shadow-2xs" title="Ver tablas, nodos y estado de los datos sincronizados en Google Firebase">
-            <svg class="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-            <span>☁️ Ver Tablas Firebase</span>
-          </button>
-          <button type="button" onclick="resetMonitoringToDefault()" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition" title="Restaurar datos predeterminados de Walmart y BAC">
-            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            <span>Recargar Predeterminados</span>
-          </button>
+          <!-- Menú Desplegable: Más Herramientas & Exportación -->
+          <div class="relative inline-block text-left" id="monitoringToolsMenuContainer">
+            <button type="button" onclick="toggleMonitoringToolsMenu()" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shadow-2xs border border-slate-200 dark:border-slate-600">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+              <span>⚙️ Más Herramientas</span>
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="monitoringToolsMenu" class="hidden absolute right-0 mt-2 w-64 rounded-2xl shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs divide-y divide-slate-100 dark:divide-slate-700/60 animate-in fade-in zoom-in-95 duration-100">
+              <div class="py-1">
+                <button type="button" onclick="exportMonitoringAuditToExcel(); toggleMonitoringToolsMenu(false);" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
+                  <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  <div>
+                    <span class="font-bold block">Auditoría Activa (.xlsx)</span>
+                    <span class="text-[10px] text-slate-400">Exportar corte actual</span>
+                  </div>
+                </button>
+                <button type="button" onclick="exportMonitoringHistoricalToExcel(); toggleMonitoringToolsMenu(false);" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
+                  <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  <div>
+                    <span class="font-bold block">Histórico Completo (.xlsx)</span>
+                    <span class="text-[10px] text-slate-400">Todas las fechas y cortes</span>
+                  </div>
+                </button>
+              </div>
+              <div class="py-1">
+                <button type="button" onclick="openFirebaseInspectorModal(); toggleMonitoringToolsMenu(false);" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2.5 text-amber-600 dark:text-amber-400 font-semibold">
+                  <svg class="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                  <div>
+                    <span class="block">☁️ Ver Tablas Firebase</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Inspeccionar datos en la nube</span>
+                  </div>
+                </button>
+                <button type="button" onclick="resetMonitoringToDefault(); toggleMonitoringToolsMenu(false);" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2.5 text-slate-600 dark:text-slate-300">
+                  <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  <div>
+                    <span class="font-bold block">Recargar Predeterminados</span>
+                    <span class="text-[10px] text-slate-400">Restaurar demos Walmart/BAC</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2026,8 +2107,27 @@
       </div>
 
       <!-- WIDGET EJECUTIVO: SALUD DEL PARQUE / FLOTA (HEALTH SCORE & DESGLOSE EN TIEMPO REAL) -->
-      <div id="fleetHealthScoreWidget" class="glass-panel rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden backdrop-blur-md transition-all">
-        <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+      <div id="fleetHealthScoreWidget" class="glass-panel rounded-2xl p-3 sm:p-4 shadow-sm relative overflow-hidden backdrop-blur-md transition-all">
+        <!-- Barra de Cabecera con botón de Minimizar -->
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-xs sm:text-sm font-bold text-slate-800 dark:text-white">Índice de Salud de la Flota</span>
+            <span id="fleetHealthBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">Auditoría en curso</span>
+            <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
+              <span class="info-bubble-btn">i</span>
+              <div class="info-bubble-tooltip">
+                <span class="font-bold block mb-0.5">Índice de Salud de la Flota</span>
+                <span id="fleetHealthDesc">Porcentaje de impresores en estado óptimo o con suministro de respaldo en sitio.</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" onclick="toggleFleetHealthWidget()" id="btnToggleFleetHealth" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer">
+            <span id="txtToggleFleetHealth">− Minimizar</span>
+          </button>
+        </div>
+
+        <div id="fleetHealthScoreContent" class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 transition-all">
           <!-- Columna Izquierda: Medidor Circular (Gauge) y Puntuación Global -->
           <div class="flex items-center gap-4">
             <div class="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
@@ -2045,20 +2145,7 @@
               </div>
             </div>
             <div>
-              <div class="flex items-center gap-2">
-                <h3 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                  <span>Índice de Salud de la Flota</span>
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                </h3>
-                <span id="fleetHealthBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">Auditoría en curso</span>
-                <div class="info-bubble" onclick="toggleInfoBubble(this, event)">
-                  <span class="info-bubble-btn">i</span>
-                  <div class="info-bubble-tooltip">
-                    <span class="font-bold block mb-0.5">Índice de Salud de la Flota</span>
-                    <span id="fleetHealthDesc">Porcentaje de impresores en estado óptimo o con suministro de respaldo en sitio.</span>
-                  </div>
-                </div>
-              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Estado operativo global de consumibles y reemplazos preventivos.</p>
             </div>
           </div>
 
@@ -2253,8 +2340,8 @@
               </button>
             </div>
 
-            <!-- Alternador de Vista (Tarjetas Móviles vs Tabla) + Botón Restablecer -->
-            <div class="flex items-center gap-2 justify-between sm:justify-end shrink-0">
+            <!-- Alternador de Vista (Tarjetas Móviles vs Tabla) + Filtros + Botón Restablecer -->
+            <div class="flex items-center gap-2 justify-between sm:justify-end shrink-0 flex-wrap">
               <div class="inline-flex rounded-xl p-0.5 bg-slate-200 dark:bg-slate-700">
                 <button type="button" id="btnMonitoringViewCards" onclick="setMonitoringViewMode('cards')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-xs">
                   <span>📱 Tarjetas</span>
@@ -2264,6 +2351,13 @@
                 </button>
               </div>
 
+              <!-- Botón Desplegable de Filtros Avanzados con Contador Activo -->
+              <button type="button" id="btnToggleAdvancedFilters" onclick="toggleMonitoringAdvancedFilters()" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                <span>🎛️ Filtros</span>
+                <span id="badgeActiveAdvancedFilters" class="hidden text-[10px] bg-rose-600 text-white rounded-full px-1.5 font-bold">0</span>
+              </button>
+
               <button type="button" onclick="resetAllMonitoringFilters()" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition flex items-center gap-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs" title="Restablecer todos los filtros y búsqueda">
                 <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 <span class="hidden sm:inline">Restablecer</span>
@@ -2271,8 +2365,8 @@
             </div>
           </div>
 
-          <!-- FILA 2: Filtros Desplegables y Casillas de Suministros -->
-          <div class="pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2.5 w-full">
+          <!-- FILA 2: Filtros Desplegables y Casillas de Suministros (Colapsable / Acordeón) -->
+          <div id="monitoringAdvancedFiltersPanel" class="hidden pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2.5 w-full">
             <!-- Grid de 4 Filtros Desplegables con Ancho Óptimo -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 w-full">
               <!-- Filtro Diagnóstico de Stock -->
@@ -3286,7 +3380,123 @@
     </div>
   </div>
 
-    <!-- MODAL: BUSCADOR Y VISOR DE FOLIOS ESCANEADOS (GOOGLE DRIVE) -->
+  <!-- MODAL / BOTTOM SHEET: FICHA Y DETALLE COMPLETO DEL FOLIO -->
+  <div id="modalFolioDetailDrawer" onclick="if(event.target===this) closeFolioDetailDrawer()" class="hidden fixed inset-0 z-[75] bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto transition-opacity duration-300">
+    <div class="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-full sm:max-w-2xl border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[85vh] animate-slide-up sm:animate-scale-up">
+      <!-- Barra táctil de Bottom Sheet para celular -->
+      <div class="sm:hidden flex justify-center pt-2.5 pb-1 cursor-pointer" onclick="closeFolioDetailDrawer()">
+        <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+      </div>
+      <!-- Encabezado -->
+      <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/80 sticky top-0 z-10">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="p-2 sm:p-2.5 rounded-2xl bg-amber-500 text-white font-black text-xs sm:text-base font-mono shadow-xs shrink-0" id="drawerFolioBadge">#---</span>
+          <div class="min-w-0">
+            <h3 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+              <span id="drawerFolioTitle">Ficha de Despacho</span>
+              <span id="drawerFolioFecha" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold font-mono">--/--/----</span>
+            </h3>
+            <p id="drawerFolioSubtitle" class="text-xs text-slate-500 dark:text-slate-400 truncate">Destino • Cliente</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeFolioDetailDrawer()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 hover:text-slate-700 dark:text-slate-300 flex items-center justify-center transition shrink-0 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Cuerpo Scrolleable con Datos -->
+      <div class="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs custom-scrollbar">
+        <!-- Tarjeta de Estado y Acciones Rápidas del Ciclo de Vida -->
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2.5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="font-bold text-slate-600 dark:text-slate-400">Estado del Suministro:</span>
+            <div id="drawerFolioStatusContainer" class="flex items-center gap-1.5">
+              <!-- Insignia de estado -->
+            </div>
+          </div>
+          <!-- Botones Rápidos 1-Clic para cambiar estado -->
+          <div class="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] font-semibold text-slate-400">Cambio rápido:</span>
+            <button type="button" id="drawerBtnEnUso" onclick="updateCurrentDrawerFolioStatus('EN USO')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition active:scale-95 flex items-center gap-1">
+              <span>⚡ Pasar a EN USO</span>
+            </button>
+            <button type="button" id="drawerBtnDesecho" onclick="updateCurrentDrawerFolioStatus('DESECHADO')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition active:scale-95 flex items-center gap-1">
+              <span>🗑️ Pasar a DESECHO</span>
+            </button>
+            <button type="button" id="drawerBtnStock" onclick="updateCurrentDrawerFolioStatus('EN STOCK')" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition active:scale-95 flex items-center gap-1">
+              <span>📦 En Resguardo (Stock)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Auditoría y Monitoreo Cruzado -->
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <span>🔍 Validación con Monitoreo</span>
+            </span>
+            <span id="drawerMonitoringBadge"></span>
+          </div>
+          <p id="drawerMonitoringDesc" class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed"></p>
+        </div>
+
+        <!-- Ficha Técnica (Grid de Datos) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+            <span class="block text-[10px] font-bold uppercase text-slate-400">Serie Suministro</span>
+            <span id="drawerSerieSum" class="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+            <span class="block text-[10px] font-bold uppercase text-slate-400">Serie Impresor</span>
+            <span id="drawerSerieImp" class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-xs">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+            <span class="block text-[10px] font-bold uppercase text-slate-400">Modelo</span>
+            <span id="drawerModelo" class="font-semibold text-slate-800 dark:text-slate-200 text-xs">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+            <span class="block text-[10px] font-bold uppercase text-slate-400">Número de Parte</span>
+            <span id="drawerNumPart" class="font-mono font-medium text-slate-700 dark:text-slate-300 text-xs">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+            <span class="block text-[10px] font-bold uppercase text-slate-400">IP de Red</span>
+            <span id="drawerIp" class="font-mono font-medium text-blue-600 dark:text-blue-400 text-xs">--</span>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+            <span class="block text-[10px] font-bold uppercase text-slate-400">Solicitud AppSheet</span>
+            <span id="drawerAppsheet" class="font-mono font-medium text-slate-700 dark:text-slate-300 text-xs">--</span>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-700/80">
+          <span class="block text-[10px] font-bold uppercase text-slate-400">Descripción / Detalles</span>
+          <p id="drawerDesc" class="font-medium text-slate-800 dark:text-slate-200 text-xs mt-0.5 leading-snug">--</p>
+        </div>
+      </div>
+
+      <!-- Pie con Botones Principales -->
+      <div class="p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2">
+          <button type="button" id="drawerBtnDrivePdf" onclick="openCurrentDrawerPdf()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition shadow-2xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+            <span>Ver PDF Drive</span>
+          </button>
+          <button type="button" id="drawerBtnPrintOrden" onclick="printCurrentDrawerOrden()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shadow-2xs flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+            <span>Orden</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="drawerBtnEditFull" onclick="editCurrentDrawerFolioFull()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+            <span>Modificar Completo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: BUSCADOR Y VISOR DE FOLIOS ESCANEADOS (GOOGLE DRIVE) -->
   <div id="modalDriveFoliosFinder" class="hidden fixed inset-0 z-[80] overflow-y-auto overflow-x-hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 min-w-0">
     <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-[calc(100vw-1rem)] sm:max-w-3xl min-w-0 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] sm:max-h-[92vh] box-border my-auto modal-box-safe">
       
@@ -11102,6 +11312,198 @@
     }
     window.quickUpdateFolioSupplyStatus = quickUpdateFolioSupplyStatus;
 
+    // --- GESTIÓN DE VISTA Y COLUMNAS EN FOLIOS ---
+    let salidasViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('iexca_salidas_view_mode')) || (window.innerWidth < 768 ? 'cards' : 'table');
+    let salidasVisibleColumns = (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('iexca_salidas_cols') || 'null')) || {
+      appsheet: true,
+      numpart: true,
+      desc: true,
+      cant: true,
+      modelo: true,
+      destino: true,
+      cliente: true,
+      det: true
+    };
+    let currentDrawerFolioIndex = null;
+
+    function setSalidasViewMode(mode) {
+      salidasViewMode = mode;
+      try { localStorage.setItem('iexca_salidas_view_mode', mode); } catch(e) {}
+      const btnCards = document.getElementById('btnSalidasViewCards');
+      const btnTable = document.getElementById('btnSalidasViewTable');
+      const cardsCont = document.getElementById('salidasMobileCardsContainer');
+      const tableCont = document.getElementById('salidasTableContainer');
+
+      if (mode === 'cards') {
+        if (btnCards) {
+          btnCards.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-2xs transition flex items-center gap-1';
+        }
+        if (btnTable) {
+          btnTable.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-1';
+        }
+        if (cardsCont) cardsCont.classList.remove('hidden');
+        if (tableCont) tableCont.classList.add('hidden');
+      } else {
+        if (btnCards) {
+          btnCards.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-1';
+        }
+        if (btnTable) {
+          btnTable.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-2xs transition flex items-center gap-1';
+        }
+        if (cardsCont) cardsCont.classList.add('hidden');
+        if (tableCont) tableCont.classList.remove('hidden');
+      }
+    }
+    window.setSalidasViewMode = setSalidasViewMode;
+
+    function toggleSalidasColumnMenu(force) {
+      const menu = document.getElementById('salidasColumnMenu');
+      if (!menu) return;
+      if (typeof force === 'boolean') {
+        menu.classList.toggle('hidden', !force);
+      } else {
+        menu.classList.toggle('hidden');
+      }
+    }
+    window.toggleSalidasColumnMenu = toggleSalidasColumnMenu;
+
+    // Cerrar menú de columnas al hacer clic fuera
+    document.addEventListener('click', (e) => {
+      const cont = document.getElementById('salidasColumnMenuContainer');
+      if (cont && !cont.contains(e.target)) {
+        toggleSalidasColumnMenu(false);
+      }
+    });
+
+    function toggleSalidasColumn(colKey, isVisible) {
+      salidasVisibleColumns[colKey] = isVisible;
+      try { localStorage.setItem('iexca_salidas_cols', JSON.stringify(salidasVisibleColumns)); } catch(e) {}
+      applySalidasColumnVisibility();
+    }
+    window.toggleSalidasColumn = toggleSalidasColumn;
+
+    function applySalidasColumnVisibility() {
+      for (const [key, val] of Object.entries(salidasVisibleColumns)) {
+        const chk = document.getElementById(`colToggle${key.charAt(0).toUpperCase() + key.slice(1)}`);
+        if (chk) chk.checked = !!val;
+        const els = document.querySelectorAll(`.col-${key}`);
+        els.forEach(el => {
+          if (val) el.classList.remove('hidden');
+          else el.classList.add('hidden');
+        });
+      }
+    }
+    window.applySalidasColumnVisibility = applySalidasColumnVisibility;
+
+    // --- BOTTOM SHEET / FICHA DEL FOLIO ---
+    function openFolioDetailDrawer(realIdx) {
+      const folios = sheetStore['FOLIOS'] || [];
+      const row = folios[realIdx];
+      if (!row) return;
+      currentDrawerFolioIndex = realIdx;
+
+      const folioVal = getRowFolio(row);
+      const realSt = getRowRealStatus(row);
+      const ipVal = getRowSupplyIp(row);
+      const monFlag = getMonitoringSupplyStatusFlag(row);
+
+      const badgeEl = document.getElementById('drawerFolioBadge');
+      if (badgeEl) badgeEl.textContent = folioVal !== '-' ? `#${folioVal}` : '#---';
+
+      const fechaEl = document.getElementById('drawerFolioFecha');
+      if (fechaEl) fechaEl.textContent = formatDateShort(row['FECHA'] || row['Fecha']);
+
+      const subEl = document.getElementById('drawerFolioSubtitle');
+      if (subEl) subEl.textContent = `${row['DESTINO'] || 'Sin destino'} • ${row['CLIENTE'] || 'General'}`;
+
+      const stCont = document.getElementById('drawerFolioStatusContainer');
+      if (stCont) stCont.innerHTML = getFolioStatusBadge(realSt);
+
+      const monBadgeEl = document.getElementById('drawerMonitoringBadge');
+      if (monBadgeEl) monBadgeEl.innerHTML = monFlag.badge;
+
+      const monDescEl = document.getElementById('drawerMonitoringDesc');
+      if (monDescEl) {
+        if (monFlag.flag === 'EN_USO') {
+          monDescEl.innerHTML = `🟢 <strong>Confirmado por Monitoreo:</strong> Este suministro (<span class="font-mono font-bold">${escapeHtml(row['SERIE SUM'] || 'S/N')}</span>) se encuentra físicamente instalado y operando en el equipo <span class="font-mono font-bold text-indigo-600">${escapeHtml(row['IMPRESOR'] || 'S/N')}</span>.`;
+        } else if (monFlag.flag === 'EN_STOCK_TIENDA') {
+          monDescEl.innerHTML = `🟡 <strong>En Resguardo en Tienda:</strong> El suministro fue despachado pero el equipo aún tiene instalada otra serie (${escapeHtml(monFlag.activeSeries || 'N/D')}). Sigue en resguardo en sitio.`;
+        } else if (monFlag.flag === 'SUSTITUIDO_DESECHO') {
+          monDescEl.innerHTML = `⚠️ <strong>Sustituido en Máquina:</strong> El equipo ya reporta una nueva serie instalada (${escapeHtml(monFlag.activeSeries || 'N/D')}). Esta serie antigua debe registrarse como DESECHO.`;
+        } else {
+          monDescEl.textContent = 'No hay datos de telemetría reciente para correlacionar este consumible.';
+        }
+      }
+
+      const sSum = document.getElementById('drawerSerieSum');
+      if (sSum) sSum.textContent = row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || 'S/N';
+
+      const sImp = document.getElementById('drawerSerieImp');
+      if (sImp) sImp.textContent = row['IMPRESOR'] || row['SERIE'] || 'S/N';
+
+      const mod = document.getElementById('drawerModelo');
+      if (mod) mod.textContent = row['MODELO'] || 'N/D';
+
+      const np = document.getElementById('drawerNumPart');
+      if (np) np.textContent = row['NUMPART'] || 'N/D';
+
+      const ip = document.getElementById('drawerIp');
+      if (ip) ip.textContent = ipVal || 'N/D';
+
+      const app = document.getElementById('drawerAppsheet');
+      if (app) app.textContent = (row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET']) || 'Proactivo / Sin Ticket';
+
+      const desc = document.getElementById('drawerDesc');
+      if (desc) desc.textContent = `${row['TIPO SUM'] || row['TIPO'] || ''} - ${row['DESCRIPCION'] || 'Sin descripción'} (Cant: ${row['CANT'] || 1}) • DET: ${row['DET'] || 'N/D'}`;
+
+      const drawer = document.getElementById('modalFolioDetailDrawer');
+      if (drawer) drawer.classList.remove('hidden');
+    }
+    window.openFolioDetailDrawer = openFolioDetailDrawer;
+
+    function closeFolioDetailDrawer() {
+      const drawer = document.getElementById('modalFolioDetailDrawer');
+      if (drawer) drawer.classList.add('hidden');
+      currentDrawerFolioIndex = null;
+    }
+    window.closeFolioDetailDrawer = closeFolioDetailDrawer;
+
+    function updateCurrentDrawerFolioStatus(newStatus) {
+      if (currentDrawerFolioIndex === null) return;
+      quickUpdateFolioSupplyStatus(currentDrawerFolioIndex, newStatus);
+      const folios = sheetStore['FOLIOS'] || [];
+      const row = folios[currentDrawerFolioIndex];
+      if (row) {
+        const stCont = document.getElementById('drawerFolioStatusContainer');
+        if (stCont) stCont.innerHTML = getFolioStatusBadge(getRowRealStatus(row));
+      }
+    }
+    window.updateCurrentDrawerFolioStatus = updateCurrentDrawerFolioStatus;
+
+    function openCurrentDrawerPdf() {
+      if (currentDrawerFolioIndex === null) return;
+      const folios = sheetStore['FOLIOS'] || [];
+      const row = folios[currentDrawerFolioIndex];
+      if (row) openFolioInDrive(getRowFolio(row));
+    }
+    window.openCurrentDrawerPdf = openCurrentDrawerPdf;
+
+    function printCurrentDrawerOrden() {
+      if (currentDrawerFolioIndex === null) return;
+      const folios = sheetStore['FOLIOS'] || [];
+      const row = folios[currentDrawerFolioIndex];
+      if (row) openPrintOrdenByFolio(getRowFolio(row));
+    }
+    window.printCurrentDrawerOrden = printCurrentDrawerOrden;
+
+    function editCurrentDrawerFolioFull() {
+      if (currentDrawerFolioIndex === null) return;
+      const idx = currentDrawerFolioIndex;
+      closeFolioDetailDrawer();
+      editSalida(idx);
+    }
+    window.editCurrentDrawerFolioFull = editCurrentDrawerFolioFull;
+
     function renderSalidasTable() {
       // 1. Actualizar Tarjeta de Último Registro / Más Reciente Encontrado
       const recentCard = document.getElementById('salidasMostRecentCard');
@@ -11167,107 +11569,200 @@
         }
       }
 
-      // 2. Renderizar Filas de la Tabla con Vista Compacta e Interactividad al Dar Clic
-      const tbody = document.getElementById('salidasTableBody');
-      if (!tbody) return;
-      tbody.innerHTML = '';
+      // Asegurar modo de vista
+      setSalidasViewMode(salidasViewMode);
 
       const start = (salidasCurrentPage - 1) * salidasPageSize;
       const pageData = salidasFilteredData.slice(start, start + salidasPageSize);
 
-      if (pageData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="16" class="py-8 text-center text-xs text-slate-400">No hay registros de salidas que coincidan con la búsqueda.</td></tr>`;
-      } else {
-        pageData.forEach((row, i) => {
-          const realIdx = (sheetStore['FOLIOS'] || []).indexOf(row);
-          const isAbsoluteFirst = (start + i === 0);
-          const folioVal = getRowFolio(row);
-          const realSt = getRowRealStatus(row);
-          const ipVal = getRowSupplyIp(row);
-          const monFlag = getMonitoringSupplyStatusFlag(row);
+      // 2A. Renderizar Tarjetas Móviles (Estilo Ticket)
+      const cardsCont = document.getElementById('salidasMobileCardsContainer');
+      if (cardsCont) {
+        cardsCont.innerHTML = '';
+        if (pageData.length === 0) {
+          cardsCont.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">No hay registros de salidas que coincidan con la búsqueda.</div>`;
+        } else {
+          pageData.forEach((row, i) => {
+            const realIdx = (sheetStore['FOLIOS'] || []).indexOf(row);
+            const folioVal = getRowFolio(row);
+            const realSt = getRowRealStatus(row);
+            const ipVal = getRowSupplyIp(row);
+            const monFlag = getMonitoringSupplyStatusFlag(row);
 
-          const tr = document.createElement('tr');
-          tr.className = (isAbsoluteFirst 
-            ? 'bg-amber-50/70 dark:bg-amber-950/25 font-medium ' 
-            : 'border-b border-slate-100 dark:border-slate-700/60 ') +
-            'hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition cursor-pointer select-none group';
-          tr.title = `Haz clic en esta línea para consultar o modificar (Folio #${folioVal})`;
-          tr.onclick = () => editSalida(realIdx);
-          
-          tr.innerHTML = `
-            <td class="py-1.5 px-2.5 text-slate-400 font-mono text-center">
-              ${isAbsoluteFirst ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200/90 text-amber-900 dark:bg-amber-900 dark:text-amber-100 mr-1">✨</span>' : ''}
-              ${start + i + 1}
-            </td>
-            <td class="py-1.5 px-2.5 font-mono font-bold text-amber-700 dark:text-amber-400">
-              <div class="flex items-center gap-1.5">
-                <span class="px-1.5 py-0.5 rounded bg-amber-100/80 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/80 shadow-2xs">#${folioVal}</span>
-                ${folioVal && folioVal !== '-' ? `
-                  <button type="button" onclick="event.stopPropagation(); openFolioInDrive('${folioVal}')" title="Buscar PDF escaneado del Folio #${folioVal} en Google Drive" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 text-[9px] font-bold text-blue-700 dark:text-blue-300 shadow-2xs transition">
-                    <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
-                    <span>PDF</span>
-                  </button>
-                ` : ''}
+            const card = document.createElement('div');
+            card.className = 'glass-card rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs space-y-2.5 transition active:scale-[0.99] cursor-pointer hover:border-amber-400';
+            card.onclick = () => openFolioDetailDrawer(realIdx);
+
+            card.innerHTML = `
+              <!-- Fila 1: Folio, Fecha, Estado y Botón Rápido -->
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-lg text-xs font-mono font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">#${folioVal}</span>
+                  <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold">${formatDateShort(row['FECHA'] || row['Fecha'])}</span>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  ${getFolioStatusBadge(realSt)}
+                  ${(monFlag.flag === 'EN_USO' && monFlag.needsStatusUpdate) ? `
+                    <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" class="px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs transition active:scale-95 flex items-center gap-1">
+                      <span>⚡ Pasar a EN USO</span>
+                    </button>
+                  ` : ''}
+                  ${(monFlag.flag === 'SUSTITUIDO_DESECHO') ? `
+                    <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" class="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold shadow-2xs transition active:scale-95 flex items-center gap-1">
+                      <span>🗑️ Pasar a DESECHO</span>
+                    </button>
+                  ` : ''}
+                </div>
               </div>
-            </td>
-            <td class="py-1.5 px-2.5 font-mono text-[11px] font-semibold text-blue-600 dark:text-blue-400">
-              ${(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET']) ? `
-                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 shadow-2xs" title="Solicitud AppSheet vinculada">
-                  <span>📱</span>
-                  <span>${escapeHtml(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET'])}</span>
-                </span>
-              ` : '<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60" title="Despacho Proactivo / Emergencia (Sin ticket vinculado aún. Puedes editar para vincularlo)">⚡ Proactivo</span>'}
-            </td>
-            <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-medium">${formatDateShort(row['FECHA'] || row['Fecha'])}</td>
-            <td class="py-1.5 px-2.5 text-center">
-              ${getFolioStatusBadge(realSt)}
-              ${ipVal ? `<div class="mt-0.5 font-mono text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1" title="IP de red del impresor: ${ipVal}"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>${ipVal}</div>` : ''}
-              ${(monFlag.flag === 'EN_USO' && monFlag.needsStatusUpdate) ? `
-                <div class="mt-1">
-                  <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Detectado operando en la máquina: Haz clic para cambiar estado a EN USO inmediatamente">
-                    <span>⚡ Pasar a EN USO</span>
+
+              <!-- Fila 2: Impresor y Tienda -->
+              <div class="bg-slate-50/80 dark:bg-slate-900/40 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-700/60">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">${row['IMPRESOR'] || row['SERIE'] || 'S/N'}</span>
+                    <span class="text-xs text-slate-700 dark:text-slate-300 font-semibold truncate">• ${row['MODELO'] || '-'}</span>
+                  </div>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0 truncate max-w-[120px]">${row['CLIENTE'] || '-'}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${row['DESTINO'] || 'Sin destino'}</p>
+              </div>
+
+              <!-- Fila 3: Suministro y Monitoreo -->
+              <div class="flex items-center justify-between gap-2 flex-wrap text-xs pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                <div class="min-w-0">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase">Suministro: </span>
+                  <span class="font-mono font-bold text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || 'S/N'}</span>
+                  <span class="text-slate-600 dark:text-slate-400 text-[11px] truncate block">${row['DESCRIPCION'] || '-'}</span>
+                </div>
+                <div class="text-right shrink-0">
+                  ${monFlag.badge}
+                </div>
+              </div>
+
+              <!-- Fila 4: Acciones Rápidas -->
+              <div class="flex items-center justify-between gap-2 pt-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  ${(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET']) ? `
+                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      <span>📱 ${escapeHtml(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET'])}</span>
+                    </span>
+                  ` : ''}
+                  ${ipVal ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500 dark:text-slate-400">IP: ${ipVal}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
+                  ${folioVal && folioVal !== '-' ? `
+                    <button type="button" onclick="openFolioInDrive('${folioVal}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                      <span>📄 PDF</span>
+                    </button>
+                  ` : ''}
+                  <button type="button" onclick="openFolioDetailDrawer(${realIdx})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 flex items-center gap-1">
+                    <span>📋 Ficha</span>
                   </button>
                 </div>
-              ` : ''}
-              ${(monFlag.flag === 'SUSTITUIDO_DESECHO') ? `
-                <div class="mt-1">
-                  <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Reemplazado en equipo por nueva serie: Haz clic para registrar como DESECHADO">
-                    <span>🗑️ Pasar a DESECHO</span>
+              </div>
+            `;
+            cardsCont.appendChild(card);
+          });
+        }
+      }
+
+      // 2B. Renderizar Filas de la Tabla con Columnas Opcionales y Clic en Fila
+      const tbody = document.getElementById('salidasTableBody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (pageData.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="16" class="py-8 text-center text-xs text-slate-400">No hay registros de salidas que coincidan con la búsqueda.</td></tr>`;
+        } else {
+          pageData.forEach((row, i) => {
+            const realIdx = (sheetStore['FOLIOS'] || []).indexOf(row);
+            const isAbsoluteFirst = (start + i === 0);
+            const folioVal = getRowFolio(row);
+            const realSt = getRowRealStatus(row);
+            const ipVal = getRowSupplyIp(row);
+            const monFlag = getMonitoringSupplyStatusFlag(row);
+
+            const tr = document.createElement('tr');
+            tr.className = (isAbsoluteFirst 
+              ? 'bg-amber-50/70 dark:bg-amber-950/25 font-medium ' 
+              : 'border-b border-slate-100 dark:border-slate-700/60 ') +
+              'hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition cursor-pointer select-none group';
+            tr.title = `Haz clic para abrir Ficha de Detalle (Folio #${folioVal})`;
+            tr.onclick = () => openFolioDetailDrawer(realIdx);
+            
+            tr.innerHTML = `
+              <td class="py-1.5 px-2.5 text-slate-400 font-mono text-center">
+                ${isAbsoluteFirst ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200/90 text-amber-900 dark:bg-amber-900 dark:text-amber-100 mr-1">✨</span>' : ''}
+                ${start + i + 1}
+              </td>
+              <td class="py-1.5 px-2.5 font-mono font-bold text-amber-700 dark:text-amber-400">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-1.5 py-0.5 rounded bg-amber-100/80 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/80 shadow-2xs">#${folioVal}</span>
+                  ${folioVal && folioVal !== '-' ? `
+                    <button type="button" onclick="event.stopPropagation(); openFolioInDrive('${folioVal}')" title="Buscar PDF escaneado del Folio #${folioVal} en Google Drive" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 text-[9px] font-bold text-blue-700 dark:text-blue-300 shadow-2xs transition">
+                      <svg class="w-2.5 h-2.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
+                      <span>PDF</span>
+                    </button>
+                  ` : ''}
+                </div>
+              </td>
+              <td class="py-1.5 px-2.5 font-mono text-[11px] font-semibold text-blue-600 dark:text-blue-400 col-appsheet">
+                ${(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET']) ? `
+                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 shadow-2xs" title="Solicitud AppSheet vinculada">
+                    <span>📱</span>
+                    <span>${escapeHtml(row['ID_TICKET'] || row['SOLICITUD APPSHEET'] || row['ID TICKET'])}</span>
+                  </span>
+                ` : '<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60" title="Despacho Proactivo / Emergencia">⚡ Proactivo</span>'}
+              </td>
+              <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-medium">${formatDateShort(row['FECHA'] || row['Fecha'])}</td>
+              <td class="py-1.5 px-2.5 text-center">
+                ${getFolioStatusBadge(realSt)}
+                ${ipVal ? `<div class="mt-0.5 font-mono text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1" title="IP de red: ${ipVal}"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>${ipVal}</div>` : ''}
+                ${(monFlag.flag === 'EN_USO' && monFlag.needsStatusUpdate) ? `
+                  <div class="mt-1">
+                    <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Pasar a EN USO">
+                      <span>⚡ Pasar a EN USO</span>
+                    </button>
+                  </div>
+                ` : ''}
+                ${(monFlag.flag === 'SUSTITUIDO_DESECHO') ? `
+                  <div class="mt-1">
+                    <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Pasar a DESECHO">
+                      <span>🗑️ Pasar a DESECHO</span>
+                    </button>
+                  </div>
+                ` : ''}
+              </td>
+              <td class="py-1.5 px-2.5 text-center whitespace-nowrap">${monFlag.badge}</td>
+              <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '-'}</td>
+              <td class="py-1.5 px-2.5 font-mono text-slate-600 dark:text-slate-300 col-numpart">${row['NUMPART'] || '-'}</td>
+              <td class="py-1.5 px-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate col-desc" title="${row['DESCRIPCION'] || ''}">${row['DESCRIPCION'] || '-'}</td>
+              <td class="py-1.5 px-2.5 font-bold text-center text-slate-900 dark:text-white col-cant">${row['CANT'] || 1}</td>
+              <td class="py-1.5 px-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold">${row['IMPRESOR'] || row['SERIE'] || '-'}</td>
+              <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300 col-modelo">${row['MODELO'] || '-'}</td>
+              <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300 max-w-[150px] truncate col-destino" title="${row['DESTINO'] || ''}">${row['DESTINO'] || '-'}</td>
+              <td class="py-1.5 px-2.5 font-medium text-slate-700 dark:text-slate-300 max-w-[150px] truncate col-cliente" title="${row['CLIENTE'] || ''}">${row['CLIENTE'] || '-'}</td>
+              <td class="py-1.5 px-2.5 text-slate-500 col-det">${row['DET'] || '-'}</td>
+              <td class="py-1.5 px-2.5 text-center">
+                <div class="flex items-center justify-center gap-1.5">
+                  <button type="button" onclick="event.stopPropagation(); openFolioDetailDrawer(${realIdx})" title="Ver Ficha Completa del Folio" class="p-1 rounded text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                  </button>
+                  <button type="button" onclick="event.stopPropagation(); openPrintOrdenByFolio('${folioVal}')" title="Generar / Imprimir Orden de Entrega Oficial (Folio #${folioVal})" class="p-1 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                  </button>
+                  <button type="button" onclick="event.stopPropagation(); editSalida(${realIdx})" title="Editar Salida Completa" class="p-1 rounded-lg ${isAbsoluteFirst ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-2xs' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50'}">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                  </button>
+                  <button type="button" onclick="event.stopPropagation(); deleteSalida(${realIdx})" title="Eliminar Registro" class="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                   </button>
                 </div>
-              ` : ''}
-            </td>
-            <td class="py-1.5 px-2.5 text-center whitespace-nowrap">${monFlag.badge}</td>
-            <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '-'}</td>
-            <td class="py-1.5 px-2.5 font-mono text-slate-600 dark:text-slate-300">${row['NUMPART'] || '-'}</td>
-            <td class="py-1.5 px-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate" title="${row['DESCRIPCION'] || ''}">${row['DESCRIPCION'] || '-'}</td>
-            <td class="py-1.5 px-2.5 font-bold text-center text-slate-900 dark:text-white">${row['CANT'] || 1}</td>
-            <td class="py-1.5 px-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold">${row['IMPRESOR'] || row['SERIE'] || '-'}</td>
-            <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300">${row['MODELO'] || '-'}</td>
-            <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300 max-w-[150px] truncate" title="${row['DESTINO'] || ''}">${row['DESTINO'] || '-'}</td>
-            <td class="py-1.5 px-2.5 font-medium text-slate-700 dark:text-slate-300 max-w-[150px] truncate" title="${row['CLIENTE'] || ''}">${row['CLIENTE'] || '-'}</td>
-            <td class="py-1.5 px-2.5 text-slate-500">${row['DET'] || '-'}</td>
-            <td class="py-1.5 px-2.5 text-center">
-              <div class="flex items-center justify-center gap-1.5">
-                ${folioVal && folioVal !== '-' ? `
-                  <button type="button" onclick="event.stopPropagation(); openFolioInDrive('${folioVal}')" title="Abrir PDF en Drive (Folio #${folioVal})" class="p-1 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/50">
-                    <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1.5h2c.55 0 1-.45 1-1s-.45-.5-1-.5zm4.5 3h-2V9h2c.83 0 1.5.67 1.5 1.5v3c0 .83-.67 1.5-1.5 1.5zm-4.5-4.5h-2V8.5h2c.55 0 1 .45 1 1s-.45.5-1 .5zm9 6h-1.5v-2h-1v2h-1.5V9H18v1.5h-2v1.5h1.5v1.5H16v1.5h2.5z"/></svg>
-                  </button>
-                ` : ''}
-                <button type="button" onclick="event.stopPropagation(); openPrintOrdenByFolio('${folioVal}')" title="Generar / Imprimir Orden de Entrega Oficial (Folio #${folioVal})" class="p-1 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                </button>
-                <button type="button" onclick="event.stopPropagation(); editSalida(${realIdx})" title="Editar Salida" class="p-1 rounded-lg ${isAbsoluteFirst ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-2xs' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50'}">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                </button>
-                <button type="button" onclick="event.stopPropagation(); deleteSalida(${realIdx})" title="Eliminar Registro" class="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                </button>
-              </div>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+        applySalidasColumnVisibility();
       }
 
       // 3. Sincronizar Paginador Superior e Inferior

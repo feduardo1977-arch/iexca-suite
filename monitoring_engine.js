@@ -24,7 +24,7 @@ let monitoringSelectedUdiLevels = new Set();
 let monitoringSelectedKmtLevels = new Set();
 let activeSupplyPopoverType = null; // 'TNR' | 'UDI' | 'KMT'
 let popoverSearchQuery = '';
-let monitoringViewMode = 'auto'; // 'auto' (cards en móvil <768px, tabla en desktop), 'cards', 'table'
+let monitoringViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('iexca_monitoring_view_mode')) || (typeof window !== 'undefined' && window.innerWidth < 768 ? 'cards' : 'table');
 let isMonitoringInitialized = false;
 let isMonitoringLoadingDB = false;
 
@@ -346,6 +346,7 @@ if (typeof window !== 'undefined') {
 
 function setMonitoringViewMode(mode) {
   monitoringViewMode = mode;
+  try { localStorage.setItem('iexca_monitoring_view_mode', mode); } catch(e){}
   const btnCards = document.getElementById('btnMonitoringViewCards');
   const btnTable = document.getElementById('btnMonitoringViewTable');
   const cardsCont = document.getElementById('monitoringMobileCardsContainer');
@@ -380,6 +381,114 @@ function setMonitoringViewMode(mode) {
     renderMonitoringTable();
   }
 }
+
+// Alternador del Menú Desplegable "Más Herramientas"
+function toggleMonitoringToolsMenu(force) {
+  const menu = document.getElementById('monitoringToolsMenu');
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  const show = typeof force === 'boolean' ? force : isHidden;
+  if (show) {
+    menu.classList.remove('hidden');
+  } else {
+    menu.classList.add('hidden');
+  }
+}
+window.toggleMonitoringToolsMenu = toggleMonitoringToolsMenu;
+
+// Cerrar menú al hacer clic fuera
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const container = document.getElementById('monitoringToolsMenuContainer');
+    const menu = document.getElementById('monitoringToolsMenu');
+    if (menu && !menu.classList.contains('hidden') && container && !container.contains(e.target)) {
+      menu.classList.add('hidden');
+    }
+  });
+}
+
+// Alternador de Minimizar / Expandir Widget de Salud de la Flota
+function toggleFleetHealthWidget(force) {
+  const content = document.getElementById('fleetHealthScoreContent');
+  const txt = document.getElementById('txtToggleFleetHealth');
+  if (!content) return;
+  const isHidden = content.classList.contains('hidden');
+  const collapse = typeof force === 'boolean' ? !force : !isHidden;
+  if (collapse) {
+    content.classList.add('hidden');
+    if (txt) txt.textContent = '+ Ver Salud Flota';
+    try { localStorage.setItem('iexca_fleet_health_collapsed', '1'); } catch(e){}
+  } else {
+    content.classList.remove('hidden');
+    if (txt) txt.textContent = '− Minimizar';
+    try { localStorage.removeItem('iexca_fleet_health_collapsed'); } catch(e){}
+  }
+}
+window.toggleFleetHealthWidget = toggleFleetHealthWidget;
+
+// Restaurar estado guardado de Salud de Flota al iniciar
+if (typeof localStorage !== 'undefined' && localStorage.getItem('iexca_fleet_health_collapsed') === '1') {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+      toggleFleetHealthWidget(false);
+    });
+  }
+}
+
+// Alternador del Acordeón de Filtros Avanzados (Color, Suministros, Porcentajes, Casillas)
+function toggleMonitoringAdvancedFilters(force) {
+  const panel = document.getElementById('monitoringAdvancedFiltersPanel');
+  const btn = document.getElementById('btnToggleAdvancedFilters');
+  if (!panel) return;
+  const isHidden = panel.classList.contains('hidden');
+  const show = typeof force === 'boolean' ? force : isHidden;
+  if (show) {
+    panel.classList.remove('hidden');
+    if (btn) btn.classList.add('ring-2', 'ring-rose-400', 'bg-rose-50', 'dark:bg-rose-950/60');
+  } else {
+    panel.classList.add('hidden');
+    if (btn) btn.classList.remove('ring-2', 'ring-rose-400', 'bg-rose-50', 'dark:bg-rose-950/60');
+  }
+}
+window.toggleMonitoringAdvancedFilters = toggleMonitoringAdvancedFilters;
+
+// Actualizar indicador numérico de filtros avanzados activos
+function updateAdvancedFiltersBadge() {
+  const badge = document.getElementById('badgeActiveAdvancedFilters');
+  if (!badge) return;
+  let activeCount = 0;
+  if (monitoringFilterStatus && monitoringFilterStatus !== 'ALL') activeCount++;
+  const colSel = document.getElementById('filterMonitoringColorSelect');
+  if (colSel && colSel.value && colSel.value !== 'ALL') activeCount++;
+  if (monitoringFilterSupply && monitoringFilterSupply !== 'ALL') activeCount++;
+  if (monitoringFilterPercent && monitoringFilterPercent !== 'ALL') activeCount++;
+  if (monitoringSelectedTnrLevels && monitoringSelectedTnrLevels.size > 0) activeCount += monitoringSelectedTnrLevels.size;
+  if (monitoringSelectedUdiLevels && monitoringSelectedUdiLevels.size > 0) activeCount += monitoringSelectedUdiLevels.size;
+  if (monitoringSelectedKmtLevels && monitoringSelectedKmtLevels.size > 0) activeCount += monitoringSelectedKmtLevels.size;
+
+  if (activeCount > 0) {
+    badge.textContent = activeCount;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+window.updateAdvancedFiltersBadge = updateAdvancedFiltersBadge;
+
+// Alternador de Tarjetas Móviles: Desglose Progresivo (Acordeón de Suministros)
+function toggleMonitoringCardDetails(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isHidden = el.classList.contains('hidden');
+  el.classList.toggle('hidden');
+  if (btn) {
+    const txt = btn.querySelector('.btn-text');
+    const chev = btn.querySelector('.chevron-icon');
+    if (txt) txt.textContent = isHidden ? 'Ocultar detalle' : 'Expandir';
+    if (chev) chev.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
+}
+window.toggleMonitoringCardDetails = toggleMonitoringCardDetails;
 
 // Formateador seguro de fecha corta
 function formatDateShort(val) {
@@ -2278,6 +2387,7 @@ function filterMonitoringTable() {
   monitoringCurrentPage = 1;
   updateSpecificSupplyLevelBadges();
   updateActiveSlideUI(monitoringFilterStatus);
+  if (typeof updateAdvancedFiltersBadge === 'function') updateAdvancedFiltersBadge();
 
   // Control de visibilidad del botón para limpiar búsqueda rápida
   const btnClearSearch = document.getElementById('btnClearMonitoringSearch');
@@ -3308,9 +3418,43 @@ function renderMonitoringTable() {
           </div>
         </div>
 
+        <!-- Resumen Compacto y Desglose Progresivo de Suministros -->
+        <div class="pt-1.5 space-y-1.5">
+          ${r.isColor ? `
+            <div class="flex items-center gap-1.5 flex-wrap text-[10px] font-mono py-1 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60">
+              <span class="font-sans font-bold text-[9px] text-slate-500 uppercase tracking-wider">Tóner:</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrKNivel !== null && r.tnrKNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">K: ${r.tnrKNivel !== null ? r.tnrKNivel + '%' : 'N/D'}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrYNivel !== null && r.tnrYNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'}">Y: ${r.tnrYNivel !== null ? r.tnrYNivel + '%' : 'N/D'}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrCNivel !== null && r.tnrCNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300'}">C: ${r.tnrCNivel !== null ? r.tnrCNivel + '%' : 'N/D'}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrMNivel !== null && r.tnrMNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300'}">M: ${r.tnrMNivel !== null ? r.tnrMNivel + '%' : 'N/D'}</span>
+              ${r.desechoNivel !== null ? `<span class="px-1.5 py-0.5 rounded font-bold ${r.desechoNivel >= 85 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'}">WTB: ${r.desechoNivel}%</span>` : ''}
+            </div>
+          ` : `
+            <div class="flex items-center gap-1.5 flex-wrap text-[10px] font-mono py-1 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60">
+              <span class="font-sans font-bold text-[9px] text-slate-500 uppercase tracking-wider">Niveles:</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.tnrNivel !== null && r.tnrNivel <= 15 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">TNR: ${r.tnrNivel !== null ? r.tnrNivel + '%' : 'N/D'}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.udiNivel !== null && r.udiNivel <= 5 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">UDI: ${r.udiNivel !== null ? r.udiNivel + '%' : 'N/D'}</span>
+              <span class="px-1.5 py-0.5 rounded font-black ${r.kmtNivel !== null && r.kmtNivel <= 3 ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-white'}">KMT: ${r.kmtNivel !== null ? r.kmtNivel + '%' : 'N/D'}</span>
+            </div>
+          `}
+
+          <!-- Botón Acordeón para Ver Suministros y Series -->
+          <button type="button" onclick="toggleMonitoringCardDetails('mon_card_details_${i}', this); event.stopPropagation();" class="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 transition flex items-center justify-between border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs">
+            <span class="flex items-center gap-1.5">
+              <span>👁️ Ver desglose de suministros y series</span>
+            </span>
+            <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1">
+              <span class="btn-text">Expandir</span>
+              <svg class="w-3.5 h-3.5 transform transition-transform chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </span>
+          </button>
+        </div>
+
+        <!-- Contenedor Colapsable de Suministros (Oculto por Defecto para Evitar Saturación) -->
+        <div id="mon_card_details_${i}" class="hidden space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
         ${r.isColor ? `
         <!-- Suministros a Color (TNRK, TNRY, TNRC, TNRM y Desecho) -->
-        <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+        <div class="space-y-2">
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <!-- TNRK -->
             <div class="bg-slate-100 dark:bg-slate-900/80 p-2 rounded-xl border border-slate-300 dark:border-slate-700 flex flex-col justify-between">
@@ -3406,7 +3550,7 @@ function renderMonitoringTable() {
         </div>
         ` : `
         <!-- Suministros Monocromáticos (TNR, UDI, KMT) -->
-        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+        <div class="grid grid-cols-3 gap-2">
           <div class="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl flex flex-col justify-between">
             <div>
               <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
@@ -3462,6 +3606,7 @@ function renderMonitoringTable() {
           </div>
         </div>
         `}
+        </div>
 
         <!-- Última Salida y Acciones -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
