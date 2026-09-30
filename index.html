@@ -1428,12 +1428,42 @@
               <option value="CONSUMIDO">🪫 Consumido</option>
             </select>
             <select id="filterSalidasMonitoreo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 font-medium">
-              <option value="">Todos los Monitoreos</option>
-              <option value="EN_USO">🟢 En Uso en Monitoreo</option>
-              <option value="EN_STOCK_TIENDA">🟡 Pendiente en Tienda</option>
+              <option value="">🔍 Todos los Monitoreos</option>
+              <option value="EN_USO">🟢 Verificados en Monitoreo (En Uso Activo)</option>
+              <option value="EN_STOCK_TIENDA">🟡 En Resguardo en Tienda (Pendiente Colocación)</option>
+              <option value="SUSTITUIDO_DESECHO">⚠️ Sustituidos en Equipo (Pasar a Desecho)</option>
+              <option value="DESECHADO">🗑️ Desechados</option>
               <option value="NO_MONITOREADO">⚪ No Monitoreado</option>
             </select>
             <span id="salidasCountSummary" class="text-xs text-slate-500 font-medium">0 registros</span>
+          </div>
+        </div>
+
+        <!-- Barra de Filtros Rápidos de Auditoría de Suministros (Ciclo de Vida) -->
+        <div class="px-4 py-2 bg-slate-100/60 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700/80 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+              <span>🔍 Filtros de Monitoreo:</span>
+            </span>
+            <button type="button" onclick="setQuickSalidasMonFilter('')" id="btnSalidasFilterAll" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500 text-white shadow-2xs transition active:scale-95">Todos</button>
+            <button type="button" onclick="setQuickSalidasMonFilter('EN_USO')" id="btnSalidasFilterEnUso" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 transition active:scale-95 flex items-center gap-1.5 shadow-2xs" title="Filtrar suministros de folios confirmados físicamente operando en el impresor por monitoreo">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>🟢 Verificados en Monitoreo</span>
+              <span id="badgeCountSalidasEnUso" class="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 text-[10px] font-mono font-bold">0</span>
+            </button>
+            <button type="button" onclick="setQuickSalidasMonFilter('EN_STOCK_TIENDA')" id="btnSalidasFilterResguardo" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/50 border border-amber-300 dark:border-amber-700 transition active:scale-95 flex items-center gap-1.5 shadow-2xs" title="Filtrar suministros despachados que aún no se han colocado y siguen en resguardo en tienda">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span>🟡 En Resguardo en Tienda</span>
+              <span id="badgeCountSalidasResguardo" class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 text-[10px] font-mono font-bold">0</span>
+            </button>
+            <button type="button" onclick="setQuickSalidasMonFilter('SUSTITUIDO_DESECHO')" id="btnSalidasFilterSustituidos" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-300 dark:border-rose-700 transition active:scale-95 flex items-center gap-1.5 shadow-2xs" title="Suministros que fueron reemplazados en el impresor por una serie nueva y deben pasar a desecho">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+              <span>⚠️ Sustituidos (Pasar a Desecho)</span>
+              <span id="badgeCountSalidasSustituidos" class="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200 text-[10px] font-mono font-bold">0</span>
+            </button>
+          </div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400 italic">
+            💡 Control de reemplazos: los consumibles en resguardo pasan a <strong class="text-emerald-600">EN USO</strong> al instalarse, y los reemplazados a <strong class="text-rose-600">DESECHO</strong>.
           </div>
         </div>
 
@@ -1566,7 +1596,15 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <button type="button" onclick="syncOdsToFirebase(true)" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-2xs transition active:scale-95 cursor-pointer" title="Sincronizar y respaldar todas las órdenes ODS en Google Firebase Realtime Database">
+            <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3zm-5.5-9h-3v3H8l4 4 4-4h-2.5z"/></svg>
+            <span id="btnSyncOdsFirebaseText">☁️ Sincronizar Nube</span>
+          </button>
+          <div id="badgeFirebaseOdsSync" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 shadow-2xs">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+            <span>Firebase ODS</span>
+          </div>
           <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800">
             <span class="text-xs text-indigo-600 dark:text-indigo-300 font-medium">Siguiente Correlativo:</span>
             <span id="badgeNextTicketId" class="text-xs font-mono font-bold text-indigo-900 dark:text-indigo-100 bg-white dark:bg-indigo-900 px-2 py-0.5 rounded shadow-2xs">INC0001640</span>
@@ -4659,11 +4697,15 @@
           initSuiteModules();
           populateDashboardSheetsSelector();
           switchSuiteTab('dashboard');
-          runDashboardAnalysisOnDemand(currentSheetName);
+          closeDashboardAnalysis(true);
           saveToIndexedDB();
           showToast(`⚡ SUITE.xlsm preparado (${wb.SheetNames.length} hojas listas).`);
-          // Sincronización automática silenciosa en segundo plano con Google Sheets
-          setTimeout(() => syncSalidasFoliosFromGoogleSheet(false), 800);
+          // Sincronización automática silenciosa en segundo plano con Google Sheets y Firebase Nube
+          setTimeout(() => {
+            syncSalidasFoliosFromGoogleSheet(false);
+            syncOdsToFirebase(false);
+            initFirebaseOdsSync();
+          }, 800);
           return;
         }
       } catch (e) {
@@ -4951,10 +4993,12 @@
           initSuiteModules();
           populateDashboardSheetsSelector();
           switchSuiteTab('dashboard');
-          runDashboardAnalysisOnDemand(currentSheetName);
+          closeDashboardAnalysis(true);
 
-          // Sincronizar de inmediato con la Base de Datos Local Permanente
+          // Sincronizar de inmediato con la Base de Datos Local Permanente y Nube
           saveToIndexedDB();
+          syncOdsToFirebase(false);
+          initFirebaseOdsSync();
         } catch (err) {
           alert("Error al abrir el archivo " + file.name + ":\n" + err.message + "\n\nAsegúrate de que no esté protegido por contraseña.");
           console.error(err);
@@ -5099,7 +5143,7 @@
       }
     }
 
-    function closeDashboardAnalysis() {
+    function closeDashboardAnalysis(silent = false) {
       isDashboardAnalysisActive = false;
       destroyAllDashboardCharts();
 
@@ -5110,7 +5154,7 @@
       document.getElementById('tableSection')?.classList.add('hidden');
 
       updateDashboardDemandStarterUI();
-      if (typeof showToast === 'function') {
+      if (!silent && typeof showToast === 'function') {
         showToast("Análisis cerrado. Recursos de memoria liberados.");
       }
     }
@@ -5129,11 +5173,11 @@
         if (btnRun) btnRun.innerHTML = '<span>🔄 Re-analizar</span>';
       } else {
         if (badgeStatus) {
-          badgeStatus.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300";
-          badgeStatus.textContent = "Modo en espera";
+          badgeStatus.className = "text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700";
+          badgeStatus.textContent = "Modo en espera (Listo para generar)";
         }
         if (btnClose) btnClose.classList.add('hidden');
-        if (btnRun) btnRun.innerHTML = '<span>⚡ Analizar Hoja</span>';
+        if (btnRun) btnRun.innerHTML = '<span>⚡ Generar Dashboard</span>';
       }
     }
 
@@ -8720,7 +8764,13 @@
       initSuiteModules(true);
       populateDashboardSheetsSelector();
       switchSuiteTab('dashboard');
-      runDashboardAnalysisOnDemand(currentSheetName);
+      closeDashboardAnalysis(true);
+
+      // Sincronización en segundo plano de ODS con Firebase Nube
+      setTimeout(() => {
+        syncOdsToFirebase(false);
+        initFirebaseOdsSync();
+      }, 900);
 
       updateStorageUI('loaded', state.timestamp);
       return true;
@@ -9165,6 +9215,10 @@
       }
       if (typeof refreshMonitoringAnalysis === 'function') {
         refreshMonitoringAnalysis();
+      }
+      // Inicializar Sincronización en Tiempo Real de ODS en Firebase
+      if (typeof initFirebaseOdsSync === 'function') {
+        initFirebaseOdsSync();
       }
 
       // Sincronizar estado limpio de pestañas de la suite
@@ -10484,6 +10538,9 @@
       let totalCantidad = 0;
       let totalToners = 0;
       const destinos = new Set();
+      let countEnUso = 0;
+      let countResguardo = 0;
+      let countSustituidos = 0;
 
       folios.forEach(r => {
         const cant = parseFloat(r['CANT'] || r['Cant'] || r['Cantidad'] || 1);
@@ -10492,6 +10549,11 @@
         if (tipo === 'TNR') totalToners += (isNaN(cant) ? 1 : cant);
         const dest = (r['DESTINO'] || r['Destino'] || r['CLIENTE'] || '').toString().trim();
         if (dest) destinos.add(dest);
+
+        const flagInfo = getMonitoringSupplyStatusFlag(r);
+        if (flagInfo.flag === 'EN_USO') countEnUso++;
+        else if (flagInfo.flag === 'EN_STOCK_TIENDA') countResguardo++;
+        else if (flagInfo.flag === 'SUSTITUIDO_DESECHO') countSustituidos++;
       });
 
       const elTot = document.getElementById('kpiSalidasTotal');
@@ -10502,6 +10564,13 @@
       if (elTnr) elTnr.textContent = totalToners.toLocaleString();
       const elDest = document.getElementById('kpiSalidasDestinos');
       if (elDest) elDest.textContent = destinos.size.toLocaleString();
+
+      const bEnUso = document.getElementById('badgeCountSalidasEnUso');
+      if (bEnUso) bEnUso.textContent = countEnUso.toLocaleString();
+      const bResg = document.getElementById('badgeCountSalidasResguardo');
+      if (bResg) bResg.textContent = countResguardo.toLocaleString();
+      const bSust = document.getElementById('badgeCountSalidasSustituidos');
+      if (bSust) bSust.textContent = countSustituidos.toLocaleString();
 
       const badgeNextFol = document.getElementById('badgeNextFolioId');
       if (badgeNextFol) badgeNextFol.textContent = `#${getNextFolioNumber()}`;
@@ -10991,6 +11060,48 @@
       renderSalidasTable();
     }
 
+    function setQuickSalidasMonFilter(flag) {
+      const sel = document.getElementById('filterSalidasMonitoreo');
+      if (sel) sel.value = flag;
+
+      const btnAll = document.getElementById('btnSalidasFilterAll');
+      const btnEnUso = document.getElementById('btnSalidasFilterEnUso');
+      const btnResg = document.getElementById('btnSalidasFilterResguardo');
+      const btnSust = document.getElementById('btnSalidasFilterSustituidos');
+
+      if (btnAll) btnAll.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 ${flag === '' ? 'bg-amber-500 text-white shadow-2xs' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'}`;
+      if (btnEnUso) btnEnUso.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-2xs ${flag === 'EN_USO' ? 'bg-emerald-600 text-white border border-emerald-700 ring-2 ring-emerald-400' : 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700'}`;
+      if (btnResg) btnResg.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-2xs ${flag === 'EN_STOCK_TIENDA' ? 'bg-amber-600 text-white border border-amber-700 ring-2 ring-amber-400' : 'bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/50 border border-amber-300 dark:border-amber-700'}`;
+      if (btnSust) btnSust.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 flex items-center gap-1.5 shadow-2xs ${flag === 'SUSTITUIDO_DESECHO' ? 'bg-rose-600 text-white border border-rose-700 ring-2 ring-rose-400' : 'bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-300 dark:border-rose-700'}`;
+
+      filterSalidasTable();
+    }
+    window.setQuickSalidasMonFilter = setQuickSalidasMonFilter;
+
+    function quickUpdateFolioSupplyStatus(index, newStatus) {
+      const folios = sheetStore['FOLIOS'] || [];
+      const row = folios[index];
+      if (!row) {
+        showToast("⚠️ No se encontró el registro de folio especificado.");
+        return;
+      }
+      const folioVal = getRowFolio(row);
+      const serieVal = getRowSupplySerial(row) || row['SERIE'] || '';
+
+      row['ESTADO SUM'] = newStatus;
+      row['ESTADO'] = newStatus;
+
+      // Guardar persistentemente en IndexedDB
+      saveToIndexedDB();
+      indexFoliosMetadata([row]);
+      updateSalidasKPIs();
+      filterSalidasTable();
+
+      const icon = newStatus === 'EN USO' ? '⚡' : (newStatus === 'DESECHADO' ? '🗑️' : '✅');
+      showToast(`${icon} Folio #${folioVal} (${serieVal}): Estado actualizado a "${newStatus}".`);
+    }
+    window.quickUpdateFolioSupplyStatus = quickUpdateFolioSupplyStatus;
+
     function renderSalidasTable() {
       // 1. Actualizar Tarjeta de Último Registro / Más Reciente Encontrado
       const recentCard = document.getElementById('salidasMostRecentCard');
@@ -11111,6 +11222,20 @@
             <td class="py-1.5 px-2.5 text-center">
               ${getFolioStatusBadge(realSt)}
               ${ipVal ? `<div class="mt-0.5 font-mono text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1" title="IP de red del impresor: ${ipVal}"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>${ipVal}</div>` : ''}
+              ${(monFlag.flag === 'EN_USO' && monFlag.needsStatusUpdate) ? `
+                <div class="mt-1">
+                  <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Detectado operando en la máquina: Haz clic para cambiar estado a EN USO inmediatamente">
+                    <span>⚡ Pasar a EN USO</span>
+                  </button>
+                </div>
+              ` : ''}
+              ${(monFlag.flag === 'SUSTITUIDO_DESECHO') ? `
+                <div class="mt-1">
+                  <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Reemplazado en equipo por nueva serie: Haz clic para registrar como DESECHADO">
+                    <span>🗑️ Pasar a DESECHO</span>
+                  </button>
+                </div>
+              ` : ''}
             </td>
             <td class="py-1.5 px-2.5 text-center whitespace-nowrap">${monFlag.badge}</td>
             <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '-'}</td>
@@ -12219,6 +12344,7 @@
       if (!confirm("¿Estás seguro de eliminar esta orden de servicio de la hoja ODS?")) return;
       sheetStore['ODS'].splice(index, 1);
       saveToIndexedDB();
+      syncOdsToFirebase(false);
       updateOdsKPIs();
       filterOdsTable();
       showToast("Orden de servicio eliminada exitosamente.");
@@ -12329,7 +12455,167 @@
       closeTicketModal(true);
       updateOdsKPIs();
       filterOdsTable();
+      // Sincronizar automáticamente en tiempo real con Google Firebase
+      syncOdsToFirebase(false);
     }
+
+    // =========================================================================
+    // MÓDULO DE SINCRONIZACIÓN DE HOJA ODS EN GOOGLE FIREBASE REALTIME DATABASE
+    // =========================================================================
+    let isFirebaseOdsSyncInitialized = false;
+    let isSyncingOdsToFirebase = false;
+
+    // Sanitización recursiva de claves para Firebase (reemplaza ., $, #, [, ], /)
+    function sanitizeObjectForFirebase(obj) {
+      if (obj === null || obj === undefined) return null;
+      if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeObjectForFirebase(item));
+      }
+      if (typeof obj === 'object') {
+        const clean = {};
+        for (const key of Object.keys(obj)) {
+          const safeKey = key
+            .replace(/\./g, '_dot_')
+            .replace(/\$/g, '_dollar_')
+            .replace(/#/g, '_hash_')
+            .replace(/\[/g, '_lbr_')
+            .replace(/\]/g, '_rbr_')
+            .replace(/\//g, '_slash_');
+          clean[safeKey] = sanitizeObjectForFirebase(obj[key]);
+        }
+        return clean;
+      }
+      return obj;
+    }
+
+    // Des-sanitización recursiva de claves al descargar de Firebase
+    function desanitizeObjectFromFirebase(obj) {
+      if (obj === null || obj === undefined) return null;
+      if (Array.isArray(obj)) {
+        return obj.map(item => desanitizeObjectFromFirebase(item));
+      }
+      if (typeof obj === 'object') {
+        const orig = {};
+        for (const key of Object.keys(obj)) {
+          const origKey = key
+            .replace(/_dot_/g, '.')
+            .replace(/_dollar_/g, '$')
+            .replace(/_hash_/g, '#')
+            .replace(/_lbr_/g, '[')
+            .replace(/_rbr_/g, ']')
+            .replace(/_slash_/g, '/');
+          orig[origKey] = desanitizeObjectFromFirebase(obj[key]);
+        }
+        return orig;
+      }
+      return obj;
+    }
+
+    function updateFirebaseOdsUI(count, lastUpdated) {
+      const badgeOdsNube = document.getElementById('badgeFirebaseOdsSync');
+      if (badgeOdsNube) {
+        badgeOdsNube.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs';
+        badgeOdsNube.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>☁️ Nube: ${(count || 0).toLocaleString()} ODS</span>`;
+      }
+      const elInspOds = document.getElementById('fbInspTotalOds');
+      if (elInspOds) {
+        elInspOds.textContent = (count || 0).toLocaleString();
+      }
+      const elInspOdsDate = document.getElementById('fbInspOdsLastSync');
+      if (elInspOdsDate && lastUpdated) {
+        elInspOdsDate.textContent = new Date(lastUpdated).toLocaleTimeString('es-NI', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }
+    }
+
+    function initFirebaseOdsSync() {
+      if (isFirebaseOdsSyncInitialized) return;
+      if (typeof firebase === 'undefined' || !window.firebaseDb) return;
+      isFirebaseOdsSyncInitialized = true;
+
+      try {
+        const dbRef = window.firebaseDb.ref('ods_data');
+        dbRef.on('value', (snapshot) => {
+          if (isSyncingOdsToFirebase) return;
+          const cloudData = snapshot.val();
+          if (cloudData && (cloudData.records || Array.isArray(cloudData))) {
+            const rawRecords = cloudData.records || cloudData;
+            const cloudRecords = desanitizeObjectFromFirebase(rawRecords);
+            if (Array.isArray(cloudRecords) && cloudRecords.length > 0) {
+              const localOds = sheetStore['ODS'] || [];
+              if (localOds.length === 0 || cloudRecords.length > localOds.length) {
+                console.log(`🔥 [Firebase ODS] Sincronizados ${cloudRecords.length} tickets ODS desde la nube.`);
+                sheetStore['ODS'] = cloudRecords;
+                indexOdsMetadata(sheetStore['ODS']);
+                updateOdsKPIs();
+                filterOdsTable();
+                updateFirebaseOdsUI(cloudRecords.length, cloudData.lastUpdated);
+                saveToIndexedDB();
+              } else {
+                updateFirebaseOdsUI(localOds.length, cloudData.lastUpdated);
+              }
+            }
+          }
+        }, (err) => {
+          console.warn("⚠️ [Firebase ODS] Error en listener:", err);
+        });
+      } catch (err) {
+        console.warn("⚠️ [Firebase ODS] Inicialización:", err);
+      }
+    }
+
+    function syncOdsToFirebase(force = false) {
+      if (typeof firebase === 'undefined' || !window.firebaseDb) {
+        console.warn("⚠️ Firebase DB no inicializada.");
+        if (force && typeof showToast === 'function') {
+          showToast("⚠️ Firebase no está conectado.");
+        }
+        return Promise.resolve(false);
+      }
+      const odsData = sheetStore['ODS'];
+      if (!Array.isArray(odsData) || odsData.length === 0) {
+        console.warn("ℹ️ No hay registros de ODS en memoria para sincronizar.");
+        if (force && typeof showToast === 'function') {
+          showToast("ℹ️ La hoja ODS está vacía.");
+        }
+        return Promise.resolve(false);
+      }
+
+      isSyncingOdsToFirebase = true;
+      const btnText = document.getElementById('btnSyncOdsFirebaseText');
+      if (btnText) btnText.textContent = "⏳ Subiendo...";
+
+      const safeRecords = sanitizeObjectForFirebase(odsData);
+      const payload = {
+        lastUpdated: new Date().toISOString(),
+        timestamp: Date.now(),
+        count: odsData.length,
+        records: safeRecords
+      };
+
+      return window.firebaseDb.ref('ods_data').set(payload)
+        .then(() => {
+          console.log(`🔥 [Firebase ODS] ${odsData.length} tickets ODS guardados con éxito en la nube.`);
+          updateFirebaseOdsUI(odsData.length, payload.lastUpdated);
+          if (typeof showToast === 'function' && force) {
+            showToast(`☁️ Base ODS respaldada en Firebase (${odsData.length.toLocaleString()} tickets).`);
+          }
+          return true;
+        })
+        .catch((err) => {
+          console.error("❌ [Firebase ODS] Error al sincronizar:", err);
+          if (typeof showToast === 'function' && force) {
+            showToast(`❌ Error al subir ODS a Firebase: ${err.message}`);
+          }
+          return false;
+        })
+        .finally(() => {
+          if (btnText) btnText.textContent = "☁️ Sincronizar Nube";
+          setTimeout(() => { isSyncingOdsToFirebase = false; }, 1000);
+        });
+    }
+
+    window.syncOdsToFirebase = syncOdsToFirebase;
+    window.initFirebaseOdsSync = initFirebaseOdsSync;
 
     // BOLETA ODS IMPRIMIBLE (ODSIMP)
     function viewBoletaForTicket(ticketId) {
@@ -13228,10 +13514,12 @@
       initSuiteModules();
       populateDashboardSheetsSelector();
       switchSuiteTab('dashboard');
-      runDashboardAnalysisOnDemand("ODS");
+      closeDashboardAnalysis(true);
 
-      // Guardar en la Base de Datos Local Permanente
+      // Guardar en la Base de Datos Local Permanente y Nube
       saveToIndexedDB();
+      syncOdsToFirebase(false);
+      initFirebaseOdsSync();
 
       showToast("⚡ Suite IEXCA cargada: ODS, FOLIOS, RDI y SERVICE NOW listos.");
     }
@@ -13265,21 +13553,29 @@
       </div>
 
       <!-- Tarjetas de Información y Métricas -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700">
-          <p class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Cortes Históricos</p>
+          <p class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Cortes Monitoreo</p>
           <p id="fbInspTotalSnapshots" class="text-2xl font-black text-slate-800 dark:text-white mt-1">--</p>
           <p class="text-[10px] text-slate-500 mt-0.5">Capturas registradas</p>
         </div>
         <div class="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
           <p class="text-[11px] font-bold uppercase text-indigo-500 dark:text-indigo-400 tracking-wider">Total Mediciones</p>
           <p id="fbInspTotalMeasurements" class="text-2xl font-black text-indigo-700 dark:text-indigo-300 mt-1">--</p>
-          <p class="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5">Lecturas de impresores en nube</p>
+          <p class="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5">Lecturas en nube</p>
         </div>
         <div class="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50">
-          <p class="text-[11px] font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Clientes Monitoreados</p>
+          <p class="text-[11px] font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">Clientes Monitoreo</p>
           <p id="fbInspTotalClients" class="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1">--</p>
           <p class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">WALMART y BAC Credomatic</p>
+        </div>
+        <div class="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-bold uppercase text-amber-600 dark:text-amber-400 tracking-wider">Órdenes ODS Nube</p>
+            <button type="button" onclick="syncOdsToFirebase(true)" title="Forzar respaldo ODS a Firebase" class="text-[10px] px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold transition">☁️ Subir</button>
+          </div>
+          <p id="fbInspTotalOds" class="text-2xl font-black text-amber-700 dark:text-amber-300 mt-1">--</p>
+          <p class="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">Último sync: <span id="fbInspOdsLastSync">Pendiente</span></p>
         </div>
       </div>
 
@@ -13290,13 +13586,15 @@
         </div>
         <p class="leading-relaxed">
           Firebase Realtime Database organiza los datos como un <strong>árbol jerárquico JSON en la nube</strong>.
-          Bajo el nodo raíz <code class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-indigo-600 font-bold">monitoring_data/</code> se subdivide por cliente (<code class="font-bold">WALMART/</code> y <code class="font-bold">BAC/</code>), conteniendo cada corte con su fecha exacta, nombre del archivo CSV y el arreglo completo de lecturas de impresores con sus niveles de tóner, unidad de imagen, kilometraje y número de serie.
+          Bajo el nodo raíz <code class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-indigo-600 font-bold">monitoring_data/</code> se guardan los cortes de monitoreo de <code class="font-bold">WALMART/</code> y <code class="font-bold">BAC/</code>.
+          Y bajo el nodo raíz <code class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-mono text-amber-600 font-bold">ods_data/</code> se almacenan todas las órdenes de servicio ODS para acceso multiusuario y respaldo permanente en la nube.
         </p>
         <div class="font-mono text-[11px] bg-slate-900 text-slate-100 p-3 rounded-xl overflow-x-auto">
           iexca-suite-default-rtdb.firebaseio.com<br>
-          └── <span class="text-emerald-400 font-bold">monitoring_data</span>/<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;├── <span class="text-amber-400 font-bold">BAC</span>/ [ 4 cortes históricos: 608 mediciones ]<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;└── <span class="text-blue-400 font-bold">WALMART</span>/ [ 5 cortes históricos: 1,725 mediciones ]
+          ├── <span class="text-emerald-400 font-bold">monitoring_data</span>/<br>
+          │&nbsp;&nbsp;&nbsp;├── <span class="text-amber-400 font-bold">BAC</span>/ [ cortes de monitoreo ]<br>
+          │&nbsp;&nbsp;&nbsp;└── <span class="text-blue-400 font-bold">WALMART</span>/ [ cortes de monitoreo ]<br>
+          └── <span class="text-amber-300 font-bold">ods_data</span>/ [ Órdenes de Servicio ODS en tiempo real ]
         </div>
       </div>
 

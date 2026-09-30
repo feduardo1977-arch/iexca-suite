@@ -255,14 +255,19 @@ function getMonitoringSupplyStatusFlag(row) {
 
   // 1. ¿El suministro está físicamente instalado y reportando en monitoreo?
   const liveMatch = monitoringSupplyQuickMap.get(rawSum) || (fmtSum ? monitoringSupplyQuickMap.get(fmtSum) : null);
+  const rowEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(row).toUpperCase() : (row['ESTADO SUM'] || row['ESTADO'] || '').toString().trim().toUpperCase();
+
   if (liveMatch) {
     const nivText = (liveMatch.nivel !== undefined && liveMatch.nivel !== null && liveMatch.nivel !== '') ? ` (${liveMatch.type}: ${liveMatch.nivel}%)` : '';
+    const isAlreadyEnUso = rowEst.includes('EN USO') || rowEst === 'USO';
     return {
       flag: 'EN_USO',
-      statusText: `En Uso en Monitoreo${nivText}`,
+      statusText: isAlreadyEnUso ? `En Uso en Monitoreo${nivText}` : `🟢 Verificado en Monitoreo (Colocado en Equipo)${nivText}`,
       nivel: liveMatch.nivel,
       type: liveMatch.type,
       imp: liveMatch.imp,
+      isVerified: true,
+      needsStatusUpdate: !isAlreadyEnUso,
       badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs" title="CONFIRMADO EN MONITOREO: Instalado y operando en el equipo ${liveMatch.imp} ${nivText}">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         <span>🟢 EN USO${nivText}</span>
@@ -273,13 +278,45 @@ function getMonitoringSupplyStatusFlag(row) {
   // 2. ¿El equipo está monitoreado pero reporta otra serie instalada?
   if (imp && monitoringPrinterQuickMap.has(imp)) {
     const pData = monitoringPrinterQuickMap.get(imp);
-    const currTnr = pData.tnrSerie ? ` (TNR en equipo: ${pData.tnrSerie})` : '';
+    const currTnr = pData.tnrSerie || pData.tnrKSerie || pData.udiSerie || '';
+    const currTnrDesc = currTnr ? ` (Serie activa: ${currTnr})` : '';
+
+    // Si ya está registrado como desecho
+    if (rowEst.includes('DESECH') || rowEst.includes('BAJA') || rowEst.includes('SCRAP') || rowEst.includes('DEFECT')) {
+      return {
+        flag: 'DESECHADO',
+        statusText: 'Desechado / Retirado',
+        activeTnr: currTnr,
+        badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-700 shadow-2xs" title="Suministro descartado / en desecho. Equipo opera actualmente con ${currTnr}">
+          <span>🗑️ DESECHADO</span>
+        </span>`
+      };
+    }
+
+    // Si estaba marcado 'EN USO' o 'INSTALADO', pero el impresor ya reporta OTRA serie distinta en monitoreo:
+    // Significa que fue sustituido por uno nuevo y debe pasar a DESECHO
+    if (rowEst.includes('EN USO') || rowEst === 'USO' || rowEst.includes('INSTALAD')) {
+      return {
+        flag: 'SUSTITUIDO_DESECHO',
+        statusText: `⚠️ Sustituido en Equipo (Pasar a Desecho)${currTnrDesc}`,
+        activeTnr: currTnr,
+        needsDesechoUpdate: true,
+        badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 dark:bg-rose-950/90 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-2xs" title="ALERTA DE SUSTITUCIÓN: La impresora ${imp} ahora reporta otra serie (${currTnr}). Este suministro ya no está colocado y debe pasar a DESECHO.">
+          <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          <span>⚠️ SUSTITUIDO${currTnr ? ` (${currTnr})` : ''}</span>
+        </span>`
+      };
+    }
+
+    // Si fue despachado como stock, entregado o en tránsito, pero la impresora aún tiene otra serie:
+    // Significa que está en resguardo / reserva en tienda
     return {
       flag: 'EN_STOCK_TIENDA',
-      statusText: 'Pendiente en Tienda',
-      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs" title="MONITOREO ACTIVO: El impresor reporta otro suministro instalado${currTnr}. El suministro despachado aún no ha sido colocado (Stock en Tienda / Reserva)">
+      statusText: `🟡 En Resguardo en Tienda (Pendiente de Colocación)${currTnrDesc}`,
+      activeTnr: currTnr,
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs" title="EN RESGUARDO: Suministro entregado en sitio pero aún en reserva. La impresora sigue utilizando ${currTnr}. Pasará a EN USO en cuanto sea colocado.">
         <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-        <span>🟡 PENDIENTE EN TIENDA</span>
+        <span>🟡 EN RESGUARDO${currTnr ? ` (En uso: ${currTnr})` : ''}</span>
       </span>`
     };
   }
@@ -4807,6 +4844,12 @@ function openFirebaseInspectorModal() {
 
   const elTotalClients = document.getElementById('fbInspTotalClients');
   if (elTotalClients) elTotalClients.textContent = clients.length.toString();
+
+  const elTotalOds = document.getElementById('fbInspTotalOds');
+  if (elTotalOds) {
+    const odsCount = (typeof sheetStore !== 'undefined' && sheetStore && sheetStore['ODS']) ? sheetStore['ODS'].length : 0;
+    elTotalOds.textContent = odsCount.toLocaleString();
+  }
 
   // Renderizar tabla de cortes en el inspector
   const tbody = document.getElementById('fbInspSnapshotsTableBody');
