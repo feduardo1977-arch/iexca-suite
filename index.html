@@ -5276,15 +5276,77 @@
       }
     }
 
+    // FUSIÓN INTELIGENTE DE COLECCIONES DE FOLIOS (PROTEGE Y PRESERVA TODO EL HISTORIAL 2018-2026)
+    function mergeFoliosCollections(baseList, updateList) {
+      if (!Array.isArray(baseList) || baseList.length === 0) return Array.isArray(updateList) ? [...updateList] : [];
+      if (!Array.isArray(updateList) || updateList.length === 0) return [...baseList];
+
+      const map = new Map();
+      const getRecordKey = (r) => {
+        const rawFolio = r['FOLIO'] ?? r['FOLIO '] ?? r['Folio'] ?? r['Folio '] ?? r._folioNum ?? '';
+        const fNum = r._folioNum !== undefined ? r._folioNum : parseInt(String(rawFolio).replace(/\D/g, ''), 10);
+        const rawSum = r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '';
+        const sSum = typeof formatSupplySerie === 'function' ? formatSupplySerie(rawSum).toUpperCase() : String(rawSum).trim().toUpperCase();
+        const np = (r['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
+        return sSum ? `${fNum}|${sSum}` : (np ? `${fNum}|${np}` : `${fNum}`);
+      };
+
+      // 1. Agregar registros base (historial completo)
+      baseList.forEach(r => {
+        const k = getRecordKey(r);
+        map.set(k, { ...r });
+      });
+
+      // 2. Fusionar actualizaciones (Google Sheets, Firebase, ediciones)
+      updateList.forEach(u => {
+        const k = getRecordKey(u);
+        if (map.has(k)) {
+          const existing = map.get(k);
+          const merged = { ...existing, ...u };
+          if (!merged['FECHA'] && existing['FECHA']) merged['FECHA'] = existing['FECHA'];
+          if (!merged['AÑO'] && existing['AÑO']) merged['AÑO'] = existing['AÑO'];
+          if (!merged['MES'] && existing['MES']) merged['MES'] = existing['MES'];
+          map.set(k, merged);
+        } else {
+          map.set(k, { ...u });
+        }
+      });
+
+      return Array.from(map.values());
+    }
+
     function loadSheetData(sheetName) {
       const prevDim1 = document.getElementById('chart1Dim')?.value;
 
       let jsonData = null;
-      if (typeof sheetStore !== 'undefined' && sheetStore[sheetName]) {
-        jsonData = sheetStore[sheetName];
-      } else if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets[sheetName]) {
-        jsonData = XLSX.utils.sheet_to_json(rawWorkbook.Sheets[sheetName], { defval: "" });
-        if (typeof sheetStore !== 'undefined') sheetStore[sheetName] = jsonData;
+      let wbRows = null;
+      if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets[sheetName]) {
+        try {
+          wbRows = XLSX.utils.sheet_to_json(rawWorkbook.Sheets[sheetName], { defval: "" });
+        } catch (e) {
+          console.warn("Error leyendo hoja de rawWorkbook:", e);
+        }
+      }
+
+      if (sheetName.toUpperCase().includes('FOLIO')) {
+        const memRows = (typeof sheetStore !== 'undefined' && Array.isArray(sheetStore[sheetName])) ? sheetStore[sheetName] : [];
+        if (wbRows && wbRows.length > 0 && memRows.length > 0) {
+          console.log(`📚 Fusión de folios en loadSheetData: combinando ${wbRows.length} históricos con ${memRows.length} de memoria.`);
+          jsonData = wbRows.length >= memRows.length ? mergeFoliosCollections(wbRows, memRows) : mergeFoliosCollections(memRows, wbRows);
+          sheetStore[sheetName] = jsonData;
+        } else if (memRows.length > 0) {
+          jsonData = memRows;
+        } else if (wbRows && wbRows.length > 0) {
+          jsonData = wbRows;
+          if (typeof sheetStore !== 'undefined') sheetStore[sheetName] = jsonData;
+        }
+      } else {
+        if (typeof sheetStore !== 'undefined' && sheetStore[sheetName]) {
+          jsonData = sheetStore[sheetName];
+        } else if (wbRows && wbRows.length > 0) {
+          jsonData = wbRows;
+          if (typeof sheetStore !== 'undefined') sheetStore[sheetName] = jsonData;
+        }
       }
 
       if (!jsonData || jsonData.length === 0) {
@@ -5376,9 +5438,24 @@
 
       isDashboardAnalysisActive = true;
 
-      if (sheetStateMap[targetSheet]) {
+      const memCount = (sheetStore && sheetStore[targetSheet]) ? sheetStore[targetSheet].length : 0;
+      let wbCount = 0;
+      if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets[targetSheet]) {
+        const ref = rawWorkbook.Sheets[targetSheet]['!ref'];
+        if (ref) {
+          try {
+            const range = XLSX.utils.decode_range(ref);
+            wbCount = Math.max(0, range.e.r);
+          } catch(e) {}
+        }
+      }
+      const maxAvailable = Math.max(memCount, wbCount);
+
+      if (sheetStateMap[targetSheet] && sheetStateMap[targetSheet].originalData &&
+          (maxAvailable === 0 || sheetStateMap[targetSheet].originalData.length >= maxAvailable)) {
         restoreSheetState(targetSheet);
       } else {
+        delete sheetStateMap[targetSheet];
         loadSheetData(targetSheet);
         saveCurrentSheetState(targetSheet);
       }
@@ -5657,9 +5734,24 @@
 
       // 2. Si la analítica está activa, cambiar y renderizar inmediatamente
       if (isDashboardAnalysisActive) {
-        if (sheetStateMap[targetSheetName]) {
+        const memCount = (sheetStore && sheetStore[targetSheetName]) ? sheetStore[targetSheetName].length : 0;
+        let wbCount = 0;
+        if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets[targetSheetName]) {
+          const ref = rawWorkbook.Sheets[targetSheetName]['!ref'];
+          if (ref) {
+            try {
+              const range = XLSX.utils.decode_range(ref);
+              wbCount = Math.max(0, range.e.r);
+            } catch(e) {}
+          }
+        }
+        const maxAvailable = Math.max(memCount, wbCount);
+
+        if (sheetStateMap[targetSheetName] && sheetStateMap[targetSheetName].originalData &&
+            (maxAvailable === 0 || sheetStateMap[targetSheetName].originalData.length >= maxAvailable)) {
           restoreSheetState(targetSheetName);
         } else {
+          delete sheetStateMap[targetSheetName];
           loadSheetData(targetSheetName);
           saveCurrentSheetState(targetSheetName);
         }
@@ -6294,7 +6386,7 @@
         return cleanRow;
       });
 
-      const sample = firstPass.slice(0, 100);
+      const sample = firstPass.slice(0, 500);
       const keysSet = new Set();
       sample.forEach(r => Object.keys(r).forEach(k => {
         if (!k.startsWith('__EMPTY')) keysSet.add(k);
@@ -6303,6 +6395,7 @@
       const detectedDateCols = [];
 
       keys.forEach(col => {
+        const isDateName = /^(fecha|fechas|date|fec_reg|fec_crea|fec_solicitud)$/i.test(col.trim());
         let dateCount = 0;
         let valid = 0;
         sample.forEach(r => {
@@ -6312,7 +6405,9 @@
             if (parseFlexibleDate(v) !== null) dateCount++;
           }
         });
-        if (valid > 0 && dateCount / valid >= 0.4) {
+        if (isDateName && valid > 0 && (dateCount / valid >= 0.2)) {
+          detectedDateCols.push(col);
+        } else if (valid > 0 && (dateCount / valid >= 0.35)) {
           detectedDateCols.push(col);
         }
       });
@@ -6320,7 +6415,23 @@
       originalData = firstPass.map(row => {
         const enrichedRow = { ...row };
         detectedDateCols.forEach(col => {
-          const d = parseFlexibleDate(row[col]);
+          let d = parseFlexibleDate(row[col]);
+
+          // Si d es null pero la fila contiene AÑO numérico válido (2000-2099), sintetizar Date para no perder la fila en filtros
+          if (!d) {
+            const rawYear = Number(row['AÑO'] || row['ANO'] || row['Año'] || row['YEAR'] || row['Year']);
+            if (!isNaN(rawYear) && rawYear >= 2000 && rawYear <= 2099) {
+              let mIdx = 0;
+              const rawMes = row['MES'] || row['Mes'];
+              if (rawMes) {
+                const mStr = String(rawMes).trim().toUpperCase();
+                const foundIdx = SPANISH_FULL_MONTHS.findIndex(m => m.toUpperCase() === mStr);
+                if (foundIdx >= 0) mIdx = foundIdx;
+              }
+              d = new Date(rawYear, mIdx, 15, 12, 0, 0);
+            }
+          }
+
           if (d) {
             enrichedRow[col] = d;
             if (!enrichedRow[`${col} (Año)`]) {
@@ -6331,6 +6442,13 @@
             }
           }
         });
+
+        // Asegurar que si la fila tiene columna AÑO o equivalente, esté disponible limpiamente
+        const directYear = Number(enrichedRow['AÑO'] || enrichedRow['ANO'] || enrichedRow['Año'] || enrichedRow['YEAR'] || enrichedRow['Year']);
+        if (!isNaN(directYear) && directYear >= 2000 && directYear <= 2099) {
+          if (!enrichedRow['AÑO']) enrichedRow['AÑO'] = directYear;
+        }
+
         return enrichedRow;
       });
 
@@ -6554,19 +6672,26 @@
       const dateColSelect = document.getElementById('dateColSelect');
       dateColSelect.innerHTML = '';
 
-      if (dateCols.length === 0) {
+      // Verificar si hay columnas de fecha o columnas de año directo (AÑO, ANO, YEAR)
+      const yearColName = (originalData && originalData[0]) ? 
+        Object.keys(originalData[0]).find(k => /^(año|ano|year|fec_reg|fecha)$/i.test(k.trim())) : null;
+
+      if (dateCols.length === 0 && !yearColName) {
         dateBox.classList.add('hidden');
         activeDateCol = null;
         return;
       }
 
       dateBox.classList.remove('hidden');
-      activeDateCol = dateCols[0];
+      const preferredDateCol = dateCols.find(c => /^fecha$/i.test(c.trim())) || dateCols[0] || yearColName;
+      activeDateCol = preferredDateCol;
 
-      dateCols.forEach(col => {
+      const colsToOffer = dateCols.length > 0 ? dateCols : [yearColName];
+      colsToOffer.forEach(col => {
         const opt = document.createElement('option');
         opt.value = col;
         opt.textContent = col;
+        if (col === activeDateCol) opt.selected = true;
         dateColSelect.appendChild(opt);
       });
 
@@ -6582,21 +6707,37 @@
     }
 
     function initYearsAndMonths() {
-      if (!activeDateCol) return;
-
       const yearsSet = new Set();
       originalData.forEach(r => {
-        const d = r[activeDateCol];
-        if (d instanceof Date && !isNaN(d.getFullYear())) {
-          yearsSet.add(d.getFullYear());
+        // 1. Desde la columna de fecha activa (Date object o parseable)
+        if (activeDateCol) {
+          const d = r[activeDateCol];
+          if (d instanceof Date && !isNaN(d.getFullYear())) {
+            const yr = d.getFullYear();
+            if (yr >= 2000 && yr <= 2099) yearsSet.add(yr);
+          } else if (d !== null && d !== undefined && d !== "") {
+            const pd = parseFlexibleDate(d);
+            if (pd && !isNaN(pd.getFullYear())) {
+              const yr = pd.getFullYear();
+              if (yr >= 2000 && yr <= 2099) yearsSet.add(yr);
+            }
+          }
+        }
+
+        // 2. Desde columnas explícitas de Año (AÑO, ANO, Año, YEAR, Year, FECHA (Año))
+        const directYear = Number(r['AÑO'] || r['ANO'] || r['Año'] || r['YEAR'] || r['Year'] || r['FECHA (Año)']);
+        if (!isNaN(directYear) && directYear >= 2000 && directYear <= 2099) {
+          yearsSet.add(directYear);
         }
       });
 
       availableYears = Array.from(yearsSet).sort((a, b) => a - b);
-      selectedYears = new Set(availableYears); // Todos los años al inicio
+      selectedYears = new Set(availableYears); // Todos los años seleccionados al inicio
       customDateRange = { start: '', end: '' };
-      document.getElementById('dateRangeStart').value = '';
-      document.getElementById('dateRangeEnd').value = '';
+      const startEl = document.getElementById('dateRangeStart');
+      const endEl = document.getElementById('dateRangeEnd');
+      if (startEl) startEl.value = '';
+      if (endEl) endEl.value = '';
 
       renderYearButtons();
       updateAvailableMonthsAccordingToYears();
@@ -6638,24 +6779,40 @@
 
     // ACTUALIZA LOS MESES DISPONIBLES SEGÚN LOS REGISTROS DEL AÑO O AÑOS SELECCIONADOS
     function updateAvailableMonthsAccordingToYears(preserveExistingSelection = false) {
-      if (!activeDateCol) return;
+      if (!activeDateCol && availableYears.length === 0) return;
 
       availableMonthsForSelectedYears = new Set();
       const monthCounts = {};
 
       originalData.forEach(r => {
-        const d = r[activeDateCol];
-        if (d instanceof Date && !isNaN(d.getTime())) {
-          const yr = d.getFullYear();
-          if (selectedYears.has(yr) || selectedYears.has(String(yr))) {
-            const m = d.getMonth();
+        let d = activeDateCol ? r[activeDateCol] : null;
+        if (!(d instanceof Date) && d !== null && d !== undefined && d !== "") {
+          d = parseFlexibleDate(d);
+        }
+
+        let yr = (d instanceof Date && !isNaN(d.getTime())) ? d.getFullYear() : null;
+        let m = (d instanceof Date && !isNaN(d.getTime())) ? d.getMonth() : null;
+
+        if (yr === null) {
+          const dy = Number(r['AÑO'] || r['ANO'] || r['Año'] || r['YEAR'] || r['Year'] || r['FECHA (Año)']);
+          if (!isNaN(dy) && dy >= 2000 && dy <= 2099) yr = dy;
+        }
+
+        if (m === null && (r['MES'] || r['Mes'])) {
+          const mStr = String(r['MES'] || r['Mes']).trim().toUpperCase();
+          const mIdx = SPANISH_FULL_MONTHS.findIndex(mon => mon.toUpperCase() === mStr);
+          if (mIdx >= 0) m = mIdx;
+        }
+
+        if (yr !== null && (selectedYears.has(yr) || selectedYears.has(String(yr)))) {
+          if (m !== null && m >= 0 && m <= 11) {
             availableMonthsForSelectedYears.add(m);
             monthCounts[m] = (monthCounts[m] || 0) + 1;
           }
         }
       });
 
-      if (!preserveExistingSelection) {
+      if (!preserveExistingSelection || selectedMonths.size === 0) {
         // Seleccionar por defecto los meses existentes en el año
         selectedMonths = new Set(availableMonthsForSelectedYears);
       } else {
@@ -7347,20 +7504,39 @@
 
       filteredData = originalData.filter(row => {
         // 1. Filtro Temporal por Año y Mes
-        if (activeDateCol) {
-          const d = row[activeDateCol];
+        if (activeDateCol || availableYears.length > 0) {
+          let d = activeDateCol ? row[activeDateCol] : null;
+          if (!(d instanceof Date) && d !== null && d !== undefined && d !== "") {
+            d = parseFlexibleDate(d);
+          }
+
+          let rowYear = (d instanceof Date && !isNaN(d.getTime())) ? d.getFullYear() : null;
+          let rowMonth = (d instanceof Date && !isNaN(d.getTime())) ? d.getMonth() : null;
+
+          if (rowYear === null) {
+            const dy = Number(row['AÑO'] || row['ANO'] || row['Año'] || row['YEAR'] || row['Year'] || row['FECHA (Año)']);
+            if (!isNaN(dy) && dy >= 2000 && dy <= 2099) rowYear = dy;
+          }
+
+          if (rowMonth === null && (row['MES'] || row['Mes'])) {
+            const mStr = String(row['MES'] || row['Mes']).trim().toUpperCase();
+            const mIdx = SPANISH_FULL_MONTHS.findIndex(mon => mon.toUpperCase() === mStr);
+            if (mIdx >= 0) rowMonth = mIdx;
+          }
+
+          if (rowYear !== null) {
+            if (selectedYears.size > 0 && !selectedYears.has(rowYear) && !selectedYears.has(String(rowYear))) {
+              return false;
+            }
+          }
+
+          if (rowMonth !== null) {
+            if (selectedMonths.size > 0 && !selectedMonths.has(rowMonth) && !selectedMonths.has(String(rowMonth))) {
+              return false;
+            }
+          }
+
           if (d instanceof Date && !isNaN(d.getTime())) {
-            const rowYear = d.getFullYear();
-            const rowMonth = d.getMonth();
-
-            if (selectedYears.size > 0 && !selectedYears.has(rowYear)) {
-              return false;
-            }
-
-            if (selectedMonths.size > 0 && !selectedMonths.has(rowMonth)) {
-              return false;
-            }
-
             if (customDateRange.start) {
               const startD = new Date(customDateRange.start);
               if (d < startD) return false;
@@ -11076,14 +11252,28 @@
         const currentFolios = sheetStore['FOLIOS'];
 
         // Si los folios locales solo eran de prueba o versión demo inicial (<= 50 registros),
-        // adoptar la colección completa de 2026 directamente
+        // verificar si el libro maestro rawWorkbook tiene el catálogo histórico completo (10,586 registros 2018-2026)
         const isSampleOrEmpty = currentFolios.length < 50;
 
         let newCount = 0;
         let updatedCount = 0;
 
         if (isSampleOrEmpty) {
-          sheetStore['FOLIOS'] = incomingRows;
+          if (rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets['FOLIOS']) {
+            try {
+              const wbRows = XLSX.utils.sheet_to_json(rawWorkbook.Sheets['FOLIOS'], { defval: "" });
+              if (wbRows.length > incomingRows.length) {
+                console.log(`📚 Fusionando ${wbRows.length} folios históricos con ${incomingRows.length} de Google Sheets`);
+                sheetStore['FOLIOS'] = mergeFoliosCollections(wbRows, incomingRows);
+              } else {
+                sheetStore['FOLIOS'] = incomingRows;
+              }
+            } catch (e) {
+              sheetStore['FOLIOS'] = incomingRows;
+            }
+          } else {
+            sheetStore['FOLIOS'] = incomingRows;
+          }
           newCount = incomingRows.length;
         } else {
           // Construir mapa de registros existentes en memoria: "fNum|sSum" o "fNum|np"
@@ -14147,7 +14337,20 @@
               const localFolios = sheetStore['FOLIOS'] || [];
               if (localFolios.length === 0 || (cloudData.timestamp && cloudData.timestamp > (window._lastFoliosLocalSaveTs || 0))) {
                 console.log(`🔥 [Firebase Folios] Sincronizados ${cloudRecords.length} folios desde la nube.`);
-                sheetStore['FOLIOS'] = cloudRecords;
+
+                // Si la colección de la nube es parcial (ej. 995 folios recientes) y tenemos el historial completo en rawWorkbook o memoria
+                let baseFolios = localFolios;
+                if (baseFolios.length < 5000 && rawWorkbook && rawWorkbook.Sheets && rawWorkbook.Sheets['FOLIOS']) {
+                  try {
+                    baseFolios = XLSX.utils.sheet_to_json(rawWorkbook.Sheets['FOLIOS'], { defval: "" });
+                  } catch (e) {}
+                }
+
+                if (baseFolios.length > cloudRecords.length) {
+                  sheetStore['FOLIOS'] = mergeFoliosCollections(baseFolios, cloudRecords);
+                } else {
+                  sheetStore['FOLIOS'] = cloudRecords;
+                }
                 deduplicateSalidasFoliosStore();
                 indexFoliosMetadata(sheetStore['FOLIOS']);
                 buildSalidasActualizadasCatalog(true);
