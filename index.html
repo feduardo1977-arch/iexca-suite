@@ -9235,6 +9235,25 @@
     // =========================================================================
     const IEXCA_FOLIO_OVERRIDES_KEY = 'iexca_folio_user_status_overrides';
 
+    function formatSupplySerie(raw) {
+      if (!raw) return '';
+      let s = String(raw).trim().toUpperCase();
+      if (!s || s === 'SIN DATO' || s === 'N/A' || s === 'NULL' || s === 'NO DISPONIBLE' || s === '-' || s === 'N/D') {
+        return '';
+      }
+      if (s.startsWith('S')) return s;
+      if (/^[A-Z0-9]{3,}/i.test(s)) return 'S' + s;
+      return s;
+    }
+    window.formatSupplySerie = formatSupplySerie;
+
+    function getRowSupplySerial(row) {
+      if (!row) return '';
+      const raw = row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || '';
+      return formatSupplySerie(raw);
+    }
+    window.getRowSupplySerial = getRowSupplySerial;
+
     function getStoredFolioStatusOverrides() {
       try {
         if (typeof localStorage === 'undefined') return {};
@@ -9247,11 +9266,17 @@
     }
     window.getStoredFolioStatusOverrides = getStoredFolioStatusOverrides;
 
-    function getUserFolioStatusOverride(folioNum) {
+    function getUserFolioStatusOverride(folioNum, serie) {
       if (!folioNum && folioNum !== 0) return null;
       const cleanNum = String(folioNum).replace(/\D/g, '');
       if (!cleanNum) return null;
       const overrides = getStoredFolioStatusOverrides();
+      const normSer = serie ? formatSupplySerie(serie).toUpperCase() : '';
+      if (normSer && overrides[`${cleanNum}|${normSer}`]) {
+        const item = overrides[`${cleanNum}|${normSer}`];
+        if (typeof item === 'string') return item.trim().toUpperCase();
+        if (typeof item === 'object' && item.status) return String(item.status).trim().toUpperCase();
+      }
       const val = overrides[cleanNum];
       if (!val) return null;
       if (typeof val === 'string') return val.trim().toUpperCase();
@@ -9266,11 +9291,16 @@
       if (!cleanNum || !status) return;
       try {
         const overrides = getStoredFolioStatusOverrides();
-        overrides[cleanNum] = {
+        const normSer = serie ? formatSupplySerie(serie).toUpperCase() : '';
+        const entry = {
           status: status.trim().toUpperCase(),
-          serie: serie ? String(serie).trim().toUpperCase() : '',
+          serie: normSer || (serie ? String(serie).trim().toUpperCase() : ''),
           ts: Date.now()
         };
+        overrides[cleanNum] = entry;
+        if (normSer) {
+          overrides[`${cleanNum}|${normSer}`] = entry;
+        }
         localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
       } catch (e) {
         console.warn("Error saving folio status override:", e);
@@ -9278,14 +9308,23 @@
     }
     window.saveUserFolioStatusOverride = saveUserFolioStatusOverride;
 
-    function clearUserFolioStatusOverride(folioNum) {
+    function clearUserFolioStatusOverride(folioNum, serie) {
       if (!folioNum && folioNum !== 0) return;
       const cleanNum = String(folioNum).replace(/\D/g, '');
       if (!cleanNum) return;
       try {
         const overrides = getStoredFolioStatusOverrides();
+        let changed = false;
         if (overrides[cleanNum]) {
           delete overrides[cleanNum];
+          changed = true;
+        }
+        const normSer = serie ? formatSupplySerie(serie).toUpperCase() : '';
+        if (normSer && overrides[`${cleanNum}|${normSer}`]) {
+          delete overrides[`${cleanNum}|${normSer}`];
+          changed = true;
+        }
+        if (changed) {
           localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
         }
       } catch (e) {}
@@ -9304,19 +9343,28 @@
     // DEDUPLICACIÓN EXACTA Y BLINDADA DE FOLIOS EN MEMORIA
     function deduplicateSalidasFoliosStore() {
       if (!sheetStore || !sheetStore['FOLIOS'] || !Array.isArray(sheetStore['FOLIOS'])) return;
-      const seen = new Set();
-      const unique = [];
+      const seen = new Map();
       sheetStore['FOLIOS'].forEach((r) => {
         const fNum = r._folioNum !== undefined ? r._folioNum : parseInt(String(r['FOLIO'] || r['FOLIO '] || r['Folio'] || '').replace(/\D/g, ''), 10);
-        const sSum = (r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '').toString().trim().toUpperCase();
+        const rawSum = r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '';
+        const sSum = formatSupplySerie(rawSum).toUpperCase();
+        if (sSum && !r['SERIE SUM']) r['SERIE SUM'] = sSum;
         const np = (r['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
-        // Llave única inequívoca: Folio + Serie del Suministro (o Parte si no tiene serie de suministro)
-        const key = sSum ? `${fNum}|${sSum}` : `${fNum}|${np}`;
+        const key = sSum ? `${fNum}|${sSum}` : (np ? `${fNum}|${np}` : `${fNum}`);
         if (!seen.has(key)) {
-          seen.add(key);
-          unique.push(r);
+          seen.set(key, r);
+        } else {
+          // Si ya existe pero el nuevo tiene override de usuario o _userModified, conservar el modificado
+          const existing = seen.get(key);
+          const existSt = String(existing['STATUS BACKUP'] || existing['ESTADO SUM'] || existing._realStatus || '').toUpperCase();
+          const rSt = String(r['STATUS BACKUP'] || r['ESTADO SUM'] || r._realStatus || '').toUpperCase();
+          const userOvr = getUserFolioStatusOverride(fNum, sSum);
+          if (!existing._userModified && (Boolean(userOvr) || r._userModified || rSt.includes('USO') || rSt.includes('DESECH'))) {
+            seen.set(key, r);
+          }
         }
       });
+      const unique = Array.from(seen.values());
       if (unique.length !== sheetStore['FOLIOS'].length) {
         console.log(`[DEDUP] Removidos ${sheetStore['FOLIOS'].length - unique.length} folios duplicados. Quedan ${unique.length} únicos.`);
         sheetStore['FOLIOS'] = unique;
@@ -9341,12 +9389,15 @@
           r['SERIE'] = r['SERIE2'];
         } else {
           // Si r['SERIE SUM'] no está asignado y r['SERIE'] parece serie de suministro (SCAB, SCAA, etc.)
-          if (!r['SERIE SUM'] && r['SERIE'] && /^SCA/i.test(r['SERIE'])) {
+          if (!r['SERIE SUM'] && r['SERIE'] && /^S?CA/i.test(r['SERIE'])) {
             r['SERIE SUM'] = r['SERIE'];
           }
-          if (!r['IMPRESOR'] && r['SERIE'] && !/^SCA/i.test(r['SERIE'])) {
+          if (!r['IMPRESOR'] && r['SERIE'] && !/^S?CA/i.test(r['SERIE'])) {
             r['IMPRESOR'] = r['SERIE'];
           }
+        }
+        if (r['SERIE SUM']) {
+          r['SERIE SUM'] = formatSupplySerie(r['SERIE SUM']);
         }
 
         // 1. Extraer folio numérico para consultas rápidas y anulación de usuario
@@ -9385,9 +9436,11 @@
         const isValidStatus = (v) => v && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) && v !== '-' && v !== '0.0.0.0';
         let resolvedStatus = 'ENTREGADO';
 
-        const userOvr = getUserFolioStatusOverride(r._folioNum);
+        const sSumRaw = r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '';
+        const userOvr = getUserFolioStatusOverride(r._folioNum, sSumRaw);
         if (userOvr) {
           resolvedStatus = userOvr;
+          r._userModified = true;
         } else if (isValidStatus(rawEstSum)) {
           resolvedStatus = rawEstSum;
         } else if (isValidStatus(rawBak)) {
@@ -9477,7 +9530,11 @@
                 }
                 // Si es la hoja de FOLIOS/SALIDAS, normalizar alias de estado y proteger estados de Excel
                 if (sheetName.toUpperCase().includes('FOLIO')) {
-                  const stVal = (cleanRow['STATUS BACKUP'] || cleanRow['STATUS_BACKUP'] || cleanRow['ESTADO SUM'] || cleanRow['ESTADO_SUM'] || cleanRow['STATUS'] || cleanRow['ESTATUS'] || cleanRow['ESTADO'] || cleanRow['ESTADO SUMINISTRO'] || cleanRow['ESTADO_SUMINISTRO'] || '').toString().trim();
+                  const sSum = formatSupplySerie(cleanRow['SERIE SUM'] || (cleanRow['SERIE'] !== cleanRow['IMPRESOR'] ? cleanRow['SERIE'] : '') || '');
+                  if (sSum) cleanRow['SERIE SUM'] = sSum;
+                  const fNumVal = cleanRow['FOLIO'] || cleanRow['FOLIO '] || cleanRow['Folio'];
+                  const userOvr = (fNumVal && typeof getUserFolioStatusOverride === 'function') ? getUserFolioStatusOverride(fNumVal, sSum) : null;
+                  const stVal = userOvr || (cleanRow['STATUS BACKUP'] || cleanRow['STATUS_BACKUP'] || cleanRow['ESTADO SUM'] || cleanRow['ESTADO_SUM'] || cleanRow['STATUS'] || cleanRow['ESTATUS'] || cleanRow['ESTADO'] || cleanRow['ESTADO SUMINISTRO'] || cleanRow['ESTADO_SUMINISTRO'] || '').toString().trim();
                   if (stVal && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(stVal) && stVal !== '-' && stVal !== '0.0.0.0') {
                     cleanRow['STATUS BACKUP'] = stVal;
                     cleanRow['ESTADO SUM'] = stVal;
@@ -9485,7 +9542,7 @@
                     cleanRow['STATUS'] = stVal;
                     cleanRow['ESTATUS'] = stVal;
                     cleanRow._realStatus = stVal;
-                    if (stVal.toUpperCase().includes('USO') || stVal.toUpperCase().includes('DESECH')) {
+                    if (Boolean(userOvr) || stVal.toUpperCase().includes('USO') || stVal.toUpperCase().includes('DESECH')) {
                       cleanRow._userModified = true;
                     }
                   }
@@ -10935,7 +10992,8 @@
           const fNum = parseInt(digits, 10);
           if (isNaN(fNum) || fNum <= 0) return;
 
-          const serieSum = String(r['SERIE'] || r['SERIE SUM'] || '').trim().toUpperCase();
+          const rawSerieSum = String(r['SERIE'] || r['SERIE SUM'] || '').trim().toUpperCase();
+          const serieSum = formatSupplySerie(rawSerieSum);
           const impresor = String(r['IMPRESOR'] || r['SERIE2'] || '').trim().toUpperCase();
           const rawStatus = String(r['STATUS BACKUP'] || r['ESTADO SUM'] || 'EN STOCK').trim();
           const ipVal = String(r['IP'] || '').trim();
@@ -10996,30 +11054,43 @@
           // Construir mapa de registros existentes en memoria: "fNum|sSum" o "fNum|np"
           // Llave única inequívoca normalizada: Folio + Serie del Suministro (o Parte normalizado)
           const existingMap = new Map();
+          const existingFolioMap = new Map();
           currentFolios.forEach((r, idx) => {
             const fNum = r._folioNum !== undefined ? r._folioNum : parseInt(String(getRowFolio(r)).replace(/\D/g, ''), 10);
-            const sSum = (r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '').toString().trim().toUpperCase();
+            const rawSum = r['SERIE SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || '';
+            const sSum = formatSupplySerie(rawSum).toUpperCase();
+            if (sSum && !r['SERIE SUM']) r['SERIE SUM'] = sSum;
             const np = (r['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
-            const key = sSum ? `${fNum}|${sSum}` : `${fNum}|${np}`;
+            const key = sSum ? `${fNum}|${sSum}` : (np ? `${fNum}|${np}` : `${fNum}`);
             if (!existingMap.has(key)) {
               existingMap.set(key, idx);
+            }
+            if (fNum && !existingFolioMap.has(fNum)) {
+              existingFolioMap.set(fNum, idx);
             }
           });
 
           const newItemsToPrepend = [];
           incomingRows.forEach(incRow => {
             const fNum = incRow['FOLIO'];
-            const sSum = (incRow['SERIE SUM'] || incRow['SERIE'] || '').toString().trim().toUpperCase();
+            const rawSum = incRow['SERIE SUM'] || incRow['SERIE'] || '';
+            const sSum = formatSupplySerie(rawSum).toUpperCase();
+            incRow['SERIE SUM'] = sSum;
+            incRow['SERIE'] = sSum;
             const np = (incRow['NUMPART'] || '').toString().trim().toUpperCase().replace(/^P(?=[0-9])/i, '');
-            const key = sSum ? `${fNum}|${sSum}` : `${fNum}|${np}`;
+            const key = sSum ? `${fNum}|${sSum}` : (np ? `${fNum}|${np}` : `${fNum}`);
 
-            if (existingMap.has(key)) {
-              const existIdx = existingMap.get(key);
+            let existIdx = existingMap.has(key) ? existingMap.get(key) : -1;
+            if (existIdx < 0 && fNum && existingFolioMap.has(fNum)) {
+              existIdx = existingFolioMap.get(fNum);
+            }
+
+            if (existIdx >= 0) {
               const existRow = currentFolios[existIdx];
               let changed = false;
 
               // REGLAS DE PROTECCIÓN DE ESTADO FRENTE A GOOGLE SHEETS
-              const userOvr = getUserFolioStatusOverride(fNum);
+              const userOvr = getUserFolioStatusOverride(fNum, sSum);
               const existSt = String(existRow['STATUS BACKUP'] || existRow['ESTADO SUM'] || existRow._realStatus || '').toUpperCase();
               const incSt = String(incRow['STATUS BACKUP'] || '').toUpperCase();
               const isMonVerified = (typeof isSupplyVerifiedInMonitoring === 'function') && isSupplyVerifiedInMonitoring(existRow);
@@ -11032,7 +11103,18 @@
                 (existSt.includes('CONSUM') && incSt.includes('STOCK')) ||
                 (existSt.includes('VENDID') && incSt.includes('STOCK'));
 
-              if (!isProtectedLocally) {
+              if (userOvr) {
+                if (existRow['STATUS BACKUP'] !== userOvr) {
+                  existRow['STATUS BACKUP'] = userOvr;
+                  existRow['ESTADO SUM'] = userOvr;
+                  existRow['ESTADO'] = userOvr;
+                  existRow['STATUS'] = userOvr;
+                  existRow['ESTATUS'] = userOvr;
+                  existRow._realStatus = userOvr;
+                  existRow._userModified = true;
+                  changed = true;
+                }
+              } else if (!isProtectedLocally) {
                 if (incRow['STATUS BACKUP'] && incRow['STATUS BACKUP'] !== existRow['STATUS BACKUP']) {
                   existRow['STATUS BACKUP'] = incRow['STATUS BACKUP'];
                   existRow['ESTADO SUM'] = incRow['STATUS BACKUP'];
@@ -11042,15 +11124,7 @@
                   existRow._realStatus = incRow['STATUS BACKUP'];
                   changed = true;
                 }
-              } else if (userOvr && existRow['STATUS BACKUP'] !== userOvr) {
-                existRow['STATUS BACKUP'] = userOvr;
-                existRow['ESTADO SUM'] = userOvr;
-                existRow['ESTADO'] = userOvr;
-                existRow['STATUS'] = userOvr;
-                existRow['ESTATUS'] = userOvr;
-                existRow._realStatus = userOvr;
-                changed = true;
-              } else if (isMonVerified && !userOvr && !existSt.includes('USO') && !existSt.includes('DESECH')) {
+              } else if (isMonVerified && !existSt.includes('USO') && !existSt.includes('DESECH')) {
                 existRow['STATUS BACKUP'] = 'EN USO';
                 existRow['ESTADO SUM'] = 'EN USO';
                 existRow['ESTADO'] = 'EN USO';
@@ -11060,6 +11134,10 @@
                 changed = true;
               }
 
+              if (sSum && (!existRow['SERIE SUM'] || existRow['SERIE SUM'] !== sSum)) {
+                existRow['SERIE SUM'] = sSum;
+                changed = true;
+              }
               if (incRow['ID_TICKET'] && incRow['ID_TICKET'] !== existRow['ID_TICKET']) {
                 existRow['ID_TICKET'] = incRow['ID_TICKET'];
                 existRow['SOLICITUD APPSHEET'] = incRow['SOLICITUD APPSHEET'];
@@ -11088,7 +11166,7 @@
               if (changed) updatedCount++;
             } else {
               // Registro totalmente nuevo (ej. 7938 a 7943)
-              const userOvrNew = getUserFolioStatusOverride(fNum);
+              const userOvrNew = getUserFolioStatusOverride(fNum, sSum);
               if (userOvrNew) {
                 incRow['STATUS BACKUP'] = userOvrNew;
                 incRow['ESTADO SUM'] = userOvrNew;
@@ -11096,6 +11174,7 @@
                 incRow['STATUS'] = userOvrNew;
                 incRow['ESTATUS'] = userOvrNew;
                 incRow._realStatus = userOvrNew;
+                incRow._userModified = true;
               } else if (typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(incRow)) {
                 incRow['STATUS BACKUP'] = 'EN USO';
                 incRow['ESTADO SUM'] = 'EN USO';
@@ -11107,6 +11186,7 @@
               newItemsToPrepend.push(incRow);
               // Registrar en el mapa para no agregarlo repetido si viniera duplicado en la misma hoja
               existingMap.set(key, currentFolios.length + newItemsToPrepend.length);
+              if (fNum) existingFolioMap.set(fNum, currentFolios.length + newItemsToPrepend.length);
               newCount++;
             }
           });
@@ -11389,7 +11469,7 @@
         if (dest) destinos.add(dest);
 
         const flagInfo = getMonitoringSupplyStatusFlag(r);
-        if (flagInfo.flag === 'EN_USO') countEnUso++;
+        if (flagInfo.flag === 'EN_USO' || flagInfo.flag === 'EN_USO_LOCAL') countEnUso++;
         else if (flagInfo.flag === 'EN_STOCK_TIENDA') countResguardo++;
         else if (flagInfo.flag === 'SUSTITUIDO_DESECHO') countSustituidos++;
       });
@@ -11795,8 +11875,9 @@
       
       // 0. Revisar si hay un override persistente de usuario en localStorage
       const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
+      const sSum = (row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || '').toString().trim();
       if (fNum && typeof getUserFolioStatusOverride === 'function') {
-        const ovr = getUserFolioStatusOverride(fNum);
+        const ovr = getUserFolioStatusOverride(fNum, sSum);
         if (ovr) return ovr;
       }
 
@@ -11960,7 +12041,11 @@
         }
         if (monFilter) {
           const flagInfo = getMonitoringSupplyStatusFlag(row);
-          if (flagInfo.flag !== monFilter) return false;
+          if (monFilter === 'EN_USO') {
+            if (flagInfo.flag !== 'EN_USO' && flagInfo.flag !== 'EN_USO_LOCAL') return false;
+          } else if (flagInfo.flag !== monFilter) {
+            return false;
+          }
         }
         if (query) {
           const folVal = (row._folioStr || getRowFolio(row)).toLowerCase();
@@ -12025,7 +12110,8 @@
       }
       const folioVal = (typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '-';
       const cleanFolio = String(folioVal).replace(/\D/g, '');
-      const serieVal = getRowSupplySerial(row) || row['SERIE'] || '';
+      const rawSerie = (typeof getRowSupplySerial === 'function' ? getRowSupplySerial(row) : (row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || ''));
+      const serieVal = typeof formatSupplySerie === 'function' ? formatSupplySerie(rawSerie) : rawSerie;
 
       // 1. Guardar permanentemente la anulación del usuario en localStorage
       if (typeof saveUserFolioStatusOverride === 'function') {
@@ -12044,7 +12130,9 @@
       row._lastModifiedTs = Date.now();
 
       // 3. Guardar persistentemente en IndexedDB
-      saveToIndexedDB();
+      if (typeof saveToIndexedDB === 'function') {
+        saveToIndexedDB();
+      }
       indexFoliosMetadata([row]);
       updateSalidasKPIs();
       filterSalidasTable();
@@ -12060,7 +12148,7 @@
       }
 
       const icon = newStatus.includes('USO') ? '⚡' : (newStatus.includes('DESECH') ? '🗑️' : (newStatus.includes('STOCK') ? '📦' : '✅'));
-      showToast(`${icon} Folio #${folioVal} (${serieVal}): Estado guardado permanentemente como "${newStatus}".`);
+      showToast(`${icon} Folio #${folioVal} (${serieVal || 'Suministro'}): Estado guardado permanentemente como "${newStatus}".`);
     }
     window.quickUpdateFolioSupplyStatus = quickUpdateFolioSupplyStatus;
 
@@ -12084,7 +12172,7 @@
 
       // Si el modal de historial de equipo está abierto, refrescarlo
       if (printerSerie && typeof openEquipmentHistoryModal === 'function') {
-        const modal = document.getElementById('equipmentHistoryModal');
+        const modal = document.getElementById('modalEquipmentHistory') || document.getElementById('equipmentHistoryModal');
         if (modal && !modal.classList.contains('hidden')) {
           openEquipmentHistoryModal(printerSerie);
         }
@@ -12208,19 +12296,19 @@
 
       const monDescEl = document.getElementById('drawerMonitoringDesc');
       if (monDescEl) {
-        if (monFlag.flag === 'EN_USO') {
-          monDescEl.innerHTML = `🟢 <strong>Confirmado por Monitoreo:</strong> Este suministro (<span class="font-mono font-bold">${escapeHtml(row['SERIE SUM'] || 'S/N')}</span>) se encuentra físicamente instalado y operando en el equipo <span class="font-mono font-bold text-indigo-600">${escapeHtml(row['IMPRESOR'] || 'S/N')}</span>.`;
+        if (monFlag.flag === 'EN_USO' || monFlag.flag === 'EN_USO_LOCAL') {
+          monDescEl.innerHTML = `🟢 <strong>Confirmado por Monitoreo:</strong> Este suministro (<span class="font-mono font-bold">${escapeHtml(formatSupplySerie(row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || 'S/N'))}</span>) se encuentra en uso en el equipo <span class="font-mono font-bold text-indigo-600">${escapeHtml(row['IMPRESOR'] || 'S/N')}</span>.`;
         } else if (monFlag.flag === 'EN_STOCK_TIENDA') {
-          monDescEl.innerHTML = `🟡 <strong>En Resguardo en Tienda:</strong> El suministro fue despachado pero el equipo aún tiene instalada otra serie (${escapeHtml(monFlag.activeSeries || 'N/D')}). Sigue en resguardo en sitio.`;
+          monDescEl.innerHTML = `🟡 <strong>En Resguardo en Tienda:</strong> El suministro fue despachado pero el equipo aún tiene instalada otra serie (${escapeHtml(formatSupplySerie(monFlag.activeSeries) || 'N/D')}). Sigue en resguardo en sitio.`;
         } else if (monFlag.flag === 'SUSTITUIDO_DESECHO') {
-          monDescEl.innerHTML = `⚠️ <strong>Sustituido en Máquina:</strong> El equipo ya reporta una nueva serie instalada (${escapeHtml(monFlag.activeSeries || 'N/D')}). Esta serie antigua debe registrarse como DESECHO.`;
+          monDescEl.innerHTML = `⚠️ <strong>Sustituido en Máquina:</strong> El equipo ya reporta una nueva serie instalada (${escapeHtml(formatSupplySerie(monFlag.activeSeries) || 'N/D')}). Esta serie antigua debe registrarse como DESECHO.`;
         } else {
           monDescEl.textContent = 'No hay datos de telemetría reciente para correlacionar este consumible.';
         }
       }
 
       const sSum = document.getElementById('drawerSerieSum');
-      if (sSum) sSum.textContent = row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || 'S/N';
+      if (sSum) sSum.textContent = formatSupplySerie(row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '') || 'S/N';
 
       const sImp = document.getElementById('drawerSerieImp');
       if (sImp) sImp.textContent = row['IMPRESOR'] || row['SERIE'] || 'S/N';
@@ -12405,7 +12493,7 @@
               <div class="flex items-center justify-between gap-2 flex-wrap text-xs pt-1 border-t border-slate-100 dark:border-slate-700/60">
                 <div class="min-w-0">
                   <span class="text-[10px] font-bold text-slate-400 uppercase">Suministro: </span>
-                  <span class="font-mono font-bold text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || 'S/N'}</span>
+                  <span class="font-mono font-bold text-amber-600 dark:text-amber-400">${formatSupplySerie(row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '') || 'S/N'}</span>
                   <span class="text-slate-600 dark:text-slate-400 text-[11px] truncate block">${row['DESCRIPCION'] || '-'}</span>
                 </div>
                 <div class="text-right shrink-0">
@@ -12492,7 +12580,7 @@
                 ${renderFolioStatusSelect(realIdx, realSt, `quickUpdateFolioSupplyStatus(${realIdx}, this.value)`)}
               </td>
               <td class="py-1.5 px-2.5 text-center whitespace-nowrap">${monFlag.badge}</td>
-              <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '-'}</td>
+              <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${formatSupplySerie(row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '') || '-'}</td>
               <td class="py-1.5 px-2.5 font-mono text-slate-600 dark:text-slate-300 col-numpart">${row['NUMPART'] || '-'}</td>
               <td class="py-1.5 px-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate col-desc" title="${row['DESCRIPCION'] || ''}">${row['DESCRIPCION'] || '-'}</td>
               <td class="py-1.5 px-2.5 font-bold text-center text-slate-900 dark:text-white col-cant">${row['CANT'] || 1}</td>
@@ -13165,98 +13253,6 @@
         refreshMonitoringAnalysis();
       }
       showToast("Registro eliminado de FOLIOS exitosamente.");
-    }
-
-    function formatSupplySerie(raw) {
-      if (!raw) return '';
-      let s = String(raw).trim().toUpperCase();
-      if (!s || s === 'SIN DATO' || s === 'N/A' || s === 'NULL' || s === 'NO DISPONIBLE' || s === '-' || s === 'N/D') return '';
-      if (s.startsWith('S')) return s;
-      if (/^[A-Z0-9]{3,}/i.test(s)) return 'S' + s;
-      return s;
-    }
-
-    function saveSalidaFolios(e) {
-      e.preventDefault();
-      const editIdx = parseInt(document.getElementById('salidaEditIndex').value, 10);
-      const folioVal = parseInt(document.getElementById('salidaFolioInput').value, 10) || getNextFolioNumber();
-      const fechaVal = document.getElementById('salidaFecha').value;
-      const fDate = new Date(fechaVal);
-      const mesName = (SPANISH_FULL_MONTHS[fDate.getMonth()] || '01 - Enero').toUpperCase();
-      const anioNum = fDate.getFullYear();
-      const rawSerieSum = document.getElementById('salidaSerieSum').value.trim();
-
-      const newRow = {
-        'FOLIO': folioVal,
-        'FOLIO ': folioVal,
-        'FECHA': fechaVal,
-        'MES': mesName,
-        'AÑO': anioNum,
-        'SERIE SUM': formatSupplySerie(rawSerieSum),
-        'NUMPART': document.getElementById('salidaNumPart').value.trim().toUpperCase(),
-        'DESCRIPCION': document.getElementById('salidaDescripcion').value.trim().toUpperCase(),
-        'TIPO SUM': document.getElementById('salidaTipoSum').value.toUpperCase(),
-        'CANT': parseFloat(document.getElementById('salidaCant').value) || 1,
-        'SERIE': document.getElementById('salidaSerieEquipo').value.trim().toUpperCase(),
-        'MODELO': document.getElementById('salidaModelo').value.trim().toUpperCase(),
-        'UBICACIÓN': document.getElementById('salidaDestino').value.trim().toUpperCase(),
-        'DET': document.getElementById('salidaDet').value.trim().toUpperCase(),
-        'DESTINO': document.getElementById('salidaDestino').value.trim().toUpperCase(),
-        'CLIENTE': document.getElementById('salidaCliente').value.trim().toUpperCase(),
-        'ESTADO SUM': document.getElementById('salidaEstadoSum').value.toUpperCase()
-      };
-
-      if (!sheetStore['FOLIOS']) sheetStore['FOLIOS'] = [];
-
-      indexFoliosMetadata([newRow]);
-
-      if (editIdx >= 0 && editIdx < sheetStore['FOLIOS'].length) {
-        sheetStore['FOLIOS'][editIdx] = { ...sheetStore['FOLIOS'][editIdx], ...newRow };
-        indexFoliosMetadata([sheetStore['FOLIOS'][editIdx]]);
-        showToast(`Salida (Folio #${folioVal}) actualizada con éxito.`);
-      } else {
-        sheetStore['FOLIOS'].unshift(newRow);
-        showToast(`Nueva salida (Folio #${folioVal}) registrada con éxito en FOLIOS.`);
-      }
-
-      // Sincronizar persistentemente en IndexedDB
-      saveToIndexedDB();
-
-      // Auto-registro o actualización en Catálogo RDI si está marcado
-      const checkSaveRdi = document.getElementById('salidaCheckSaveRdi')?.checked;
-      const serieEq = document.getElementById('salidaSerieEquipo').value.trim().toUpperCase();
-      if (checkSaveRdi && serieEq) {
-        registerOrUpdateRdiEquipment({
-          SERIE: serieEq,
-          MOD: document.getElementById('salidaModelo').value.trim().toUpperCase(),
-          CLIENTE: document.getElementById('salidaCliente').value.trim().toUpperCase(),
-          TIENDA: document.getElementById('salidaDestino').value.trim().toUpperCase(),
-          DET: document.getElementById('salidaDet').value.trim().toUpperCase(),
-          DIRECCION: document.getElementById('salidaDestino').value.trim().toUpperCase(),
-          PROPIEDAD: 'IEXCA'
-        }, false);
-      }
-
-      const bFol = document.getElementById('badgeFoliosCount');
-      if (bFol) bFol.textContent = `${sheetStore['FOLIOS'].length} reg.`;
-      const badgeNextFol = document.getElementById('badgeNextFolioId');
-      if (badgeNextFol) badgeNextFol.textContent = `#${getNextFolioNumber()}`;
-      closeSalidaModal(true);
-      updateSalidasKPIs();
-      filterSalidasTable();
-
-      // Sincronizar reactivamente el análisis de monitoreo y stock en sitio
-      if (typeof refreshMonitoringAnalysis === 'function') {
-        refreshMonitoringAnalysis();
-      }
-
-      // Si la ficha técnica e historial de equipo está abierta, refrescarla in situ
-      const modalHist = document.getElementById('modalEquipmentHistory');
-      if (modalHist && !modalHist.classList.contains('hidden') && serieEq) {
-        if (typeof openEquipmentHistoryModal === 'function') {
-          openEquipmentHistoryModal(serieEq);
-        }
-      }
     }
 
     // CONTROL DE TICKETS Y ÓRDENES DE SERVICIO (ODS)

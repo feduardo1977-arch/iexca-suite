@@ -182,17 +182,44 @@ function isIpAddress(str) {
   return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(String(str).trim());
 }
 
+// FALLBACK PARA LEER ANULACIONES DE USUARIO DE FOLIOS DIRECTAMENTE DE LOCALSTORAGE
+function getEngineUserFolioOverride(fNum, sSer) {
+  if (typeof window !== 'undefined' && typeof window.getUserFolioStatusOverride === 'function') {
+    return window.getUserFolioStatusOverride(fNum, sSer);
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('iexca_folio_user_status_overrides');
+      if (raw) {
+        const overrides = JSON.parse(raw);
+        const cleanNum = String(fNum).replace(/\D/g, '');
+        if (sSer) {
+          const normSer = typeof formatSupplySerie === 'function' ? formatSupplySerie(sSer) : String(sSer).trim().toUpperCase();
+          if (normSer && overrides[`${cleanNum}|${normSer}`]) {
+            const v = overrides[`${cleanNum}|${normSer}`];
+            return typeof v === 'object' && v.status ? v.status : String(v);
+          }
+        }
+        if (cleanNum && overrides[cleanNum]) {
+          const v = overrides[cleanNum];
+          return typeof v === 'object' && v.status ? v.status : String(v);
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
 // OBTENER ESTADO REAL DEL SUMINISTRO (ESTADO SUM / STATUS BACKUP sin IPs)
 function getRowRealStatus(row) {
   if (!row) return 'ENTREGADO';
 
   // 0. Revisar si hay un override persistente de usuario en localStorage
-  if (typeof window !== 'undefined' && typeof window.getUserFolioStatusOverride === 'function') {
-    const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
-    if (fNum) {
-      const ovr = window.getUserFolioStatusOverride(fNum);
-      if (ovr) return ovr;
-    }
+  const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
+  const sSer = row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || '';
+  if (fNum) {
+    const ovr = getEngineUserFolioOverride(fNum, sSer);
+    if (ovr) return ovr;
   }
   
   // 1. Revisar ESTADO SUM (siempre que no contenga una dirección IP)
@@ -272,6 +299,10 @@ function buildMonitoringQuickMap() {
         if (fmt && fmt !== s) {
           supplyMap.set(fmt, entry);
         }
+        const noPre = s.replace(/^S/i, '');
+        if (noPre && noPre !== s) {
+          supplyMap.set(noPre, entry);
+        }
       };
 
       addSupply(r.tnrSerie, 'TNR', r.tnrNivel);
@@ -310,10 +341,18 @@ function buildMonitoringQuickMap() {
 // VERIFICAR SI UN SUMINISTRO ESTÁ CONFIRMADO FÍSICAMENTE EN MONITOREO
 function checkSupplyVerifiedInMonitoring(row) {
   if (!row) return false;
+
+  const rawSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['SERIE2'] ? row['SERIE'] : '') || (row['IMPRESOR'] && row['IMPRESOR'] !== row['SERIE'] ? row['SERIE'] : '') || '').trim().toUpperCase();
+  const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
+  const userOvr = (fNum && typeof getUserFolioStatusOverride === 'function') ? getUserFolioStatusOverride(fNum, rawSum) : (typeof getEngineUserFolioOverride === 'function' ? getEngineUserFolioOverride(fNum, rawSum) : null);
+  const rowEst = String(row['STATUS BACKUP'] || row['ESTADO SUM'] || row._realStatus || '').toUpperCase();
+  if ((userOvr && userOvr.includes('USO')) || (row._userModified && (rowEst.includes('USO') || rowEst.includes('INSTALAD')))) {
+    return true;
+  }
+
   if (!monitoringSupplyQuickMap || !monitoringPrinterQuickMap) {
     buildMonitoringQuickMap();
   }
-  const rawSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['SERIE2'] ? row['SERIE'] : '') || (row['IMPRESOR'] && row['IMPRESOR'] !== row['SERIE'] ? row['SERIE'] : '') || '').trim().toUpperCase();
   if (!rawSum || rawSum === '-' || rawSum === 'SIN DATO' || rawSum === 'N/A' || rawSum === 'SD' || rawSum === 'N/D') {
     return false;
   }
@@ -375,6 +414,10 @@ function getMonitoringSupplyStatusFlag(row) {
   const liveMatch = monitoringSupplyQuickMap.get(rawSum) || (fmtSum ? monitoringSupplyQuickMap.get(fmtSum) : null);
   const rowEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(row).toUpperCase() : (row['ESTADO SUM'] || row['ESTADO'] || '').toString().trim().toUpperCase();
 
+  const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
+  const userOvr = (fNum && typeof getUserFolioStatusOverride === 'function') ? getUserFolioStatusOverride(fNum, rawSum) : (typeof getEngineUserFolioOverride === 'function' ? getEngineUserFolioOverride(fNum, rawSum) : null);
+  const isUserForcedEnUso = (userOvr && userOvr.toUpperCase().includes('USO')) || (row._userModified && (rowEst.includes('USO') || rowEst.includes('INSTALAD')));
+
   if (liveMatch) {
     const nivText = (liveMatch.nivel !== undefined && liveMatch.nivel !== null && liveMatch.nivel !== '') ? ` (${liveMatch.type}: ${liveMatch.nivel}%)` : '';
     const isAlreadyEnUso = rowEst.includes('EN USO') || rowEst === 'USO';
@@ -389,6 +432,19 @@ function getMonitoringSupplyStatusFlag(row) {
       badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs" title="CONFIRMADO EN MONITOREO: Instalado y operando en el equipo ${liveMatch.imp} ${nivText}">
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         <span>🟢 EN USO${nivText}</span>
+      </span>`
+    };
+  }
+
+  // 1.5 Si el usuario confirmó manualmente que este suministro está EN USO:
+  if (isUserForcedEnUso) {
+    return {
+      flag: 'EN_USO_LOCAL',
+      statusText: '⚡ En Uso en Equipo (Confirmado por Usuario)',
+      isVerified: true,
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-700 shadow-2xs" title="Suministro confirmado EN USO manualmente por el usuario.">
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+        <span>⚡ EN USO</span>
       </span>`
     };
   }
@@ -2050,7 +2106,8 @@ function refreshMonitoringAnalysis() {
         row.tnrNivel = tnrKNivel;
       }
       let tnrKSerie = formatSupplySerie(row.tnrKSerie || row.tnrSerie || historySupply.tnrKSerie);
-      if (!row.tnrKSerie && tnrKSerie) { row.tnrKSerie = tnrKSerie; row.tnrSerie = tnrKSerie; }
+      if (!row.tnrKSerie && tnrKSerie) { row.tnrKSerie = tnrKSerie; }
+      row.tnrSerie = formatSupplySerie(row.tnrSerie || row.tnrKSerie || tnrKSerie);
 
       // Resolución y enriquecimiento de Colores para máquinas de color
       let tnrYNivel = isColor && row.tnrYNivel !== undefined && row.tnrYNivel !== null && !isNaN(row.tnrYNivel) ? Number(row.tnrYNivel) : null;
@@ -2088,13 +2145,12 @@ function refreshMonitoringAnalysis() {
 
       // Resolución y enriquecimiento de UDI y KMT
       let rowUdi = (row.udiNivel !== undefined && row.udiNivel !== null && !isNaN(row.udiNivel)) ? Number(row.udiNivel) : null;
-      let rowUdiSerie = formatSupplySerie(row.udiSerie || '');
+      let rowUdiSerie = formatSupplySerie(row.udiSerie || historySupply.udiSerie || '');
       if (rowUdi === null && historySupply.udiNivel !== null && historySupply.udiNivel !== undefined) {
         rowUdi = historySupply.udiNivel;
-        if (!rowUdiSerie && historySupply.udiSerie) rowUdiSerie = formatSupplySerie(historySupply.udiSerie);
         row.udiNivel = rowUdi;
-        row.udiSerie = rowUdiSerie;
       }
+      row.udiSerie = rowUdiSerie;
 
       let rowKmt = (row.kmtNivel !== undefined && row.kmtNivel !== null && !isNaN(row.kmtNivel)) ? Number(row.kmtNivel) : null;
       if (rowKmt === null && historySupply.kmtNivel !== null && historySupply.kmtNivel !== undefined) {
@@ -3906,10 +3962,10 @@ function renderMonitoringTable() {
             <div class="${tnrBarColor} h-1.5 rounded-full" style="width: ${r.tnrNivel !== null && r.tnrNivel !== undefined && !isNaN(r.tnrNivel) ? Math.max(3, Math.min(100, r.tnrNivel)) : 0}%"></div>
           </div>
           <div class="mt-1 flex items-center gap-1">
-            <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie TNR instalada: ${r.tnrSerie || 'N/D'}">
-              ${r.tnrSerie || 'N/D'}
+            <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie TNR instalada: ${formatSupplySerie(r.tnrSerie) || 'N/D'}">
+              ${formatSupplySerie(r.tnrSerie) || 'N/D'}
             </span>
-            ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.tnrSerie}'); showToast('Serie TNR copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie TNR"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+            ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${formatSupplySerie(r.tnrSerie)}'); showToast('Serie TNR copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie TNR"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
           </div>
         </td>
         `}
@@ -3934,10 +3990,10 @@ function renderMonitoringTable() {
             <div class="${udiBarColor} h-1.5 rounded-full" style="width: ${r.udiNivel !== null && r.udiNivel !== undefined && !isNaN(r.udiNivel) ? Math.max(3, Math.min(100, r.udiNivel)) : 0}%"></div>
           </div>
           <div class="mt-1 flex items-center gap-1">
-            <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie UDI instalada: ${r.udiSerie || 'N/D'}">
-              ${r.udiSerie || 'N/D'}
+            <span class="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-700/80 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 truncate max-w-[130px]" title="Serie UDI instalada: ${formatSupplySerie(r.udiSerie) || 'N/D'}">
+              ${formatSupplySerie(r.udiSerie) || 'N/D'}
             </span>
-            ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.udiSerie}'); showToast('Serie UDI copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie UDI"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+            ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${formatSupplySerie(r.udiSerie)}'); showToast('Serie UDI copiada');" class="text-slate-400 hover:text-indigo-600 p-0.5" title="Copiar serie UDI"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
           </div>
         </td>
         `}
@@ -4190,10 +4246,10 @@ function renderMonitoringTable() {
             <div class="mt-1.5 pt-1 border-t border-slate-200/80 dark:border-slate-700/80">
               <span class="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">Serie:</span>
               <div class="flex items-center gap-0.5 mt-0.5">
-                <span class="text-[11px] font-mono font-black text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 block truncate flex-1 shadow-2xs select-all leading-none" title="Serie TNR: ${r.tnrSerie || 'N/D'}">
-                  ${r.tnrSerie || 'N/D'}
+                <span class="text-[11px] font-mono font-black text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 block truncate flex-1 shadow-2xs select-all leading-none" title="Serie TNR: ${formatSupplySerie(r.tnrSerie) || 'N/D'}">
+                  ${formatSupplySerie(r.tnrSerie) || 'N/D'}
                 </span>
-                ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.tnrSerie}'); showToast('Serie TNR copiada'); event.stopPropagation();" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0" title="Copiar"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+                ${r.tnrSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${formatSupplySerie(r.tnrSerie)}'); showToast('Serie TNR copiada'); event.stopPropagation();" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0" title="Copiar"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
               </div>
             </div>
           </div>
@@ -4212,10 +4268,10 @@ function renderMonitoringTable() {
             <div class="mt-1.5 pt-1 border-t border-slate-200/80 dark:border-slate-700/80">
               <span class="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">Serie:</span>
               <div class="flex items-center gap-0.5 mt-0.5">
-                <span class="text-[11px] font-mono font-black text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 block truncate flex-1 shadow-2xs select-all leading-none" title="Serie UDI: ${r.udiSerie || 'N/D'}">
-                  ${r.udiSerie || 'N/D'}
+                <span class="text-[11px] font-mono font-black text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 block truncate flex-1 shadow-2xs select-all leading-none" title="Serie UDI: ${formatSupplySerie(r.udiSerie) || 'N/D'}">
+                  ${formatSupplySerie(r.udiSerie) || 'N/D'}
                 </span>
-                ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${r.udiSerie}'); showToast('Serie UDI copiada'); event.stopPropagation();" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0" title="Copiar"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
+                ${r.udiSerie ? `<button type="button" onclick="navigator.clipboard.writeText('${formatSupplySerie(r.udiSerie)}'); showToast('Serie UDI copiada'); event.stopPropagation();" class="p-0.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0" title="Copiar"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>` : ''}
               </div>
             </div>
           </div>
@@ -5025,7 +5081,7 @@ function openEquipmentHistoryModal(serie) {
                 <span class="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-slate-900 dark:bg-white inline-block"></span> Tóner Negro (TNRK)</span>
                 <span class="font-bold text-xs ${matchProcessed.isTnrKLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrKNivel)}</span>
               </div>
-              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrKSerie || 'S/N'}</span></div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300 font-mono">${formatSupplySerie(matchProcessed.tnrKSerie) || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${matchProcessed.lastTnrKFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrKFolio['FOLIO'] || matchProcessed.lastTnrKFolio['FOLIO '] || ''}</span>
@@ -5050,7 +5106,7 @@ function openEquipmentHistoryModal(serie) {
                 <span class="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Tóner Amarillo (TNRY)</span>
                 <span class="font-bold text-xs ${matchProcessed.isTnrYLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrYNivel)}</span>
               </div>
-              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrYSerie || 'S/N'}</span></div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300 font-mono">${formatSupplySerie(matchProcessed.tnrYSerie) || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${matchProcessed.lastTnrYFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrYFolio['FOLIO'] || matchProcessed.lastTnrYFolio['FOLIO '] || ''}</span>
@@ -5075,7 +5131,7 @@ function openEquipmentHistoryModal(serie) {
                 <span class="text-xs font-bold text-cyan-800 dark:text-cyan-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block"></span> Tóner Cian (TNRC)</span>
                 <span class="font-bold text-xs ${matchProcessed.isTnrCLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrCNivel)}</span>
               </div>
-              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrCSerie || 'S/N'}</span></div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300 font-mono">${formatSupplySerie(matchProcessed.tnrCSerie) || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${matchProcessed.lastTnrCFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrCFolio['FOLIO'] || matchProcessed.lastTnrCFolio['FOLIO '] || ''}</span>
@@ -5100,7 +5156,7 @@ function openEquipmentHistoryModal(serie) {
                 <span class="text-xs font-bold text-pink-800 dark:text-pink-300 flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-pink-500 inline-block"></span> Tóner Magenta (TNRM)</span>
                 <span class="font-bold text-xs ${matchProcessed.isTnrMLow ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}">${formatLevelPercent(matchProcessed.tnrMNivel)}</span>
               </div>
-              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300">${matchProcessed.tnrMSerie || 'S/N'}</span></div>
+              <div class="text-[10px] font-mono text-slate-500 mt-1">Serie: <span class="font-bold text-slate-700 dark:text-slate-300 font-mono">${formatSupplySerie(matchProcessed.tnrMSerie) || 'S/N'}</span></div>
               <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${matchProcessed.lastTnrMFolio ? `
                   <span class="font-mono font-bold text-[11px] text-slate-900 dark:text-white">Folio #${matchProcessed.lastTnrMFolio['FOLIO'] || matchProcessed.lastTnrMFolio['FOLIO '] || ''}</span>
@@ -5162,6 +5218,9 @@ function openEquipmentHistoryModal(serie) {
                   <span class="text-[11px] text-slate-400 italic">Sin folio de TNR registrado</span>
                 `}
               </div>
+              <div class="text-[11px] font-mono text-slate-600 dark:text-slate-300 mt-1">
+                Serie Instalada: <span class="font-bold text-slate-900 dark:text-white font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700">${formatSupplySerie(matchProcessed ? (matchProcessed.tnrSerie || matchProcessed.tnrKSerie) : '') || 'N/D'}</span>
+              </div>
             </div>
             <div class="w-full sm:w-auto flex justify-end shrink-0 pt-1 sm:pt-0">
               ${matchProcessed && matchProcessed.lastTnrFolio ? `
@@ -5191,6 +5250,9 @@ function openEquipmentHistoryModal(serie) {
                 ` : `
                   <span class="text-[11px] text-slate-400 italic">Sin folio de UDI registrado</span>
                 `}
+              </div>
+              <div class="text-[11px] font-mono text-slate-600 dark:text-slate-300 mt-1">
+                Serie Instalada: <span class="font-bold text-slate-900 dark:text-white font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700">${formatSupplySerie(matchProcessed ? matchProcessed.udiSerie : '') || 'N/D'}</span>
               </div>
             </div>
             <div class="w-full sm:w-auto flex justify-end shrink-0 pt-1 sm:pt-0">
@@ -5234,6 +5296,7 @@ function openEquipmentHistoryModal(serie) {
           <th class="py-2 px-3">TNR % (Caída)</th>
           <th class="py-2 px-3">Serie Cartucho TNR</th>
           <th class="py-2 px-3">UDI %</th>
+          <th class="py-2 px-3">Serie UDI</th>
           <th class="py-2 px-3">KMT %</th>
           <th class="py-2 px-3">Páginas Carrito</th>
           <th class="py-2 px-3">Estado</th>
@@ -5267,7 +5330,7 @@ function openEquipmentHistoryModal(serie) {
     historyRows.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
 
     if (historyRows.length === 0) {
-      snapshotsBody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">Sin lecturas registradas para esta serie.</td></tr>`;
+      snapshotsBody.innerHTML = `<tr><td colspan="${isEquipColor ? 7 : 8}" class="py-4 text-center text-slate-400">Sin lecturas registradas para esta serie.</td></tr>`;
     } else {
       historyRows.forEach((h, idx) => {
         const nextOlder = idx + 1 < historyRows.length ? historyRows[idx + 1] : null;
@@ -5297,8 +5360,8 @@ function openEquipmentHistoryModal(serie) {
               </div>
             </td>
             <td class="py-2 px-3 font-mono text-slate-500 text-[10px]">
-              <span title="K: ${h.tnrKSerie || 'S/N'}, Y: ${h.tnrYSerie || 'S/N'}, C: ${h.tnrCSerie || 'S/N'}, M: ${h.tnrMSerie || 'S/N'}">
-                ${h.tnrKSerie ? 'K: ' + h.tnrKSerie : '4 Colores'}
+              <span title="K: ${formatSupplySerie(h.tnrKSerie) || 'S/N'}, Y: ${formatSupplySerie(h.tnrYSerie) || 'S/N'}, C: ${formatSupplySerie(h.tnrCSerie) || 'S/N'}, M: ${formatSupplySerie(h.tnrMSerie) || 'S/N'}">
+                ${h.tnrKSerie ? 'K: ' + (formatSupplySerie(h.tnrKSerie) || h.tnrKSerie) : '4 Colores'}
               </span>
             </td>
             <td class="py-2 px-3 font-bold text-purple-700 dark:text-purple-300">
@@ -5318,8 +5381,9 @@ function openEquipmentHistoryModal(serie) {
           tr.innerHTML = `
             <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatDateTimeWithDay(h.uploadDate)}</td>
             <td class="py-2 px-3 font-bold text-slate-900 dark:text-white">${formatLevelPercent(h.tnrNivel)}${deltaTnrText}</td>
-            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-300 text-[11px]">${h.tnrSerie || 'N/D'}</td>
+            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-300 text-[11px] font-semibold">${formatSupplySerie(h.tnrSerie) || 'N/D'}</td>
             <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">${formatLevelPercent(h.udiNivel)}</td>
+            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-300 text-[11px] font-semibold">${formatSupplySerie(h.udiSerie) || 'N/D'}</td>
             <td class="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">${formatLevelPercent(h.kmtNivel, 'No aplica')}</td>
             <td class="py-2 px-3 font-mono text-slate-500">${h.paginasCarro || 'N/D'}</td>
             <td class="py-2 px-3">
@@ -5362,7 +5426,7 @@ function openEquipmentHistoryModal(serie) {
         const fFecha = f['FECHA'] ? formatDateShort(f['FECHA']) : 'N/D';
         const fTipo = f['TIPO SUM'] || 'SUM';
         const fDesc = f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '';
-        const fSerie = f['SERIE SUM'] || 'Sin serie';
+        const fSerie = formatSupplySerie(f['SERIE SUM'] || (f['IMPRESOR'] && f['IMPRESOR'] !== f['SERIE'] ? f['SERIE'] : '')) || 'Sin serie';
         const fCant = f['CANT'] || 1;
         const fEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(f).toUpperCase() : (f['ESTADO SUM'] || f['STATUS BACKUP'] || 'ENTREGADO').toString().trim().toUpperCase();
 
