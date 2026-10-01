@@ -5886,6 +5886,18 @@ function openFirebaseInspectorModal() {
     elTotalOds.textContent = odsCount.toLocaleString();
   }
 
+  const elTotalFolios = document.getElementById('fbInspTotalFolios');
+  if (elTotalFolios) {
+    const foliosCount = (typeof sheetStore !== 'undefined' && sheetStore && sheetStore['FOLIOS']) ? sheetStore['FOLIOS'].length : 0;
+    elTotalFolios.textContent = foliosCount.toLocaleString();
+  }
+
+  const elTotalFoliosOvr = document.getElementById('fbInspTotalFoliosOverrides');
+  if (elTotalFoliosOvr) {
+    const ovrCount = (typeof getStoredFolioStatusOverrides === 'function') ? Object.keys(getStoredFolioStatusOverrides()).length : 0;
+    elTotalFoliosOvr.textContent = ovrCount.toLocaleString();
+  }
+
   // Renderizar tabla de cortes en el inspector
   const tbody = document.getElementById('fbInspSnapshotsTableBody');
   if (tbody) {
