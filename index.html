@@ -9316,6 +9316,7 @@
         if (normSer) {
           overrides[`${cleanNum}|${normSer}`] = entry;
         }
+        window._lastFoliosLocalSaveTs = Date.now();
         localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
 
         // Sincronizar en Google Firebase en tiempo real
@@ -9348,6 +9349,7 @@
           changed = true;
         }
         if (changed) {
+          window._lastFoliosLocalSaveTs = Date.now();
           localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
           // Eliminar también en Firebase
           if (typeof removeFolioOverrideFromFirebase === 'function') {
@@ -14075,6 +14077,9 @@
     }
     window.syncFoliosToFirebase = syncFoliosToFirebase;
 
+    let hasInitialFolioOverridesLoaded = false;
+    let hasInitialFoliosStoreLoaded = false;
+
     function initFirebaseFoliosSync() {
       if (isFirebaseFoliosSyncInitialized) return;
       if (typeof firebase === 'undefined' || !window.firebaseDb) return;
@@ -14110,9 +14115,20 @@
                 if (typeof refreshMonitoringAnalysis === 'function') {
                   try { refreshMonitoringAnalysis(); } catch(e){}
                 }
+                const drawer = document.getElementById('modalFolioDetailDrawer');
+                if (drawer && !drawer.classList.contains('hidden') && typeof currentDrawerFolioIndex === 'number') {
+                  try { openFolioDetailDrawer(currentDrawerFolioIndex); } catch(e){}
+                }
+              }
+              if (hasInitialFolioOverridesLoaded && typeof showToast === 'function') {
+                const isLocalSelf = (Date.now() - (window._lastFoliosLocalSaveTs || 0)) < 2500;
+                if (!isLocalSelf) {
+                  showToast("☁️ Estatus de suministro actualizado en vivo desde otro dispositivo.");
+                }
               }
               console.log("🔥 [Firebase Folios] Overrides de estado sincronizados en tiempo real desde la nube.");
             }
+            hasInitialFolioOverridesLoaded = true;
             updateFirebaseFoliosUI(Object.keys(cloudOverrides).length);
           }
         }, (err) => {
@@ -14139,9 +14155,17 @@
                 filterSalidasTable();
                 updateFirebaseFoliosUI(null, cloudRecords.length, cloudData.lastUpdated);
                 saveToIndexedDB();
+
+                if (hasInitialFoliosStoreLoaded && typeof showToast === 'function') {
+                  const isLocalSelf = (Date.now() - (window._lastFoliosLocalSaveTs || 0)) < 3000;
+                  if (!isLocalSelf) {
+                    showToast(`☁️ Base de Folios actualizada en vivo (${cloudRecords.length} registros).`);
+                  }
+                }
               } else {
                 updateFirebaseFoliosUI(null, localFolios.length, cloudData.lastUpdated);
               }
+              hasInitialFoliosStoreLoaded = true;
             }
           }
         }, (err) => {
