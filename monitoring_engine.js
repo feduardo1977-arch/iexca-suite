@@ -125,6 +125,57 @@ function getFolioStatusBadge(rawEst) {
   </span>`;
 }
 
+// CLASES VISUALES PARA SELECTOR DE ESTADOS (PILL CON ESTILO DE BADGE)
+function getFolioStatusSelectClass(rawEst) {
+  const s = (rawEst || 'ENTREGADO').toString().trim().toUpperCase();
+  if (s.includes('DESECH') || s.includes('DESECHO') || s.includes('BAJA') || s.includes('SCRAP') || s.includes('DAÑ')) {
+    return 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800';
+  }
+  if (s === 'EN USO' || s.includes('EN USO') || s === 'USO' || s.includes('INSTALAD') || s === 'COLOCADO') {
+    return 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800';
+  }
+  if (s.includes('STOCK') || s === 'DISPONIBLE' || s === 'RESERVA' || s === 'NUEVO') {
+    return 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800';
+  }
+  if (s.includes('TRANSIT') || s.includes('TRÁNSIT') || s === 'ENVIADO' || s === 'EN RUTA') {
+    return 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800';
+  }
+  if (s.includes('CONSUMID') || s === 'AGOTADO' || s === 'FINALIZADO') {
+    return 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+  }
+  if (s.includes('VENDID') || s === 'VENTA') {
+    return 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800';
+  }
+  return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800';
+}
+
+// RENDERIZADOR ÚNICO DE ESTADO PARA EVITAR MEZCLA VISUAL Y CONTRADICCIONES
+function renderFolioStatusSelect(idOrIdx, rawEst, onchangeCall) {
+  const stUpper = (rawEst || 'ENTREGADO').toString().trim().toUpperCase();
+  const cls = getFolioStatusSelectClass(stUpper);
+  const isStock = stUpper.includes('STOCK') || stUpper === 'NUEVO';
+  const isEnUso = stUpper === 'EN USO' || stUpper.includes('EN USO') || stUpper.includes('INSTALAD');
+  const isDesech = stUpper.includes('DESECH') || stUpper.includes('BAJA');
+  const isEntreg = stUpper === 'ENTREGADO';
+  const isTransit = stUpper.includes('TRANSIT');
+  const isConsum = stUpper.includes('CONSUMID') || stUpper.includes('AGOTAD');
+  const isVendido = stUpper.includes('VENDID');
+
+  return `
+    <select onchange="${onchangeCall}" onclick="event.stopPropagation()"
+      class="text-[11px] font-bold py-1 px-2.5 rounded-full border cursor-pointer shadow-2xs hover:opacity-90 transition appearance-none text-center ${cls}"
+      title="Estatus actual del suministro. Haz clic para cambiarlo directamente.">
+      <option value="EN STOCK" ${isStock ? 'selected' : ''}>📦 EN STOCK</option>
+      <option value="EN USO" ${isEnUso ? 'selected' : ''}>⚡ EN USO</option>
+      <option value="DESECHADO" ${isDesech ? 'selected' : ''}>🗑️ DESECHADO</option>
+      <option value="ENTREGADO" ${isEntreg ? 'selected' : ''}>✅ ENTREGADO</option>
+      <option value="EN TRÁNSITO" ${isTransit ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+      <option value="CONSUMIDO" ${isConsum ? 'selected' : ''}>🪫 CONSUMIDO</option>
+      <option value="VENDIDO" ${isVendido ? 'selected' : ''}>🏷️ VENDIDO</option>
+    </select>
+  `;
+}
+
 // VALIDACIÓN DE DIRECCIÓN IP IPv4
 function isIpAddress(str) {
   if (!str) return false;
@@ -2115,16 +2166,13 @@ function refreshMonitoringAnalysis() {
 
       let diagTnr = 'OPTIMO';
       let reasonTnr = '';
-      if (tnrReplaced) {
-        diagTnr = 'REPOSICION_STOCK';
-        reasonTnr = '🔄 Tóner cambiado en sitio. Reserva consumida, stock en tienda quedó en 0.';
-      } else if (isTnrLow) {
+      if (isTnrLow) {
         if (!stockTnrEvaluation || (!stockTnrEvaluation.inStock && !stockTnrEvaluation.inTransit)) {
           diagTnr = 'DESPACHO_REQUERIDO';
           if (stockTnrEvaluation && stockTnrEvaluation.discarded) {
             reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Último suministro (Folio #${stockTnrEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
-          } else if (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE')) {
-            reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Tóner de Folio #${stockTnrEvaluation.folNum} ya fue instalado/en uso. Requiere nuevo despacho.`;
+          } else if (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE' || tnrReplaced)) {
+            reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Tóner de respaldo (Folio #${stockTnrEvaluation.folNum}) ya fue instalado en el equipo. Sin stock de reserva en tienda. Requiere nuevo despacho.`;
           } else {
             reasonTnr = `🚨 Tóner en ${formatLevelPercent(tnrKNivel, 'bajo')}. Sin registro de tóner en stock en FOLIOS.`;
           }
@@ -2135,21 +2183,25 @@ function refreshMonitoringAnalysis() {
           diagTnr = 'STOCK_EN_SITIO';
           reasonTnr = `🛡️ Tienda tiene tóner (TNR) en STOCK en sitio (Folio #${stockTnrEvaluation.folNum}${stockTnrEvaluation.folSerie ? ' - Serie: ' + stockTnrEvaluation.folSerie : ''}). Envío descartado.`;
         }
+      } else {
+        diagTnr = 'OPTIMO';
+        if (tnrReplaced || (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE'))) {
+          reasonTnr = `⚡ Tóner en uso (${formatLevelPercent(tnrKNivel)}). Suministro de respaldo ya instalado; a la espera de umbral bajo (≤15%) para solicitar reposición.`;
+        } else {
+          reasonTnr = `Tóner en nivel óptimo (${formatLevelPercent(tnrKNivel)}).`;
+        }
       }
 
       // DIAGNÓSTICO UDI
       let diagUdi = 'OPTIMO';
       let reasonUdi = '';
-      if (udiReplaced) {
-        diagUdi = 'REPOSICION_STOCK';
-        reasonUdi = '🔄 Unidad de imagen cambiada en sitio. Reserva consumida, stock en 0.';
-      } else if (isUdiLow) {
+      if (isUdiLow) {
         if (!stockUdiEvaluation || (!stockUdiEvaluation.inStock && !stockUdiEvaluation.inTransit)) {
           diagUdi = 'DESPACHO_REQUERIDO';
           if (stockUdiEvaluation && stockUdiEvaluation.discarded) {
             reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. Último suministro (Folio #${stockUdiEvaluation.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
-          } else if (stockUdiEvaluation && (stockUdiEvaluation.consumed || stockUdiEvaluation.status === 'IN_USE')) {
-            reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. UDI de Folio #${stockUdiEvaluation.folNum} ya fue instalada/en uso. Requiere nuevo despacho.`;
+          } else if (stockUdiEvaluation && (stockUdiEvaluation.consumed || stockUdiEvaluation.status === 'IN_USE' || udiReplaced)) {
+            reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. UDI de respaldo (Folio #${stockUdiEvaluation.folNum}) ya fue instalada en el equipo. Sin stock de reserva en tienda. Requiere nuevo despacho.`;
           } else {
             reasonUdi = `🚨 UDI en ${formatLevelPercent(rowUdi, 'baja')}. Sin registro de UDI en stock en FOLIOS.`;
           }
@@ -2159,6 +2211,13 @@ function refreshMonitoringAnalysis() {
         } else if (stockUdiEvaluation.inStock) {
           diagUdi = 'STOCK_EN_SITIO';
           reasonUdi = `🛡️ Tienda tiene Unidad de Imagen (UDI) en STOCK en sitio (Folio #${stockUdiEvaluation.folNum}${stockUdiEvaluation.folSerie ? ' - Serie: ' + stockUdiEvaluation.folSerie : ''}). Envío descartado.`;
+        }
+      } else {
+        diagUdi = 'OPTIMO';
+        if (udiReplaced || (stockUdiEvaluation && (stockUdiEvaluation.consumed || stockUdiEvaluation.status === 'IN_USE'))) {
+          reasonUdi = `⚡ UDI en uso (${formatLevelPercent(rowUdi)}). Unidad de respaldo ya instalada; a la espera de umbral bajo (≤5%) para reposición.`;
+        } else {
+          reasonUdi = `UDI en nivel óptimo (${formatLevelPercent(rowUdi)}).`;
         }
       }
 
@@ -2200,18 +2259,7 @@ function refreshMonitoringAnalysis() {
 
         const anyReplaced = tnrKReplaced || tnrYReplaced || tnrCReplaced || tnrMReplaced;
 
-        if (anyReplaced) {
-          overallDiag = 'REPOSICION_STOCK';
-          const repNames = [];
-          if (tnrKReplaced) repNames.push('Negro');
-          if (tnrYReplaced) repNames.push('Amarillo');
-          if (tnrCReplaced) repNames.push('Cian');
-          if (tnrMReplaced) repNames.push('Magenta');
-          primaryReason = `🔄 Tóner de color (${repNames.join(', ')}) cambiado en sitio. Reserva consumida, stock en 0.`;
-          alertSupplyType = tnrYReplaced ? 'TNRY' : (tnrCReplaced ? 'TNRC' : (tnrMReplaced ? 'TNRM' : 'TNRK'));
-          alertLevel = alertSupplyType === 'TNRY' ? tnrYNivel : (alertSupplyType === 'TNRC' ? tnrCNivel : (alertSupplyType === 'TNRM' ? tnrMNivel : tnrKNivel));
-          relevantFolio = sortedFolios[0];
-        } else if (colorAlerts.length > 0) {
+        if (colorAlerts.length > 0) {
           const needsDispatch = colorAlerts.filter(a => !a.stockEv || (!a.stockEv.inStock && !a.stockEv.inTransit));
           if (needsDispatch.length > 0) {
             overallDiag = 'DESPACHO_REQUERIDO';
@@ -2222,7 +2270,7 @@ function refreshMonitoringAnalysis() {
             if (mostCritical.stockEv && mostCritical.stockEv.discarded) {
               primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Último suministro (Folio #${mostCritical.stockEv.folNum}) tiene estatus DESECHADO. Sin stock en tienda. Requiere nuevo despacho.`;
             } else if (mostCritical.stockEv && (mostCritical.stockEv.consumed || mostCritical.stockEv.status === 'IN_USE')) {
-              primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Suministro de Folio #${mostCritical.stockEv.folNum} ya fue instalado/en uso. Requiere despacho.`;
+              primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Suministro de Folio #${mostCritical.stockEv.folNum} ya fue instalado en el equipo. Sin stock en tienda. Requiere despacho.`;
             } else {
               primaryReason = `🚨 Tóner ${mostCritical.name} en ${mostCritical.level}%. Sin registro en stock en FOLIOS. Requiere despacho.`;
             }
@@ -2244,6 +2292,19 @@ function refreshMonitoringAnalysis() {
               const parts = colorAlerts.map(a => `${a.name}: Folio #${a.stockEv?.folNum || 'S/N'}`);
               primaryReason = `🛡️ Tienda con tóner de color en STOCK en sitio (${parts.join(', ')}). Envío descartado.`;
             }
+          }
+        } else {
+          // Ningún suministro de color bajo: diagnóstico óptimo
+          overallDiag = 'OPTIMO';
+          if (anyReplaced) {
+            const repNames = [];
+            if (tnrKReplaced) repNames.push('Negro');
+            if (tnrYReplaced) repNames.push('Amarillo');
+            if (tnrCReplaced) repNames.push('Cian');
+            if (tnrMReplaced) repNames.push('Magenta');
+            primaryReason = `Suministros de color en rangos óptimos (> 15%). Tóner (${repNames.join(', ')}) instalado y en uso en el equipo (a la espera de umbrales bajos para reposición).`;
+          } else {
+            primaryReason = 'Suministros de color en rangos óptimos (> 15%).';
           }
         }
       } else {
@@ -2319,6 +2380,15 @@ function refreshMonitoringAnalysis() {
           alertSupplyType = (diagTnr === 'STOCK_EN_SITIO' ? 'TNR' : (diagUdi === 'STOCK_EN_SITIO' ? 'UDI' : 'KMT'));
           alertLevel = (diagTnr === 'STOCK_EN_SITIO' ? tnrKNivel : (diagUdi === 'STOCK_EN_SITIO' ? row.udiNivel : row.kmtNivel));
           relevantFolio = (diagTnr === 'STOCK_EN_SITIO' ? (stockTnrEvaluation?.folio || lastTnrFolio) : (stockUdiEvaluation?.folio || lastUdiFolio)) || sortedFolios[0];
+        }
+        // 5. NIVELES ÓPTIMOS (Normal o respaldo ya instalado)
+        else {
+          overallDiag = 'OPTIMO';
+          if (tnrReplaced || udiReplaced || (stockTnrEvaluation && (stockTnrEvaluation.consumed || stockTnrEvaluation.status === 'IN_USE'))) {
+            primaryReason = `Niveles óptimos (TNR: ${formatLevelPercent(tnrKNivel)}, UDI: ${formatLevelPercent(rowUdi)}). Suministro de respaldo ya instalado en el equipo; en espera de umbral bajo (≤15%) para solicitar reposición.`;
+          } else {
+            primaryReason = `Niveles de suministros en rango seguro (TNR: ${formatLevelPercent(tnrKNivel)}, UDI: ${formatLevelPercent(rowUdi)}, KMT: ${formatLevelPercent(rowKmt)}).`;
+          }
         }
       }
 
@@ -3607,24 +3677,7 @@ function renderMonitoringTable() {
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
           <p class="text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
           <div class="mt-1 flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
-            ${getFolioStatusBadge(fEst)}
-            ${inUseFlagBadge}
-            <select onchange="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', this.value, '${r.serie}')"
-              class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro en la misma línea">
-              <option value="EN STOCK" ${fEst.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-              <option value="EN USO" ${(fEst === 'EN USO' || fEst.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
-              <option value="DESECHADO" ${fEst.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
-              <option value="ENTREGADO" ${fEst === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-              <option value="EN TRÁNSITO" ${fEst.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-              <option value="CONSUMIDO" ${fEst.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-              <option value="VENDIDO" ${fEst.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
-            </select>
-            ${(fEst.includes('STOCK') || fEst === 'ENTREGADO') ? `
-              <button type="button" onclick="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', 'DESECHADO', '${r.serie}')" 
-                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
-                <span>🗑️ Desechar</span>
-              </button>
-            ` : ''}
+            ${renderFolioStatusSelect(fNum, fEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', this.value, '${r.serie}')`)}
             <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
               ✏️ Modificar
             </button>
@@ -4138,24 +4191,7 @@ function renderMonitoringTable() {
                     </div>
                     <p class="text-[10px] text-slate-500 mt-0.5">${cardFecha ? '(' + cardFecha + ') ' : ''}${cardTipo}: <span class="font-mono text-slate-700 dark:text-slate-300">${cardSerieSum || 'Sin serie'}</span></p>
                     <div class="mt-1 flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
-                      ${getFolioStatusBadge(cardEst)}
-                      ${cardFlagBadge}
-                      <select onchange="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', this.value, '${r.serie}')"
-                        class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro en la misma línea">
-                        <option value="EN STOCK" ${cardEst.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-                        <option value="EN USO" ${(cardEst === 'EN USO' || cardEst.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
-                        <option value="DESECHADO" ${cardEst.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
-                        <option value="ENTREGADO" ${cardEst === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                        <option value="EN TRÁNSITO" ${cardEst.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-                        <option value="CONSUMIDO" ${cardEst.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-                        <option value="VENDIDO" ${cardEst.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
-                      </select>
-                      ${(cardEst.includes('STOCK') || cardEst === 'ENTREGADO') ? `
-                        <button type="button" onclick="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', 'DESECHADO', '${r.serie}')" 
-                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
-                          <span>🗑️ Desechar</span>
-                        </button>
-                      ` : ''}
+                      ${renderFolioStatusSelect(cardFolNum, cardEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', this.value, '${r.serie}')`)}
                       <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">✏️ Modificar</button>
                     </div>
                   </div>`;
@@ -5290,28 +5326,8 @@ function openEquipmentHistoryModal(serie) {
           <td class="py-2 px-3 text-slate-700 dark:text-slate-300">${fDesc}</td>
           <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-100">${fSerie}</td>
           <td class="py-2 px-3 text-center font-bold text-slate-800 dark:text-slate-200">${fCant}</td>
-          <td class="py-2 px-3">
-            <div class="space-y-1">
-              <span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${badgeIcon}${fEst}</span>
-              <div class="flex items-center gap-1 flex-wrap" onclick="event.stopPropagation()">
-                <select onchange="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', this.value, '${serieUpper}')"
-                  class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro en la misma línea">
-                  <option value="EN STOCK" ${fEst.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-                  <option value="EN USO" ${(fEst === 'EN USO' || fEst.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
-                  <option value="DESECHADO" ${fEst.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
-                  <option value="ENTREGADO" ${fEst === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                  <option value="EN TRÁNSITO" ${fEst.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-                  <option value="CONSUMIDO" ${fEst.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-                  <option value="VENDIDO" ${fEst.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
-                </select>
-                ${(fEst.includes('STOCK') || fEst === 'ENTREGADO') ? `
-                  <button type="button" onclick="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', 'DESECHADO', '${serieUpper}')" 
-                    class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
-                    <span>🗑️ Desechar</span>
-                  </button>
-                ` : ''}
-              </div>
-            </div>
+          <td class="py-2 px-3 whitespace-nowrap text-center" onclick="event.stopPropagation()">
+            ${renderFolioStatusSelect(folNum, fEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', this.value, '${serieUpper}')`)}
           </td>
           <td class="py-2 px-3 text-center">
             <div class="inline-flex items-center gap-1">

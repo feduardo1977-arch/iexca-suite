@@ -11703,6 +11703,57 @@
       return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300 dark:border-teal-800 shadow-2xs">✅ ${st}</span>`;
     }
 
+    function getFolioStatusSelectClass(rawEst) {
+      const s = (rawEst || 'ENTREGADO').toString().trim().toUpperCase();
+      if (s.includes('DESECH') || s.includes('DESECHO') || s.includes('BAJA') || s.includes('SCRAP') || s.includes('DAÑ')) {
+        return 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800';
+      }
+      if (s === 'EN USO' || s.includes('EN USO') || s === 'USO' || s.includes('INSTALAD') || s === 'COLOCADO') {
+        return 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800';
+      }
+      if (s.includes('STOCK') || s === 'DISPONIBLE' || s === 'RESERVA' || s === 'NUEVO') {
+        return 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800';
+      }
+      if (s.includes('TRANSIT') || s.includes('TRÁNSIT') || s === 'ENVIADO' || s === 'EN RUTA') {
+        return 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800';
+      }
+      if (s.includes('CONSUMID') || s === 'AGOTADO' || s === 'FINALIZADO') {
+        return 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+      }
+      if (s.includes('VENDID') || s === 'VENTA') {
+        return 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800';
+      }
+      return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800';
+    }
+
+    function renderFolioStatusSelect(idOrIdx, rawEst, onchangeCall) {
+      const stUpper = (rawEst || 'ENTREGADO').toString().trim().toUpperCase();
+      const cls = getFolioStatusSelectClass(stUpper);
+      const isStock = stUpper.includes('STOCK') || stUpper === 'NUEVO';
+      const isEnUso = stUpper === 'EN USO' || stUpper.includes('EN USO') || stUpper.includes('INSTALAD');
+      const isDesech = stUpper.includes('DESECH') || stUpper.includes('BAJA');
+      const isEntreg = stUpper === 'ENTREGADO';
+      const isTransit = stUpper.includes('TRANSIT');
+      const isConsum = stUpper.includes('CONSUMID') || stUpper.includes('AGOTAD');
+      const isVendido = stUpper.includes('VENDID');
+
+      return `
+        <select onchange="${onchangeCall}" onclick="event.stopPropagation()"
+          class="text-[11px] font-bold py-1 px-2.5 rounded-full border cursor-pointer shadow-2xs hover:opacity-90 transition appearance-none text-center ${cls}"
+          title="Estatus actual del suministro. Haz clic para cambiarlo directamente.">
+          <option value="EN STOCK" ${isStock ? 'selected' : ''}>📦 EN STOCK</option>
+          <option value="EN USO" ${isEnUso ? 'selected' : ''}>⚡ EN USO</option>
+          <option value="DESECHADO" ${isDesech ? 'selected' : ''}>🗑️ DESECHADO</option>
+          <option value="ENTREGADO" ${isEntreg ? 'selected' : ''}>✅ ENTREGADO</option>
+          <option value="EN TRÁNSITO" ${isTransit ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+          <option value="CONSUMIDO" ${isConsum ? 'selected' : ''}>🪫 CONSUMIDO</option>
+          <option value="VENDIDO" ${isVendido ? 'selected' : ''}>🏷️ VENDIDO</option>
+        </select>
+      `;
+    }
+    window.renderFolioStatusSelect = renderFolioStatusSelect;
+    window.getFolioStatusSelectClass = getFolioStatusSelectClass;
+
     function filterSalidasTable() {
       const query = (document.getElementById('searchSalidasInput')?.value || '').trim().toLowerCase();
       const tipoFilter = (document.getElementById('filterSalidasTipo')?.value || '').trim().toUpperCase();
@@ -12129,33 +12180,7 @@
                   <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold">${formatDateShort(row['FECHA'] || row['Fecha'])}</span>
                 </div>
                 <div class="flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
-                  ${getFolioStatusBadge(realSt)}
-                  <select onchange="quickUpdateFolioSupplyStatus(${realIdx}, this.value)" 
-                    class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus en la misma línea">
-                    <option value="EN STOCK" ${realSt.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-                    <option value="EN USO" ${(realSt === 'EN USO' || realSt.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
-                    <option value="DESECHADO" ${realSt.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
-                    <option value="ENTREGADO" ${realSt === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                    <option value="EN TRÁNSITO" ${realSt.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-                    <option value="CONSUMIDO" ${realSt.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-                    <option value="VENDIDO" ${realSt.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
-                  </select>
-                  ${(realSt.includes('STOCK') || realSt === 'ENTREGADO') ? `
-                    <button type="button" onclick="quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" 
-                      class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
-                      <span>🗑️ Desechar</span>
-                    </button>
-                  ` : ''}
-                  ${(monFlag.flag === 'EN_USO' && monFlag.needsStatusUpdate) ? `
-                    <button type="button" onclick="quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" class="px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-2xs transition active:scale-95 flex items-center gap-1">
-                      <span>⚡ Pasar a EN USO</span>
-                    </button>
-                  ` : ''}
-                  ${(monFlag.flag === 'SUSTITUIDO_DESECHO') ? `
-                    <button type="button" onclick="quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" class="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold shadow-2xs transition active:scale-95 flex items-center gap-1">
-                      <span>🗑️ Pasar a DESECHO</span>
-                    </button>
-                  ` : ''}
+                  ${renderFolioStatusSelect(realIdx, realSt, `quickUpdateFolioSupplyStatus(${realIdx}, this.value)`)}
                 </div>
               </div>
 
@@ -12258,56 +12283,18 @@
                 ` : '<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60" title="Despacho Proactivo / Emergencia">⚡ Proactivo</span>'}
               </td>
               <td class="py-1.5 px-2.5 text-slate-700 dark:text-slate-300 font-medium">${formatDateShort(row['FECHA'] || row['Fecha'])}</td>
-              <td class="py-1.5 px-2.5 text-center">
-                <div class="space-y-1">
-                  ${getFolioStatusBadge(realSt)}
-                  ${ipVal ? `<div class="mt-0.5 font-mono text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1" title="IP de red: ${ipVal}"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>${ipVal}</div>` : ''}
-                  <div class="flex items-center justify-center gap-1 flex-wrap" onclick="event.stopPropagation()">
-                    <select onchange="quickUpdateFolioSupplyStatus(${realIdx}, this.value)" 
-                      class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro directamente">
-                      <option value="EN STOCK" ${realSt.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
-                      <option value="EN USO" ${(realSt === 'EN USO' || realSt.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
-                      <option value="DESECHADO" ${realSt.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
-                      <option value="ENTREGADO" ${realSt === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
-                      <option value="EN TRÁNSITO" ${realSt.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
-                      <option value="CONSUMIDO" ${realSt.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
-                      <option value="VENDIDO" ${realSt.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
-                    </select>
-                    ${(realSt.includes('STOCK') || realSt === 'ENTREGADO') ? `
-                      <button type="button" onclick="quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" 
-                        class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
-                        <span>🗑️ Desechar</span>
-                      </button>
-                    ` : ''}
-                    ${realSt.includes('STOCK') ? `
-                      <button type="button" onclick="quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" 
-                        class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 text-[9px] font-bold border border-emerald-300 dark:border-emerald-800 shadow-2xs transition active:scale-95" title="Pasar a En Uso">
-                        <span>⚡ En Uso</span>
-                      </button>
-                    ` : ''}
-                  </div>
-                  ${(monFlag.flag === 'EN_USO' && monFlag.needsStatusUpdate) ? `
-                    <div class="mt-0.5">
-                      <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'EN USO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Pasar a EN USO">
-                        <span>⚡ Pasar a EN USO</span>
-                      </button>
-                    </div>
-                  ` : ''}
-                  ${(monFlag.flag === 'SUSTITUIDO_DESECHO') ? `
-                    <div class="mt-0.5">
-                      <button type="button" onclick="event.stopPropagation(); quickUpdateFolioSupplyStatus(${realIdx}, 'DESECHADO')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-[9px] font-bold shadow-2xs transition" title="Pasar a DESECHO">
-                        <span>🗑️ Pasar a DESECHO</span>
-                      </button>
-                    </div>
-                  ` : ''}
-                </div>
+              <td class="py-1.5 px-2.5 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                ${renderFolioStatusSelect(realIdx, realSt, `quickUpdateFolioSupplyStatus(${realIdx}, this.value)`)}
               </td>
               <td class="py-1.5 px-2.5 text-center whitespace-nowrap">${monFlag.badge}</td>
               <td class="py-1.5 px-2.5 font-mono font-medium text-amber-600 dark:text-amber-400">${row['SERIE SUM'] || (row['IMPRESOR'] ? row['SERIE'] : '') || '-'}</td>
               <td class="py-1.5 px-2.5 font-mono text-slate-600 dark:text-slate-300 col-numpart">${row['NUMPART'] || '-'}</td>
               <td class="py-1.5 px-2.5 font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate col-desc" title="${row['DESCRIPCION'] || ''}">${row['DESCRIPCION'] || '-'}</td>
               <td class="py-1.5 px-2.5 font-bold text-center text-slate-900 dark:text-white col-cant">${row['CANT'] || 1}</td>
-              <td class="py-1.5 px-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold">${row['IMPRESOR'] || row['SERIE'] || '-'}</td>
+              <td class="py-1.5 px-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                <div>${row['IMPRESOR'] || row['SERIE'] || '-'}</div>
+                ${ipVal ? `<div class="font-mono text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-normal mt-0.5" title="IP de red del impresor: ${ipVal}"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>${ipVal}</div>` : ''}
+              </td>
               <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300 col-modelo">${row['MODELO'] || '-'}</td>
               <td class="py-1.5 px-2.5 text-slate-600 dark:text-slate-300 max-w-[150px] truncate col-destino" title="${row['DESTINO'] || ''}">${row['DESTINO'] || '-'}</td>
               <td class="py-1.5 px-2.5 font-medium text-slate-700 dark:text-slate-300 max-w-[150px] truncate col-cliente" title="${row['CLIENTE'] || ''}">${row['CLIENTE'] || '-'}</td>
