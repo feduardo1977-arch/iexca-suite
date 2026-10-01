@@ -131,23 +131,29 @@ function isIpAddress(str) {
   return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(String(str).trim());
 }
 
-// OBTENER ESTADO REAL DEL SUMINISTRO (Prioriza STATUS BACKUP para no ser sobrescrito por IPs)
+// OBTENER ESTADO REAL DEL SUMINISTRO (ESTADO SUM / STATUS BACKUP sin IPs)
 function getRowRealStatus(row) {
   if (!row) return 'ENTREGADO';
   
-  // 1. Revisar STATUS BACKUP (aquí se encuentran los estados originales recuperados: EN USO, DESECHADO, EN STOCK, VENDIDO, etc.)
+  // 1. Revisar ESTADO SUM (siempre que no contenga una dirección IP)
+  const est = String(row['ESTADO SUM'] || row['ESTADO_SUM'] || '').trim();
+  if (est && !isIpAddress(est) && est !== '-' && est !== '0.0.0.0') {
+    return est;
+  }
+  
+  // 2. Revisar STATUS BACKUP (estados originales recuperados: EN USO, DESECHADO, EN STOCK, etc.)
   const bak = String(row['STATUS BACKUP'] || row['STATUS_BACKUP'] || '').trim();
   if (bak && !isIpAddress(bak) && bak !== '-' && bak !== '0.0.0.0') {
     return bak;
   }
   
-  // 2. Revisar ESTADO SUM (siempre que no contenga una dirección IP)
-  const est = String(row['ESTADO SUM'] || row['ESTADO'] || '').trim();
-  if (est && !isIpAddress(est) && est !== '-' && est !== '0.0.0.0') {
-    return est;
+  // 3. Revisar ESTADO general
+  const genEst = String(row['ESTADO'] || '').trim();
+  if (genEst && !isIpAddress(genEst) && genEst !== '-' && genEst !== '0.0.0.0') {
+    return genEst;
   }
   
-  return bak || 'ENTREGADO';
+  return 'ENTREGADO';
 }
 
 // OBTENER DIRECCIÓN IP ASOCIADA AL SUMINISTRO / EQUIPO
@@ -3600,9 +3606,25 @@ function renderMonitoringTable() {
           </div>
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
           <p class="text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
-          <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+          <div class="mt-1 flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
             ${getFolioStatusBadge(fEst)}
             ${inUseFlagBadge}
+            <select onchange="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', this.value, '${r.serie}')"
+              class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro en la misma línea">
+              <option value="EN STOCK" ${fEst.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
+              <option value="EN USO" ${(fEst === 'EN USO' || fEst.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
+              <option value="DESECHADO" ${fEst.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
+              <option value="ENTREGADO" ${fEst === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+              <option value="EN TRÁNSITO" ${fEst.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+              <option value="CONSUMIDO" ${fEst.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
+              <option value="VENDIDO" ${fEst.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
+            </select>
+            ${(fEst.includes('STOCK') || fEst === 'ENTREGADO') ? `
+              <button type="button" onclick="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', 'DESECHADO', '${r.serie}')" 
+                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
+                <span>🗑️ Desechar</span>
+              </button>
+            ` : ''}
             <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
               ✏️ Modificar
             </button>
@@ -4115,9 +4137,25 @@ function renderMonitoringTable() {
                       </button>
                     </div>
                     <p class="text-[10px] text-slate-500 mt-0.5">${cardFecha ? '(' + cardFecha + ') ' : ''}${cardTipo}: <span class="font-mono text-slate-700 dark:text-slate-300">${cardSerieSum || 'Sin serie'}</span></p>
-                    <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                    <div class="mt-1 flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
                       ${getFolioStatusBadge(cardEst)}
                       ${cardFlagBadge}
+                      <select onchange="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', this.value, '${r.serie}')"
+                        class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro en la misma línea">
+                        <option value="EN STOCK" ${cardEst.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
+                        <option value="EN USO" ${(cardEst === 'EN USO' || cardEst.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
+                        <option value="DESECHADO" ${cardEst.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
+                        <option value="ENTREGADO" ${cardEst === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                        <option value="EN TRÁNSITO" ${cardEst.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+                        <option value="CONSUMIDO" ${cardEst.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
+                        <option value="VENDIDO" ${cardEst.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
+                      </select>
+                      ${(cardEst.includes('STOCK') || cardEst === 'ENTREGADO') ? `
+                        <button type="button" onclick="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', 'DESECHADO', '${r.serie}')" 
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
+                          <span>🗑️ Desechar</span>
+                        </button>
+                      ` : ''}
                       <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">✏️ Modificar</button>
                     </div>
                   </div>`;
@@ -5208,13 +5246,19 @@ function openEquipmentHistoryModal(serie) {
         const fDesc = f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '';
         const fSerie = f['SERIE SUM'] || 'Sin serie';
         const fCant = f['CANT'] || 1;
-        const fEst = (f['ESTADO SUM'] || 'ENTREGADO').toString().trim().toUpperCase();
+        const fEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(f).toUpperCase() : (f['ESTADO SUM'] || f['STATUS BACKUP'] || 'ENTREGADO').toString().trim().toUpperCase();
 
         let badgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
         let badgeIcon = '';
         if (fEst.includes('STOCK') || fEst === 'NUEVO') {
           badgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold';
           badgeIcon = '📦 ';
+        } else if (fEst.includes('DESECH')) {
+          badgeClass = 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-700 font-bold';
+          badgeIcon = '🗑️ ';
+        } else if (fEst === 'EN USO' || fEst.includes('EN USO')) {
+          badgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold';
+          badgeIcon = '⚡ ';
         } else if (fEst === 'ENTREGADO') {
           badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-semibold';
           badgeIcon = '✅ ';
@@ -5223,7 +5267,7 @@ function openEquipmentHistoryModal(serie) {
           badgeIcon = '🚚 ';
         } else if (fEst.includes('INSTALAD') || fEst.includes('CONSUMID') || fEst.includes('AGOTAD')) {
           badgeClass = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 font-medium';
-          badgeIcon = '🔧 ';
+          badgeIcon = '🪫 ';
         } else if (fEst.includes('PENDIENT')) {
           badgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold';
           badgeIcon = '⏳ ';
@@ -5247,7 +5291,27 @@ function openEquipmentHistoryModal(serie) {
           <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-100">${fSerie}</td>
           <td class="py-2 px-3 text-center font-bold text-slate-800 dark:text-slate-200">${fCant}</td>
           <td class="py-2 px-3">
-            <span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${badgeIcon}${fEst}</span>
+            <div class="space-y-1">
+              <span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${badgeIcon}${fEst}</span>
+              <div class="flex items-center gap-1 flex-wrap" onclick="event.stopPropagation()">
+                <select onchange="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', this.value, '${serieUpper}')"
+                  class="text-[9px] font-bold py-0.5 px-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs hover:border-amber-400" title="Cambiar estatus de este suministro en la misma línea">
+                  <option value="EN STOCK" ${fEst.includes('STOCK') ? 'selected' : ''}>📦 EN STOCK</option>
+                  <option value="EN USO" ${(fEst === 'EN USO' || fEst.includes('EN USO')) ? 'selected' : ''}>⚡ EN USO</option>
+                  <option value="DESECHADO" ${fEst.includes('DESECH') ? 'selected' : ''}>🗑️ DESECHADO</option>
+                  <option value="ENTREGADO" ${fEst === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
+                  <option value="EN TRÁNSITO" ${fEst.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+                  <option value="CONSUMIDO" ${fEst.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
+                  <option value="VENDIDO" ${fEst.includes('VENDID') ? 'selected' : ''}>🏷️ VENDIDO</option>
+                </select>
+                ${(fEst.includes('STOCK') || fEst === 'ENTREGADO') ? `
+                  <button type="button" onclick="if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', 'DESECHADO', '${serieUpper}')" 
+                    class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:hover:bg-rose-900 dark:text-rose-300 text-[9px] font-bold border border-rose-300 dark:border-rose-800 shadow-2xs transition active:scale-95" title="Marcar como Desechado">
+                    <span>🗑️ Desechar</span>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
           </td>
           <td class="py-2 px-3 text-center">
             <div class="inline-flex items-center gap-1">
@@ -5406,7 +5470,7 @@ function exportMonitoringAuditToExcel() {
     const fNum = lastF ? getFolioNumber(lastF) : '';
     const fFecha = lastF && lastF['FECHA'] ? formatDateShort(lastF['FECHA']) : '';
     const fSerieSum = lastF ? (lastF['SERIE SUM'] || lastF['SERIE_SUM'] || '') : '';
-    const fEstado = lastF ? (lastF['ESTADO SUM'] || lastF['ESTADO'] || '') : '';
+    const fEstado = lastF ? getRowRealStatus(lastF) : '';
 
     let accion = 'Nivel Óptimo';
     if (r.overallDiag === 'DESPACHO_REQUERIDO') accion = 'DESPACHAR SALIDA URGENTE';
