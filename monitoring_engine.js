@@ -944,7 +944,7 @@ function detectClientFromCsvRows(rows, fileName) {
 }
 
 // Agregar snapshot de monitoreo con histórico semanal
-function addMonitoringSnapshot(clientName, fileName, rows) {
+function addMonitoringSnapshot(clientName, fileName, rows, autoSync = true) {
   if (!rows || rows.length === 0) return;
   const cleanClient = (clientName || 'CLIENTE').toUpperCase();
   
@@ -1023,10 +1023,12 @@ function addMonitoringSnapshot(clientName, fileName, rows) {
   // Ordenar cronológicamente: de más reciente a más antiguo
   monitoringData[cleanClient].sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
 
-  saveMonitoringToIndexedDB();
-  refreshMonitoringAnalysis();
-  if (typeof showToast === 'function') {
-    showToast(`✅ ${rows.length} equipos cargados para ${cleanClient} (${fileName})`);
+  if (autoSync) {
+    saveMonitoringToIndexedDB(true);
+    refreshMonitoringAnalysis();
+    if (typeof showToast === 'function') {
+      showToast(`✅ ${rows.length} equipos cargados para ${cleanClient} (${fileName})`);
+    }
   }
 }
 
@@ -1037,7 +1039,7 @@ function deleteMonitoringClient(clientName) {
   if (activeMonitoringClient === clientName) {
     activeMonitoringClient = 'ALL';
   }
-  saveMonitoringToIndexedDB();
+  saveMonitoringToIndexedDB(true);
   refreshMonitoringAnalysis();
   if (typeof showToast === 'function') {
     showToast(`Cliente ${clientName} removido del monitoreo.`);
@@ -1049,7 +1051,7 @@ function resetMonitoringToDefault() {
   if (!confirm("¿Deseas recargar los datos predeterminados de monitoreo (Walmart y BAC)?")) return;
   if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
     monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
-    saveMonitoringToIndexedDB();
+    saveMonitoringToIndexedDB(true);
     refreshMonitoringAnalysis();
     if (typeof showToast === 'function') {
       showToast("Datos de monitoreo restaurados a predeterminados.");
@@ -1058,14 +1060,178 @@ function resetMonitoringToDefault() {
 }
 
 // ==========================================
-// SINCRONIZACIÓN EN LA NUBE CON FIREBASE RTDB
+// SINCRONIZACIÓN INTELIGENTE Y BIDIRECCIONAL EN LA NUBE CON FIREBASE RTDB
 // ==========================================
 let isFirebaseSyncInitialized = false;
 let isSyncingToFirebase = false;
+let syncMonitoringDebounceTimer = null;
+let lastCloudSyncTimestamp = null;
 
+/**
+ * Realiza una unión bidireccional NO destructiva entre datos locales y de la nube.
+ * - Respeta todos los snapshots existentes en ambos lados identificados por fileName / date.
+ * - Si un snapshot existe en ambos lados, fusiona filas y preserva los suministros más completos.
+ * - Ordena cronológicamente (más reciente primero).
+ * - Indica si los datos locales aportaron nuevos snapshots no presentes en la nube.
+ */
+function mergeMonitoringDatasets(local, cloud) {
+  if (!local || typeof local !== 'object') return { merged: cloud || {}, hasNewLocalSnaps: false };
+  if (!cloud || typeof cloud !== 'object') return { merged: local || {}, hasNewLocalSnaps: true };
+
+  const merged = {};
+  let hasNewLocalSnaps = false;
+  const allClients = Array.from(new Set([...Object.keys(local), ...Object.keys(cloud)]));
+
+  allClients.forEach(client => {
+    const localSnaps = Array.isArray(local[client]) ? local[client] : [];
+    const cloudSnaps = Array.isArray(cloud[client]) ? cloud[client] : [];
+
+    const snapMap = new Map();
+
+    // 1. Incorporar primero todos los snapshots de la nube
+    cloudSnaps.forEach(s => {
+      if (!s) return;
+      const key = (s.fileName || s.snapshotId || s.uploadDate || '').trim().toLowerCase();
+      if (!key) return;
+      snapMap.set(key, JSON.parse(JSON.stringify(s)));
+    });
+
+    // 2. Fusionar los snapshots locales
+    localSnaps.forEach(s => {
+      if (!s) return;
+      const key = (s.fileName || s.snapshotId || s.uploadDate || '').trim().toLowerCase();
+      if (!key) return;
+
+      if (!snapMap.has(key)) {
+        // Nuevo snapshot que existía solo en local -> Debe aportarse a la nube
+        snapMap.set(key, JSON.parse(JSON.stringify(s)));
+        hasNewLocalSnaps = true;
+      } else {
+        // Ya existe en la nube; comparar y enriquecer filas si local tiene datos complementarios
+        const cloudSnap = snapMap.get(key);
+        const cRows = Array.isArray(cloudSnap.rows) ? cloudSnap.rows : [];
+        const lRows = Array.isArray(s.rows) ? s.rows : [];
+
+        if (lRows.length > cRows.length) {
+          snapMap.set(key, JSON.parse(JSON.stringify(s)));
+          hasNewLocalSnaps = true;
+        } else if (lRows.length === cRows.length && lRows.length > 0) {
+          // Si local tiene suministros no presentes en la nube, complementar
+          const lRowMap = new Map();
+          lRows.forEach(r => { if (r && r.serie) lRowMap.set(r.serie.trim().toUpperCase(), r); });
+          cRows.forEach(cr => {
+            if (!cr || !cr.serie) return;
+            const lr = lRowMap.get(cr.serie.trim().toUpperCase());
+            if (!lr) return;
+            ['udiNivel', 'udiSerie', 'kmtNivel', 'tnrKNivel', 'tnrKSerie', 'tnrYNivel', 'tnrCNivel', 'tnrMNivel', 'desechoNivel'].forEach(f => {
+              if ((cr[f] === null || cr[f] === undefined || isNaN(cr[f])) && lr[f] !== null && lr[f] !== undefined && !isNaN(lr[f])) {
+                cr[f] = lr[f];
+              }
+            });
+          });
+        }
+      }
+    });
+
+    const clientSnaps = Array.from(snapMap.values());
+    clientSnaps.sort((a, b) => new Date(b.uploadDate || 0) - new Date(a.uploadDate || 0));
+    merged[client] = clientSnaps;
+  });
+
+  return { merged, hasNewLocalSnaps };
+}
+
+/**
+ * Actualiza el indicador visual de estado de sincronización con la nube.
+ */
+function updateMonitoringCloudBadge(status = 'online', message = null) {
+  const badge = document.getElementById('firebaseCloudBadge') || document.getElementById('firebaseMonitoringBadge');
+  const badgeTxt = document.getElementById('firebaseMonitoringBadgeText');
+  
+  let label = 'Nube en vivo';
+  if (status === 'online') {
+    const clients = Object.keys(monitoringData || {});
+    let totalSnaps = 0;
+    clients.forEach(c => totalSnaps += (monitoringData[c] || []).length);
+    label = message || `Nube Sincronizada (${totalSnaps} cortes)`;
+  } else if (status === 'syncing') {
+    label = message || 'Sincronizando...';
+  } else if (status === 'offline') {
+    label = message || 'Nube offline';
+  }
+
+  if (badgeTxt) badgeTxt.textContent = label;
+
+  if (badge) {
+    if (status === 'online') {
+      badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs';
+      if (!badgeTxt) badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>${label}</span>`;
+    } else if (status === 'syncing') {
+      badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 shadow-2xs';
+      if (!badgeTxt) badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping"></span><span>${label}</span>`;
+    } else {
+      badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 shadow-2xs';
+      if (!badgeTxt) badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>${label}</span>`;
+    }
+  }
+}
+
+/**
+ * Consulta directa HTTPS REST a Firebase Realtime Database.
+ * Garantiza sincronización inmediata en dispositivos móviles donde los WebSockets suelen tardar o suspenderse.
+ */
+async function fetchFirebaseMonitoringDirect(showUserToast = false) {
+  updateMonitoringCloudBadge('syncing', 'Consultando nube...');
+  try {
+    const res = await fetch('https://iexca-suite-default-rtdb.firebaseio.com/monitoring_data.json', {
+      cache: 'no-cache',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const cloudData = await res.json();
+    if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
+      const { merged, hasNewLocalSnaps } = mergeMonitoringDatasets(monitoringData, cloudData);
+      monitoringData = merged;
+      lastCloudSyncTimestamp = new Date();
+      saveMonitoringToIndexedDB(false);
+      if (typeof updateMonitoringSnapshotSelect === 'function') updateMonitoringSnapshotSelect();
+      if (typeof renderMonitoringClientPills === 'function') renderMonitoringClientPills();
+      refreshMonitoringAnalysis();
+      updateMonitoringCloudBadge('online');
+
+      if (hasNewLocalSnaps) {
+        syncMonitoringToFirebase(false);
+      }
+
+      if (showUserToast && typeof showToast === 'function') {
+        const clients = Object.keys(monitoringData).join(' y ');
+        showToast(`✅ Monitoreo sincronizado desde la nube (${clients}).`);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn("⚠️ [Firebase REST] Error al consultar nube:", err);
+    updateMonitoringCloudBadge('offline');
+    if (showUserToast && typeof showToast === 'function') {
+      showToast(`⚠️ No se pudo conectar a la nube Firebase. Revisa tu conexión.`, 'warning');
+    }
+  }
+  return false;
+}
+
+/**
+ * Inicializa sincronización en tiempo real vía listener de Firebase + consulta REST inicial
+ */
 function initFirebaseMonitoringSync() {
+  // Disparar siempre la consulta REST rápida para móviles de forma inmediata
+  fetchFirebaseMonitoringDirect(false);
+
   if (isFirebaseSyncInitialized) return;
-  if (typeof firebase === 'undefined' || !window.firebaseDb) return;
+  if (typeof firebase === 'undefined' || !window.firebaseDb) {
+    // Si aún no está listo el SDK de Firebase, reintentar en 600ms
+    setTimeout(initFirebaseMonitoringSync, 600);
+    return;
+  }
   isFirebaseSyncInitialized = true;
 
   try {
@@ -1073,56 +1239,88 @@ function initFirebaseMonitoringSync() {
     dbRef.on('value', (snapshot) => {
       const cloudData = snapshot.val();
       if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
-        const cloudStr = JSON.stringify(cloudData);
-        const localStr = JSON.stringify(monitoringData);
-        if (cloudStr !== localStr) {
-          console.log("🔥 [Firebase] Monitoreo actualizado desde la nube:", Object.keys(cloudData));
-          monitoringData = cloudData;
-          if (typeof updateMonitoringSnapshotSelect === 'function') {
-            updateMonitoringSnapshotSelect();
-          }
-          if (typeof renderMonitoringClientPills === 'function') {
-            renderMonitoringClientPills();
-          }
-          refreshMonitoringAnalysis();
-          saveMonitoringToIndexedDB(false);
-        }
+        const { merged, hasNewLocalSnaps } = mergeMonitoringDatasets(monitoringData, cloudData);
+        const currentStr = JSON.stringify(monitoringData);
 
-        const badge = document.getElementById('firebaseCloudBadge');
-        if (badge) {
-          badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs';
-          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>Nube en vivo</span>';
+        if (JSON.stringify(merged) !== currentStr) {
+          console.log("🔥 [Firebase] Monitoreo actualizado y fusionado desde la nube:", Object.keys(cloudData));
+          monitoringData = merged;
+          saveMonitoringToIndexedDB(false);
+          if (typeof updateMonitoringSnapshotSelect === 'function') updateMonitoringSnapshotSelect();
+          if (typeof renderMonitoringClientPills === 'function') renderMonitoringClientPills();
+          refreshMonitoringAnalysis();
+        }
+        updateMonitoringCloudBadge('online');
+
+        if (hasNewLocalSnaps) {
+          syncMonitoringToFirebase(false);
         }
       }
     }, (err) => {
       console.warn("⚠️ [Firebase] Error en listener:", err);
-      const badge = document.getElementById('firebaseCloudBadge');
-      if (badge) {
-        badge.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 shadow-2xs';
-        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span>Nube offline</span>';
-      }
+      updateMonitoringCloudBadge('offline');
     });
   } catch (e) {
     console.warn("⚠️ [Firebase] Fallo al suscribirse a monitoring_data:", e);
+    updateMonitoringCloudBadge('offline');
   }
 }
 
-function syncMonitoringToFirebase() {
-  if (typeof firebase === 'undefined' || !window.firebaseDb) return;
-  if (isSyncingToFirebase) return;
+/**
+ * Envía el estado unificado a Firebase con debounce para evitar colisiones y pérdida de archivos múltiples.
+ */
+function syncMonitoringToFirebase(immediate = false) {
+  if (syncMonitoringDebounceTimer) {
+    clearTimeout(syncMonitoringDebounceTimer);
+    syncMonitoringDebounceTimer = null;
+  }
+
+  if (!immediate) {
+    syncMonitoringDebounceTimer = setTimeout(() => syncMonitoringToFirebase(true), 800);
+    return;
+  }
+
+  if (typeof firebase === 'undefined' || !window.firebaseDb) {
+    // Fallback vía REST PUT si window.firebaseDb no está disponible
+    try {
+      fetch('https://iexca-suite-default-rtdb.firebaseio.com/monitoring_data.json', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(monitoringData)
+      }).then(r => {
+        if (r.ok) {
+          console.log("🔥 [Firebase REST] Monitoreo respaldado vía PUT.");
+          updateMonitoringCloudBadge('online');
+        }
+      }).catch(e => console.warn("Error REST PUT:", e));
+    } catch(e) {}
+    return;
+  }
+
+  if (isSyncingToFirebase) {
+    // Reintentar en 1 segundo si ya había una subida en proceso
+    syncMonitoringDebounceTimer = setTimeout(() => syncMonitoringToFirebase(true), 1000);
+    return;
+  }
+
   isSyncingToFirebase = true;
+  updateMonitoringCloudBadge('syncing', 'Guardando en la nube...');
+
   try {
     window.firebaseDb.ref('monitoring_data').set(monitoringData)
       .then(() => {
         console.log("🔥 [Firebase] Datos de monitoreo sincronizados en la nube con éxito.");
         isSyncingToFirebase = false;
+        updateMonitoringCloudBadge('online');
       })
       .catch((err) => {
         console.warn("⚠️ [Firebase] Error al guardar en la nube:", err);
         isSyncingToFirebase = false;
+        updateMonitoringCloudBadge('offline');
       });
   } catch (e) {
     isSyncingToFirebase = false;
+    updateMonitoringCloudBadge('offline');
   }
 }
 
@@ -1282,7 +1480,7 @@ function initMonitoringModule(force = false) {
             }
           });
           if (hasNew) {
-            saveMonitoringToIndexedDB();
+            saveMonitoringToIndexedDB(false);
           }
         }
       }
@@ -1375,7 +1573,7 @@ function initMonitoringModule(force = false) {
         });
       }
       if (hasRepairs) {
-        saveMonitoringToIndexedDB();
+        saveMonitoringToIndexedDB(false);
       }
 
       refreshMonitoringAnalysis();
@@ -1573,28 +1771,33 @@ function refreshMonitoringAnalysis() {
 
     if (activeMonitoringSnapshot === 'LATEST') {
       targetSnap = snapshots[0];
-      prevSnap = snapshots.length > 1 ? snapshots[1] : null;
+      const targetDateDay = (targetSnap && targetSnap.uploadDate) ? targetSnap.uploadDate.substring(0, 10) : '';
+      prevSnap = snapshots.find(s => s !== targetSnap && s.uploadDate && s.uploadDate.substring(0, 10) !== targetDateDay) || (snapshots.length > 1 ? snapshots[1] : null);
     } else if (activeMonitoringClient === 'ALL') {
       // Buscar el snapshot de este cliente que coincida con la fecha YYYY-MM-DD seleccionada
       const matchDateIdx = snapshots.findIndex(s => s.uploadDate && s.uploadDate.startsWith(activeMonitoringSnapshot));
       if (matchDateIdx >= 0) {
         targetSnap = snapshots[matchDateIdx];
-        prevSnap = matchDateIdx + 1 < snapshots.length ? snapshots[matchDateIdx + 1] : null;
+        const targetDateDay = (targetSnap && targetSnap.uploadDate) ? targetSnap.uploadDate.substring(0, 10) : '';
+        prevSnap = snapshots.find((s, sIdx) => sIdx > matchDateIdx && s.uploadDate && s.uploadDate.substring(0, 10) !== targetDateDay) || (matchDateIdx + 1 < snapshots.length ? snapshots[matchDateIdx + 1] : null);
       } else {
         // Si este cliente no tuvo captura ese día exacto, tomar el snapshot más cercano previo a esa fecha
         const prevOrLatest = snapshots.find(s => s.uploadDate && s.uploadDate.substring(0, 10) <= activeMonitoringSnapshot) || snapshots[0];
         targetSnap = prevOrLatest;
         const pIdx = snapshots.indexOf(prevOrLatest);
-        prevSnap = pIdx + 1 < snapshots.length ? snapshots[pIdx + 1] : null;
+        const targetDateDay = (targetSnap && targetSnap.uploadDate) ? targetSnap.uploadDate.substring(0, 10) : '';
+        prevSnap = snapshots.find((s, sIdx) => sIdx > pIdx && s.uploadDate && s.uploadDate.substring(0, 10) !== targetDateDay) || (pIdx + 1 < snapshots.length ? snapshots[pIdx + 1] : null);
       }
     } else {
       const idx = snapshots.findIndex(s => s.snapshotId === activeMonitoringSnapshot);
       if (idx >= 0) {
         targetSnap = snapshots[idx];
-        prevSnap = idx + 1 < snapshots.length ? snapshots[idx + 1] : null;
+        const targetDateDay = (targetSnap && targetSnap.uploadDate) ? targetSnap.uploadDate.substring(0, 10) : '';
+        prevSnap = snapshots.find((s, sIdx) => sIdx > idx && s.uploadDate && s.uploadDate.substring(0, 10) !== targetDateDay) || (idx + 1 < snapshots.length ? snapshots[idx + 1] : null);
       } else {
         targetSnap = snapshots[0];
-        prevSnap = snapshots.length > 1 ? snapshots[1] : null;
+        const targetDateDay = (targetSnap && targetSnap.uploadDate) ? targetSnap.uploadDate.substring(0, 10) : '';
+        prevSnap = snapshots.find(s => s !== targetSnap && s.uploadDate && s.uploadDate.substring(0, 10) !== targetDateDay) || (snapshots.length > 1 ? snapshots[1] : null);
       }
     }
 
@@ -5118,13 +5321,40 @@ function handleMonitoringDrop(e) {
 }
 
 function processMonitoringFiles(files) {
-  const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
+  if (!files || files.length === 0) return;
+
+  const csvFiles = Array.from(files).filter(f => {
+    const name = (f.name || '').toLowerCase();
+    const type = (f.type || '').toLowerCase();
+    return name.endsWith('.csv') || type.includes('csv') || type.includes('text/plain') || type.includes('excel');
+  });
+
   if (csvFiles.length === 0) {
-    alert("Por favor selecciona archivos con formato .CSV de monitoreo.");
+    if (typeof showToast === 'function') {
+      showToast("⚠️ Por favor selecciona archivos con formato .CSV de monitoreo.", "warning");
+    } else {
+      alert("Por favor selecciona archivos con formato .CSV de monitoreo.");
+    }
     return;
   }
 
+  if (typeof showToast === 'function') {
+    showToast(`⏳ Procesando ${csvFiles.length} archivo(s) de monitoreo...`);
+  }
+
   let processedCount = 0;
+  const totalFiles = csvFiles.length;
+
+  const checkDone = () => {
+    if (processedCount >= totalFiles) {
+      saveMonitoringToIndexedDB(true);
+      refreshMonitoringAnalysis();
+      if (typeof showToast === 'function') {
+        showToast(`✅ ${totalFiles} archivo(s) procesado(s) y respaldados en la nube exitosamente.`);
+      }
+    }
+  };
+
   csvFiles.forEach(file => {
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -5137,9 +5367,10 @@ function processMonitoringFiles(files) {
           const rows = parseLexmarkFleetCsv(ansiText, file.name);
           if (rows && rows.length > 0) {
             const clientName = detectClientFromCsvRows(rows, file.name);
-            addMonitoringSnapshot(clientName, file.name, rows);
+            addMonitoringSnapshot(clientName, file.name, rows, false);
           }
           processedCount++;
+          checkDone();
         };
         readerAnsi.readAsText(file, 'windows-1252');
         return;
@@ -5147,11 +5378,12 @@ function processMonitoringFiles(files) {
       const rows = parseLexmarkFleetCsv(text, file.name);
       if (rows && rows.length > 0) {
         const clientName = detectClientFromCsvRows(rows, file.name);
-        addMonitoringSnapshot(clientName, file.name, rows);
+        addMonitoringSnapshot(clientName, file.name, rows, false);
       } else {
         console.warn(`El archivo ${file.name} no contiene filas válidas de impresores.`);
       }
       processedCount++;
+      checkDone();
     };
     reader.readAsText(file, 'UTF-8');
   });
@@ -5564,6 +5796,9 @@ if (typeof module !== 'undefined' && module.exports) {
     resetAllMonitoringFilters,
     initFirebaseMonitoringSync,
     syncMonitoringToFirebase,
+    fetchFirebaseMonitoringDirect,
+    updateMonitoringCloudBadge,
+    mergeMonitoringDatasets,
     getMonitoringSelectedTnrLevels: () => monitoringSelectedTnrLevels,
     getMonitoringSelectedUdiLevels: () => monitoringSelectedUdiLevels,
     getMonitoringSelectedKmtLevels: () => monitoringSelectedKmtLevels,
