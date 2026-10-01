@@ -9230,6 +9230,77 @@
     let rdiCurrentPage = 1;
     let rdiPageSize = 50;
 
+    // =========================================================================
+    // PERSISTENCIA DE DECISIONES DE USUARIO Y ANULACIONES DE ESTADO (OVERRIDE)
+    // =========================================================================
+    const IEXCA_FOLIO_OVERRIDES_KEY = 'iexca_folio_user_status_overrides';
+
+    function getStoredFolioStatusOverrides() {
+      try {
+        if (typeof localStorage === 'undefined') return {};
+        const raw = localStorage.getItem(IEXCA_FOLIO_OVERRIDES_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.warn("Error reading folio status overrides from localStorage:", e);
+        return {};
+      }
+    }
+    window.getStoredFolioStatusOverrides = getStoredFolioStatusOverrides;
+
+    function getUserFolioStatusOverride(folioNum) {
+      if (!folioNum && folioNum !== 0) return null;
+      const cleanNum = String(folioNum).replace(/\D/g, '');
+      if (!cleanNum) return null;
+      const overrides = getStoredFolioStatusOverrides();
+      const val = overrides[cleanNum];
+      if (!val) return null;
+      if (typeof val === 'string') return val.trim().toUpperCase();
+      if (typeof val === 'object' && val.status) return String(val.status).trim().toUpperCase();
+      return null;
+    }
+    window.getUserFolioStatusOverride = getUserFolioStatusOverride;
+
+    function saveUserFolioStatusOverride(folioNum, status, serie) {
+      if (!folioNum && folioNum !== 0) return;
+      const cleanNum = String(folioNum).replace(/\D/g, '');
+      if (!cleanNum || !status) return;
+      try {
+        const overrides = getStoredFolioStatusOverrides();
+        overrides[cleanNum] = {
+          status: status.trim().toUpperCase(),
+          serie: serie ? String(serie).trim().toUpperCase() : '',
+          ts: Date.now()
+        };
+        localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
+      } catch (e) {
+        console.warn("Error saving folio status override:", e);
+      }
+    }
+    window.saveUserFolioStatusOverride = saveUserFolioStatusOverride;
+
+    function clearUserFolioStatusOverride(folioNum) {
+      if (!folioNum && folioNum !== 0) return;
+      const cleanNum = String(folioNum).replace(/\D/g, '');
+      if (!cleanNum) return;
+      try {
+        const overrides = getStoredFolioStatusOverrides();
+        if (overrides[cleanNum]) {
+          delete overrides[cleanNum];
+          localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
+        }
+      } catch (e) {}
+    }
+    window.clearUserFolioStatusOverride = clearUserFolioStatusOverride;
+
+    function isSupplyVerifiedInMonitoring(row) {
+      if (!row) return false;
+      if (typeof window !== 'undefined' && typeof window.checkSupplyVerifiedInMonitoring === 'function') {
+        return window.checkSupplyVerifiedInMonitoring(row);
+      }
+      return false;
+    }
+    window.isSupplyVerifiedInMonitoring = isSupplyVerifiedInMonitoring;
+
     // DEDUPLICACIÓN EXACTA Y BLINDADA DE FOLIOS EN MEMORIA
     function deduplicateSalidasFoliosStore() {
       if (!sheetStore || !sheetStore['FOLIOS'] || !Array.isArray(sheetStore['FOLIOS'])) return;
@@ -9278,40 +9349,7 @@
           }
         }
 
-        // Separación limpia de IP y Estado Real
-        // Sincronizar canónicamente ESTADO SUM, STATUS BACKUP e IP desde los orígenes
-        const rawEstSum = (r['ESTADO SUM'] || r['ESTADO_SUM'] || '').toString().trim();
-        const rawBak = (r['STATUS BACKUP'] || r['STATUS_BACKUP'] || '').toString().trim();
-        const rawEst = (r['ESTADO'] || '').toString().trim();
-
-        // Extraer IP si viene alojada en ESTADO SUM, STATUS BACKUP o IP
-        const isIp = (v) => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) && v !== '0.0.0.0';
-        if (isIp(rawEstSum) && (!r['IP'] || r['IP'] === '0.0.0.0' || !isIp(r['IP']))) {
-          r['IP'] = rawEstSum;
-        }
-        if (isIp(rawBak) && (!r['IP'] || r['IP'] === '0.0.0.0' || !isIp(r['IP']))) {
-          r['IP'] = rawBak;
-        }
-
-        // Determinar estado real limpio que no sea IP, ni '-' ni vacío
-        const isValidStatus = (v) => v && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) && v !== '-' && v !== '0.0.0.0';
-        let resolvedStatus = 'ENTREGADO';
-        if (isValidStatus(rawEstSum)) {
-          resolvedStatus = rawEstSum;
-        } else if (isValidStatus(rawBak)) {
-          resolvedStatus = rawBak;
-        } else if (isValidStatus(rawEst)) {
-          resolvedStatus = rawEst;
-        }
-
-        // Asignar en todas las propiedades para coherencia total en Folios y Monitoreo
-        r['ESTADO SUM'] = resolvedStatus;
-        r['STATUS BACKUP'] = resolvedStatus;
-        r['ESTADO'] = resolvedStatus;
-        r._realStatus = resolvedStatus;
-        if (typeof getRowRealStatus === 'function') {
-          r._realStatus = getRowRealStatus(r);
-        }
+        // 1. Extraer folio numérico para consultas rápidas y anulación de usuario
         if (r._folioNum === undefined) {
           const val = r['FOLIO'] ?? r['FOLIO '] ?? r['Folio'] ?? r['No. Folio'] ?? r['NO FOLIO'] ?? r['ID FOLIO'] ?? r['No FOLIO'];
           if (val !== undefined && val !== null && String(val).trim() !== '') {
@@ -9322,6 +9360,60 @@
             r._folioNum = 0;
             r._folioStr = '-';
           }
+        }
+
+        // Separación limpia de IP y Estado Real
+        // Sincronizar canónicamente ESTADO SUM, STATUS BACKUP e IP desde los orígenes
+        const rawEstSum = (r['ESTADO SUM'] || r['ESTADO_SUM'] || '').toString().trim();
+        const rawBak = (r['STATUS BACKUP'] || r['STATUS_BACKUP'] || '').toString().trim();
+        const rawEst = (r['ESTADO'] || '').toString().trim();
+        const rawAlt = (r['STATUS'] || r['ESTATUS'] || r['ESTADO SUMINISTRO'] || r['ESTADO_SUMINISTRO'] || r['ESTADO DEL SUMINISTRO'] || '').toString().trim();
+
+        // Extraer IP si viene alojada en ESTADO SUM, STATUS BACKUP o IP
+        const isIp = (v) => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) && v !== '0.0.0.0';
+        if (isIp(rawEstSum) && (!r['IP'] || r['IP'] === '0.0.0.0' || !isIp(r['IP']))) {
+          r['IP'] = rawEstSum;
+        }
+        if (isIp(rawBak) && (!r['IP'] || r['IP'] === '0.0.0.0' || !isIp(r['IP']))) {
+          r['IP'] = rawBak;
+        }
+
+        // Determinar estado real limpio considerando:
+        // a) Anulación explícita de usuario en localStorage
+        // b) Columnas del registro (ESTADO SUM, STATUS BACKUP, ESTADO, STATUS, ESTATUS)
+        // c) Verificación en monitoreo físico (si la serie está colocada operando en el impresor => EN USO)
+        const isValidStatus = (v) => v && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) && v !== '-' && v !== '0.0.0.0';
+        let resolvedStatus = 'ENTREGADO';
+
+        const userOvr = getUserFolioStatusOverride(r._folioNum);
+        if (userOvr) {
+          resolvedStatus = userOvr;
+        } else if (isValidStatus(rawEstSum)) {
+          resolvedStatus = rawEstSum;
+        } else if (isValidStatus(rawBak)) {
+          resolvedStatus = rawBak;
+        } else if (isValidStatus(rawEst)) {
+          resolvedStatus = rawEst;
+        } else if (isValidStatus(rawAlt)) {
+          resolvedStatus = rawAlt;
+        }
+
+        // Si el estado es genérico (EN STOCK o ENTREGADO) pero el suministro está confirmado físicamente en monitoreo:
+        if (!userOvr && (resolvedStatus.toUpperCase().includes('STOCK') || resolvedStatus.toUpperCase() === 'ENTREGADO')) {
+          if (typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(r)) {
+            resolvedStatus = 'EN USO';
+          }
+        }
+
+        // Asignar en todas las propiedades para coherencia total en Folios y Monitoreo
+        r['ESTADO SUM'] = resolvedStatus;
+        r['STATUS BACKUP'] = resolvedStatus;
+        r['ESTADO'] = resolvedStatus;
+        r['STATUS'] = resolvedStatus;
+        r['ESTATUS'] = resolvedStatus;
+        r._realStatus = resolvedStatus;
+        if (typeof getRowRealStatus === 'function') {
+          r._realStatus = getRowRealStatus(r);
         }
 
         // Corrección de fechas y meses para Folios 7425 y 7253 (Evita ambigüedad con formato inglés)
@@ -9382,6 +9474,21 @@
                 }
                 if (modeloVal !== undefined && cleanRow['MOD'] === undefined) {
                   cleanRow['MOD'] = modeloVal;
+                }
+                // Si es la hoja de FOLIOS/SALIDAS, normalizar alias de estado y proteger estados de Excel
+                if (sheetName.toUpperCase().includes('FOLIO')) {
+                  const stVal = (cleanRow['STATUS BACKUP'] || cleanRow['STATUS_BACKUP'] || cleanRow['ESTADO SUM'] || cleanRow['ESTADO_SUM'] || cleanRow['STATUS'] || cleanRow['ESTATUS'] || cleanRow['ESTADO'] || cleanRow['ESTADO SUMINISTRO'] || cleanRow['ESTADO_SUMINISTRO'] || '').toString().trim();
+                  if (stVal && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(stVal) && stVal !== '-' && stVal !== '0.0.0.0') {
+                    cleanRow['STATUS BACKUP'] = stVal;
+                    cleanRow['ESTADO SUM'] = stVal;
+                    cleanRow['ESTADO'] = stVal;
+                    cleanRow['STATUS'] = stVal;
+                    cleanRow['ESTATUS'] = stVal;
+                    cleanRow._realStatus = stVal;
+                    if (stVal.toUpperCase().includes('USO') || stVal.toUpperCase().includes('DESECH')) {
+                      cleanRow._userModified = true;
+                    }
+                  }
                 }
                 cleanRow._origIdx = idx;
                 return cleanRow;
@@ -10910,13 +11017,49 @@
               const existIdx = existingMap.get(key);
               const existRow = currentFolios[existIdx];
               let changed = false;
-              if (incRow['STATUS BACKUP'] && incRow['STATUS BACKUP'] !== existRow['STATUS BACKUP']) {
-                existRow['STATUS BACKUP'] = incRow['STATUS BACKUP'];
-                existRow['ESTADO SUM'] = incRow['STATUS BACKUP'];
-                existRow['ESTADO'] = incRow['STATUS BACKUP'];
-                existRow._realStatus = incRow['STATUS BACKUP'];
+
+              // REGLAS DE PROTECCIÓN DE ESTADO FRENTE A GOOGLE SHEETS
+              const userOvr = getUserFolioStatusOverride(fNum);
+              const existSt = String(existRow['STATUS BACKUP'] || existRow['ESTADO SUM'] || existRow._realStatus || '').toUpperCase();
+              const incSt = String(incRow['STATUS BACKUP'] || '').toUpperCase();
+              const isMonVerified = (typeof isSupplyVerifiedInMonitoring === 'function') && isSupplyVerifiedInMonitoring(existRow);
+
+              const isProtectedLocally = Boolean(userOvr) ||
+                Boolean(existRow._userModified) ||
+                (isMonVerified && (existSt.includes('USO') || incSt.includes('STOCK'))) ||
+                (existSt.includes('USO') && incSt.includes('STOCK')) ||
+                (existSt.includes('DESECH') && incSt.includes('STOCK')) ||
+                (existSt.includes('CONSUM') && incSt.includes('STOCK')) ||
+                (existSt.includes('VENDID') && incSt.includes('STOCK'));
+
+              if (!isProtectedLocally) {
+                if (incRow['STATUS BACKUP'] && incRow['STATUS BACKUP'] !== existRow['STATUS BACKUP']) {
+                  existRow['STATUS BACKUP'] = incRow['STATUS BACKUP'];
+                  existRow['ESTADO SUM'] = incRow['STATUS BACKUP'];
+                  existRow['ESTADO'] = incRow['STATUS BACKUP'];
+                  existRow['STATUS'] = incRow['STATUS BACKUP'];
+                  existRow['ESTATUS'] = incRow['STATUS BACKUP'];
+                  existRow._realStatus = incRow['STATUS BACKUP'];
+                  changed = true;
+                }
+              } else if (userOvr && existRow['STATUS BACKUP'] !== userOvr) {
+                existRow['STATUS BACKUP'] = userOvr;
+                existRow['ESTADO SUM'] = userOvr;
+                existRow['ESTADO'] = userOvr;
+                existRow['STATUS'] = userOvr;
+                existRow['ESTATUS'] = userOvr;
+                existRow._realStatus = userOvr;
+                changed = true;
+              } else if (isMonVerified && !userOvr && !existSt.includes('USO') && !existSt.includes('DESECH')) {
+                existRow['STATUS BACKUP'] = 'EN USO';
+                existRow['ESTADO SUM'] = 'EN USO';
+                existRow['ESTADO'] = 'EN USO';
+                existRow['STATUS'] = 'EN USO';
+                existRow['ESTATUS'] = 'EN USO';
+                existRow._realStatus = 'EN USO';
                 changed = true;
               }
+
               if (incRow['ID_TICKET'] && incRow['ID_TICKET'] !== existRow['ID_TICKET']) {
                 existRow['ID_TICKET'] = incRow['ID_TICKET'];
                 existRow['SOLICITUD APPSHEET'] = incRow['SOLICITUD APPSHEET'];
@@ -10945,6 +11088,22 @@
               if (changed) updatedCount++;
             } else {
               // Registro totalmente nuevo (ej. 7938 a 7943)
+              const userOvrNew = getUserFolioStatusOverride(fNum);
+              if (userOvrNew) {
+                incRow['STATUS BACKUP'] = userOvrNew;
+                incRow['ESTADO SUM'] = userOvrNew;
+                incRow['ESTADO'] = userOvrNew;
+                incRow['STATUS'] = userOvrNew;
+                incRow['ESTATUS'] = userOvrNew;
+                incRow._realStatus = userOvrNew;
+              } else if (typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(incRow)) {
+                incRow['STATUS BACKUP'] = 'EN USO';
+                incRow['ESTADO SUM'] = 'EN USO';
+                incRow['ESTADO'] = 'EN USO';
+                incRow['STATUS'] = 'EN USO';
+                incRow['ESTATUS'] = 'EN USO';
+                incRow._realStatus = 'EN USO';
+              }
               newItemsToPrepend.push(incRow);
               // Registrar en el mapa para no agregarlo repetido si viniera duplicado en la misma hoja
               existingMap.set(key, currentFolios.length + newItemsToPrepend.length);
@@ -11634,22 +11793,43 @@
       if (!row) return 'ENTREGADO';
       const isIp = (v) => /^(?:\d{1,3}\.){3}\d{1,3}$/.test(v) || v === '0.0.0.0' || v === '-';
       
+      // 0. Revisar si hay un override persistente de usuario en localStorage
+      const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
+      if (fNum && typeof getUserFolioStatusOverride === 'function') {
+        const ovr = getUserFolioStatusOverride(fNum);
+        if (ovr) return ovr;
+      }
+
       // 1. Revisar ESTADO SUM (siempre que no contenga una IP)
       const estSum = String(row['ESTADO SUM'] || row['ESTADO_SUM'] || '').trim();
       if (estSum && !isIp(estSum)) {
+        if ((estSum.toUpperCase().includes('STOCK') || estSum.toUpperCase() === 'ENTREGADO') && typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(row)) {
+          return 'EN USO';
+        }
         return estSum;
       }
 
       // 2. Revisar STATUS BACKUP
       const bak = String(row['STATUS BACKUP'] || row['STATUS_BACKUP'] || '').trim();
       if (bak && !isIp(bak)) {
+        if ((bak.toUpperCase().includes('STOCK') || bak.toUpperCase() === 'ENTREGADO') && typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(row)) {
+          return 'EN USO';
+        }
         return bak;
       }
 
-      // 3. Revisar ESTADO general
-      const est = String(row['ESTADO'] || '').trim();
+      // 3. Revisar ESTADO general y nombres alternos
+      const est = String(row['ESTADO'] || row['STATUS'] || row['ESTATUS'] || row['ESTADO SUMINISTRO'] || '').trim();
       if (est && !isIp(est)) {
+        if ((est.toUpperCase().includes('STOCK') || est.toUpperCase() === 'ENTREGADO') && typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(row)) {
+          return 'EN USO';
+        }
         return est;
+      }
+
+      // 4. Si monitoreo en vivo detecta que la serie está físicamente operando en el equipo
+      if (typeof isSupplyVerifiedInMonitoring === 'function' && isSupplyVerifiedInMonitoring(row)) {
+        return 'EN USO';
       }
 
       return 'ENTREGADO';
@@ -11824,29 +12004,52 @@
     }
     window.setQuickSalidasMonFilter = setQuickSalidasMonFilter;
 
-    function quickUpdateFolioSupplyStatus(index, newStatus) {
+    function quickUpdateFolioSupplyStatus(idOrIdx, newStatus) {
       const folios = sheetStore['FOLIOS'] || [];
-      const row = folios[index];
+      let row = null;
+      if (typeof idOrIdx === 'number' && idOrIdx >= 0 && idOrIdx < folios.length) {
+        row = folios[idOrIdx];
+      }
+      if (!row) {
+        const fClean = String(idOrIdx || '').replace(/\D/g, '');
+        if (fClean) {
+          row = folios.find(r => {
+            const num = String((typeof getRowFolio === 'function' ? getRowFolio(r) : (r['FOLIO'] || r['FOLIO '])) || '').replace(/\D/g, '');
+            return num && num === fClean;
+          });
+        }
+      }
       if (!row) {
         showToast("⚠️ No se encontró el registro de folio especificado.");
         return;
       }
-      const folioVal = getRowFolio(row);
+      const folioVal = (typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '-';
+      const cleanFolio = String(folioVal).replace(/\D/g, '');
       const serieVal = getRowSupplySerial(row) || row['SERIE'] || '';
 
-      // Actualizar de forma sincronizada y canónica todas las columnas de estado
+      // 1. Guardar permanentemente la anulación del usuario en localStorage
+      if (typeof saveUserFolioStatusOverride === 'function') {
+        saveUserFolioStatusOverride(cleanFolio, newStatus, serieVal);
+      }
+
+      // 2. Actualizar de forma sincronizada y canónica todas las columnas de estado
       row['ESTADO SUM'] = newStatus;
       row['STATUS BACKUP'] = newStatus;
       row['ESTADO'] = newStatus;
+      row['STATUS'] = newStatus;
+      row['ESTATUS'] = newStatus;
+      row['ESTADO SUMINISTRO'] = newStatus;
       row._realStatus = newStatus;
+      row._userModified = true;
+      row._lastModifiedTs = Date.now();
 
-      // Guardar persistentemente en IndexedDB
+      // 3. Guardar persistentemente en IndexedDB
       saveToIndexedDB();
       indexFoliosMetadata([row]);
       updateSalidasKPIs();
       filterSalidasTable();
 
-      // Recalcular análisis inteligente de monitoreo en tiempo real
+      // 4. Recalcular análisis inteligente de monitoreo en tiempo real
       if (typeof refreshMonitoringAnalysis === 'function') {
         try {
           refreshMonitoringAnalysis();
@@ -11857,7 +12060,7 @@
       }
 
       const icon = newStatus.includes('USO') ? '⚡' : (newStatus.includes('DESECH') ? '🗑️' : (newStatus.includes('STOCK') ? '📦' : '✅'));
-      showToast(`${icon} Folio #${folioVal} (${serieVal}): Estado actualizado a "${newStatus}".`);
+      showToast(`${icon} Folio #${folioVal} (${serieVal}): Estado guardado permanentemente como "${newStatus}".`);
     }
     window.quickUpdateFolioSupplyStatus = quickUpdateFolioSupplyStatus;
 
@@ -11866,16 +12069,18 @@
       const folios = sheetStore['FOLIOS'] || [];
       const fNumClean = String(folioNumber).replace(/\D/g, '');
       const idx = folios.findIndex(f => {
-        const num = String(getRowFolio(f) || '').replace(/\D/g, '');
+        const num = String((typeof getRowFolio === 'function' ? getRowFolio(f) : (f['FOLIO'] || f['FOLIO '])) || '').replace(/\D/g, '');
         return num && num === fNumClean;
       });
 
       if (idx < 0) {
-        showToast(`⚠️ No se encontró el folio #${folioNumber} en la base de datos.`);
-        return;
+        if (typeof saveUserFolioStatusOverride === 'function') {
+          saveUserFolioStatusOverride(fNumClean, newStatus);
+        }
+        showToast(`⚡ Estado "${newStatus}" guardado para Folio #${folioNumber}.`);
+      } else {
+        quickUpdateFolioSupplyStatus(idx, newStatus);
       }
-
-      quickUpdateFolioSupplyStatus(idx, newStatus);
 
       // Si el modal de historial de equipo está abierto, refrescarlo
       if (printerSerie && typeof openEquipmentHistoryModal === 'function') {
@@ -12876,6 +13081,18 @@
         sheetStore['FOLIOS'].unshift(...newRows);
         showToast(`🎉 Folio #${folioVal} registrado con éxito (${newRows.length} suministros).`);
       }
+
+      // Blindar nuevas filas y persistir anulación de estado del usuario
+      newRows.forEach(r => {
+        r._userModified = true;
+        r._lastModifiedTs = Date.now();
+        const fNumClean = String(r['FOLIO'] || '').replace(/\D/g, '');
+        if (fNumClean && r['STATUS BACKUP']) {
+          if (typeof saveUserFolioStatusOverride === 'function') {
+            saveUserFolioStatusOverride(fNumClean, r['STATUS BACKUP'], r['SERIE SUM']);
+          }
+        }
+      });
 
       indexFoliosMetadata(sheetStore['FOLIOS']);
       buildSalidasActualizadasCatalog(true);

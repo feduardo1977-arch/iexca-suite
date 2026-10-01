@@ -185,23 +185,46 @@ function isIpAddress(str) {
 // OBTENER ESTADO REAL DEL SUMINISTRO (ESTADO SUM / STATUS BACKUP sin IPs)
 function getRowRealStatus(row) {
   if (!row) return 'ENTREGADO';
+
+  // 0. Revisar si hay un override persistente de usuario en localStorage
+  if (typeof window !== 'undefined' && typeof window.getUserFolioStatusOverride === 'function') {
+    const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
+    if (fNum) {
+      const ovr = window.getUserFolioStatusOverride(fNum);
+      if (ovr) return ovr;
+    }
+  }
   
   // 1. Revisar ESTADO SUM (siempre que no contenga una dirección IP)
   const est = String(row['ESTADO SUM'] || row['ESTADO_SUM'] || '').trim();
   if (est && !isIpAddress(est) && est !== '-' && est !== '0.0.0.0') {
+    if ((est.toUpperCase().includes('STOCK') || est.toUpperCase() === 'ENTREGADO') && typeof checkSupplyVerifiedInMonitoring === 'function' && checkSupplyVerifiedInMonitoring(row)) {
+      return 'EN USO';
+    }
     return est;
   }
   
   // 2. Revisar STATUS BACKUP (estados originales recuperados: EN USO, DESECHADO, EN STOCK, etc.)
   const bak = String(row['STATUS BACKUP'] || row['STATUS_BACKUP'] || '').trim();
   if (bak && !isIpAddress(bak) && bak !== '-' && bak !== '0.0.0.0') {
+    if ((bak.toUpperCase().includes('STOCK') || bak.toUpperCase() === 'ENTREGADO') && typeof checkSupplyVerifiedInMonitoring === 'function' && checkSupplyVerifiedInMonitoring(row)) {
+      return 'EN USO';
+    }
     return bak;
   }
   
-  // 3. Revisar ESTADO general
-  const genEst = String(row['ESTADO'] || '').trim();
+  // 3. Revisar ESTADO general y sinónimos
+  const genEst = String(row['ESTADO'] || row['STATUS'] || row['ESTATUS'] || row['ESTADO SUMINISTRO'] || '').trim();
   if (genEst && !isIpAddress(genEst) && genEst !== '-' && genEst !== '0.0.0.0') {
+    if ((genEst.toUpperCase().includes('STOCK') || genEst.toUpperCase() === 'ENTREGADO') && typeof checkSupplyVerifiedInMonitoring === 'function' && checkSupplyVerifiedInMonitoring(row)) {
+      return 'EN USO';
+    }
     return genEst;
+  }
+
+  // 4. Verificación física con telemetría en vivo
+  if (typeof checkSupplyVerifiedInMonitoring === 'function' && checkSupplyVerifiedInMonitoring(row)) {
+    return 'EN USO';
   }
   
   return 'ENTREGADO';
@@ -282,6 +305,44 @@ function buildMonitoringQuickMap() {
   monitoringSupplyQuickMap = supplyMap;
   monitoringPrinterQuickMap = printerMap;
   return { supplyMap, printerMap };
+}
+
+// VERIFICAR SI UN SUMINISTRO ESTÁ CONFIRMADO FÍSICAMENTE EN MONITOREO
+function checkSupplyVerifiedInMonitoring(row) {
+  if (!row) return false;
+  if (!monitoringSupplyQuickMap || !monitoringPrinterQuickMap) {
+    buildMonitoringQuickMap();
+  }
+  const rawSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['SERIE2'] ? row['SERIE'] : '') || (row['IMPRESOR'] && row['IMPRESOR'] !== row['SERIE'] ? row['SERIE'] : '') || '').trim().toUpperCase();
+  if (!rawSum || rawSum === '-' || rawSum === 'SIN DATO' || rawSum === 'N/A' || rawSum === 'SD' || rawSum === 'N/D') {
+    return false;
+  }
+  const fmtSum = (typeof formatSupplySerie === 'function') ? formatSupplySerie(rawSum) : (rawSum.startsWith('S') ? rawSum : 'S' + rawSum);
+  const noPrefixSum = rawSum.replace(/^S/i, '');
+
+  if (monitoringSupplyQuickMap.has(rawSum) || (fmtSum && monitoringSupplyQuickMap.has(fmtSum)) || (noPrefixSum && monitoringSupplyQuickMap.has(noPrefixSum))) {
+    return true;
+  }
+
+  // Comprobar también directamente si el impresor asociado tiene esta serie en sus consumibles activos
+  const imp = String(row['SERIE2'] || row['IMPRESOR'] || (row['SERIE SUM'] ? row['SERIE'] : '') || '').trim().toUpperCase();
+  if (imp && monitoringPrinterQuickMap.has(imp)) {
+    const pData = monitoringPrinterQuickMap.get(imp);
+    if (pData) {
+      const seriesActivas = [pData.tnrSerie, pData.tnrKSerie, pData.tnrYSerie, pData.tnrCSerie, pData.tnrMSerie, pData.udiSerie, pData.desechoSerie].filter(Boolean).map(s => String(s).trim().toUpperCase());
+      for (const sAct of seriesActivas) {
+        if (sAct === rawSum || sAct === fmtSum || sAct.replace(/^S/i, '') === noPrefixSum) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+if (typeof window !== 'undefined') {
+  window.checkSupplyVerifiedInMonitoring = checkSupplyVerifiedInMonitoring;
+  window.isSupplyVerifiedInMonitoring = checkSupplyVerifiedInMonitoring;
 }
 
 // BANDERA O FLAG DE VERIFICACIÓN EN VIVO CON MONITOREO
@@ -378,7 +439,28 @@ function getMonitoringSupplyStatusFlag(row) {
     };
   }
 
-  // 3. No monitoreado
+  // 3. No monitoreado o sin agente en red
+  if (rowEst.includes('EN USO') || rowEst === 'USO' || rowEst.includes('INSTALAD')) {
+    return {
+      flag: 'EN_USO_LOCAL',
+      statusText: '⚡ En Uso en Equipo (Sin telemetría en vivo)',
+      isVerified: false,
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-700 shadow-2xs" title="Suministro registrado en uso. La impresora no reporta actualmente en red.">
+        <span>⚡ EN USO</span>
+      </span>`
+    };
+  }
+
+  if (rowEst.includes('DESECH') || rowEst.includes('BAJA') || rowEst.includes('SCRAP')) {
+    return {
+      flag: 'DESECHADO',
+      statusText: 'Desechado / Retirado',
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-700 shadow-2xs" title="Suministro descartado / en desecho.">
+        <span>🗑️ DESECHADO</span>
+      </span>`
+    };
+  }
+
   return {
     flag: 'NO_MONITOREADO',
     statusText: 'No Monitoreado',
@@ -5888,12 +5970,19 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 }
 
-// Inicialización automática de Firebase Sync si está en navegador
+// Inicialización automática de Firebase Sync y buildMonitoringQuickMap si está en navegador
 if (typeof window !== 'undefined') {
+  try { buildMonitoringQuickMap(); } catch(e){}
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => initFirebaseMonitoringSync());
+    document.addEventListener('DOMContentLoaded', () => {
+      buildMonitoringQuickMap();
+      initFirebaseMonitoringSync();
+    });
   } else {
-    setTimeout(initFirebaseMonitoringSync, 150);
+    setTimeout(() => {
+      buildMonitoringQuickMap();
+      initFirebaseMonitoringSync();
+    }, 150);
   }
 }
 
