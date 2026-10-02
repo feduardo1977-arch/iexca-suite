@@ -5255,6 +5255,7 @@
       const yyyy = d.getFullYear();
       return `${dd}/${mm}/${yyyy}`;
     }
+    window.formatDateShort = formatDateShort;
 
     // LIMPIEZA ESTRICTA DE DIRECCIONES IP (Aísla únicamente formato IPv4 estándar)
     function cleanIpAddress(rawIp) {
@@ -9563,41 +9564,76 @@
     }
     window.getStoredFolioStatusOverrides = getStoredFolioStatusOverrides;
 
-    function getUserFolioStatusOverride(folioNum, serie) {
-      if (!folioNum && folioNum !== 0) return null;
-      const cleanNum = String(folioNum).replace(/\D/g, '');
-      if (!cleanNum) return null;
+    function getUserFolioStatusOverride(folioNum, serie, rowIdx) {
+      if (!folioNum && folioNum !== 0 && (rowIdx === undefined || rowIdx === null || rowIdx < 0)) return null;
+      const cleanNum = folioNum ? String(folioNum).replace(/\D/g, '') : '';
       const overrides = getStoredFolioStatusOverrides();
+
+      // 0. Prioridad Máxima: anulación por índice de fila exacto
+      if (rowIdx !== undefined && rowIdx !== null && rowIdx >= 0 && overrides[`row_${rowIdx}`]) {
+        const item = overrides[`row_${rowIdx}`];
+        if (typeof item === 'string') return item.trim().toUpperCase();
+        if (typeof item === 'object' && item.status) return String(item.status).trim().toUpperCase();
+      }
+
+      // 1. Prioridad Alta: anulación por combinación exacta de Folio + Serie de Suministro
       const normSer = serie ? formatSupplySerie(serie).toUpperCase() : '';
-      if (normSer && overrides[`${cleanNum}|${normSer}`]) {
+      if (cleanNum && normSer && overrides[`${cleanNum}|${normSer}`]) {
         const item = overrides[`${cleanNum}|${normSer}`];
         if (typeof item === 'string') return item.trim().toUpperCase();
         if (typeof item === 'object' && item.status) return String(item.status).trim().toUpperCase();
       }
-      const val = overrides[cleanNum];
-      if (!val) return null;
-      if (typeof val === 'string') return val.trim().toUpperCase();
-      if (typeof val === 'object' && val.status) return String(val.status).trim().toUpperCase();
+
+      // 2. Anulación global de Folio: SOLO aplica si no hay serie de suministro en la fila
+      // o si la serie registrada en el override coincide con la de la fila solicitada.
+      if (cleanNum && overrides[cleanNum]) {
+        const val = overrides[cleanNum];
+        // Si el override global fue grabado con una serie específica y difiere de la actual, IGNORAR para evitar contaminación
+        if (typeof val === 'object' && val.serie && normSer && val.serie !== normSer) {
+          return null;
+        }
+        if (normSer && typeof val === 'object' && val.serie && val.serie !== normSer) {
+          return null;
+        }
+        if (typeof val === 'string') return val.trim().toUpperCase();
+        if (typeof val === 'object' && val.status) return String(val.status).trim().toUpperCase();
+      }
       return null;
     }
     window.getUserFolioStatusOverride = getUserFolioStatusOverride;
 
-    function saveUserFolioStatusOverride(folioNum, status, serie) {
-      if (!folioNum && folioNum !== 0) return;
-      const cleanNum = String(folioNum).replace(/\D/g, '');
-      if (!cleanNum || !status) return;
+    function saveUserFolioStatusOverride(folioNum, status, serie, rowIdx) {
+      if (!folioNum && folioNum !== 0 && (rowIdx === undefined || rowIdx === null || rowIdx < 0)) return;
+      const cleanNum = folioNum ? String(folioNum).replace(/\D/g, '') : '';
+      if (!status) return;
       try {
         const overrides = getStoredFolioStatusOverrides();
         const normSer = serie ? formatSupplySerie(serie).toUpperCase() : '';
         const entry = {
           status: status.trim().toUpperCase(),
           serie: normSer || (serie ? String(serie).trim().toUpperCase() : ''),
+          folio: cleanNum,
+          rowIdx: (rowIdx !== undefined && rowIdx !== null && rowIdx >= 0) ? rowIdx : null,
           ts: Date.now()
         };
-        overrides[cleanNum] = entry;
-        if (normSer) {
-          overrides[`${cleanNum}|${normSer}`] = entry;
+
+        // 1. Guardar a nivel de fila específica si se conoce el índice
+        if (rowIdx !== undefined && rowIdx !== null && rowIdx >= 0) {
+          overrides[`row_${rowIdx}`] = entry;
         }
+
+        // 2. Si hay serie de suministro específica, aislarlo estrictamente por serie
+        if (cleanNum && normSer) {
+          overrides[`${cleanNum}|${normSer}`] = entry;
+          // Eliminar clave genérica si antes guardó una serie diferente para sanear contaminación previa
+          if (overrides[cleanNum] && overrides[cleanNum].serie && overrides[cleanNum].serie !== normSer) {
+            delete overrides[cleanNum];
+          }
+        } else if (cleanNum && !normSer && (rowIdx === undefined || rowIdx < 0)) {
+          // Solo si NO hay serie específica ni índice de fila, se guarda a nivel de folio completo
+          overrides[cleanNum] = entry;
+        }
+
         window._lastFoliosLocalSaveTs = Date.now();
         localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
 
@@ -9614,26 +9650,28 @@
     }
     window.saveUserFolioStatusOverride = saveUserFolioStatusOverride;
 
-    function clearUserFolioStatusOverride(folioNum, serie) {
-      if (!folioNum && folioNum !== 0) return;
-      const cleanNum = String(folioNum).replace(/\D/g, '');
-      if (!cleanNum) return;
+    function clearUserFolioStatusOverride(folioNum, serie, rowIdx) {
+      if (!folioNum && folioNum !== 0 && (rowIdx === undefined || rowIdx === null || rowIdx < 0)) return;
+      const cleanNum = folioNum ? String(folioNum).replace(/\D/g, '') : '';
       try {
         const overrides = getStoredFolioStatusOverrides();
         let changed = false;
-        if (overrides[cleanNum]) {
-          delete overrides[cleanNum];
+        if (rowIdx !== undefined && rowIdx !== null && rowIdx >= 0 && overrides[`row_${rowIdx}`]) {
+          delete overrides[`row_${rowIdx}`];
           changed = true;
         }
         const normSer = serie ? formatSupplySerie(serie).toUpperCase() : '';
-        if (normSer && overrides[`${cleanNum}|${normSer}`]) {
+        if (cleanNum && normSer && overrides[`${cleanNum}|${normSer}`]) {
           delete overrides[`${cleanNum}|${normSer}`];
+          changed = true;
+        }
+        if (cleanNum && overrides[cleanNum]) {
+          delete overrides[cleanNum];
           changed = true;
         }
         if (changed) {
           window._lastFoliosLocalSaveTs = Date.now();
           localStorage.setItem(IEXCA_FOLIO_OVERRIDES_KEY, JSON.stringify(overrides));
-          // Eliminar también en Firebase
           if (typeof removeFolioOverrideFromFirebase === 'function') {
             removeFolioOverrideFromFirebase(cleanNum, normSer);
           }
@@ -12338,7 +12376,7 @@
       const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
       const sSum = (row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || '').toString().trim();
       if (fNum && typeof getUserFolioStatusOverride === 'function') {
-        const ovr = getUserFolioStatusOverride(fNum, sSum);
+        const ovr = getUserFolioStatusOverride(fNum, sSum, row._origIdx);
         if (ovr) return ovr;
       }
 
@@ -12552,19 +12590,29 @@
     }
     window.setQuickSalidasMonFilter = setQuickSalidasMonFilter;
 
-    function quickUpdateFolioSupplyStatus(idOrIdx, newStatus) {
+    function quickUpdateFolioSupplyStatus(idOrIdx, newStatus, supplySerie) {
       const folios = sheetStore['FOLIOS'] || [];
       let row = null;
+      let targetIdx = -1;
       if (typeof idOrIdx === 'number' && idOrIdx >= 0 && idOrIdx < folios.length) {
         row = folios[idOrIdx];
+        targetIdx = idOrIdx;
       }
       if (!row) {
         const fClean = String(idOrIdx || '').replace(/\D/g, '');
+        const normSer = supplySerie ? (typeof formatSupplySerie === 'function' ? formatSupplySerie(supplySerie).toUpperCase() : String(supplySerie).trim().toUpperCase()) : '';
         if (fClean) {
-          row = folios.find(r => {
+          targetIdx = folios.findIndex(r => {
             const num = String((typeof getRowFolio === 'function' ? getRowFolio(r) : (r['FOLIO'] || r['FOLIO '])) || '').replace(/\D/g, '');
-            return num && num === fClean;
+            if (num !== fClean) return false;
+            if (normSer) {
+              const rSer = (typeof getRowSupplySerial === 'function' ? getRowSupplySerial(r) : (r['SERIE SUM'] || r['SERIE_SUM'] || (r['SERIE'] !== r['IMPRESOR'] ? r['SERIE'] : '') || ''));
+              const rNorm = rSer ? (typeof formatSupplySerie === 'function' ? formatSupplySerie(rSer).toUpperCase() : String(rSer).trim().toUpperCase()) : '';
+              return rNorm === normSer;
+            }
+            return true;
           });
+          if (targetIdx >= 0) row = folios[targetIdx];
         }
       }
       if (!row) {
@@ -12574,14 +12622,15 @@
       const folioVal = (typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '-';
       const cleanFolio = String(folioVal).replace(/\D/g, '');
       const rawSerie = (typeof getRowSupplySerial === 'function' ? getRowSupplySerial(row) : (row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || ''));
-      const serieVal = typeof formatSupplySerie === 'function' ? formatSupplySerie(rawSerie) : rawSerie;
+      const serieVal = supplySerie || (typeof formatSupplySerie === 'function' ? formatSupplySerie(rawSerie) : rawSerie);
+      const rowOriginIdx = targetIdx >= 0 ? targetIdx : (row._origIdx !== undefined ? row._origIdx : -1);
 
       // 1. Guardar permanentemente la anulación del usuario en localStorage
       if (typeof saveUserFolioStatusOverride === 'function') {
-        saveUserFolioStatusOverride(cleanFolio, newStatus, serieVal);
+        saveUserFolioStatusOverride(cleanFolio, newStatus, serieVal, rowOriginIdx);
       }
 
-      // 2. Actualizar de forma sincronizada y canónica todas las columnas de estado
+      // 2. Actualizar de forma sincronizada y canónica todas las columnas de estado de ESTA SOLA FILA
       row['ESTADO SUM'] = newStatus;
       row['STATUS BACKUP'] = newStatus;
       row['ESTADO'] = newStatus;
@@ -12615,22 +12664,39 @@
     }
     window.quickUpdateFolioSupplyStatus = quickUpdateFolioSupplyStatus;
 
-    // Actualización de estado directo desde Monitoreo u otras vistas por número de folio
-    function updateFolioSupplyStatusDirect(folioNumber, newStatus, printerSerie) {
+    // Actualización de estado directo desde Monitoreo u otras vistas por número de folio y serie de suministro
+    function updateFolioSupplyStatusDirect(folioNumber, newStatus, printerSerie, supplySerie, rowIndex) {
       const folios = sheetStore['FOLIOS'] || [];
       const fNumClean = String(folioNumber).replace(/\D/g, '');
-      const idx = folios.findIndex(f => {
-        const num = String((typeof getRowFolio === 'function' ? getRowFolio(f) : (f['FOLIO'] || f['FOLIO '])) || '').replace(/\D/g, '');
-        return num && num === fNumClean;
-      });
+      const normSuppSer = supplySerie ? (typeof formatSupplySerie === 'function' ? formatSupplySerie(supplySerie).toUpperCase() : String(supplySerie).trim().toUpperCase()) : '';
+
+      let idx = -1;
+      if (typeof rowIndex === 'number' && rowIndex >= 0 && rowIndex < folios.length) {
+        idx = rowIndex;
+      } else {
+        idx = folios.findIndex(f => {
+          const num = String((typeof getRowFolio === 'function' ? getRowFolio(f) : (f['FOLIO'] || f['FOLIO '])) || '').replace(/\D/g, '');
+          if (num !== fNumClean) return false;
+          if (normSuppSer) {
+            const fSer = (typeof getRowSupplySerial === 'function' ? getRowSupplySerial(f) : (f['SERIE SUM'] || f['SERIE_SUM'] || (f['SERIE'] !== f['IMPRESOR'] ? f['SERIE'] : '')));
+            const fNorm = fSer ? (typeof formatSupplySerie === 'function' ? formatSupplySerie(fSer).toUpperCase() : String(fSer).trim().toUpperCase()) : '';
+            return fNorm === normSuppSer;
+          }
+          if (printerSerie) {
+            const imp = String(f['IMPRESOR'] || f['SERIE2'] || f['SERIE'] || '').trim().toUpperCase();
+            if (imp === String(printerSerie).trim().toUpperCase()) return true;
+          }
+          return true;
+        });
+      }
 
       if (idx < 0) {
         if (typeof saveUserFolioStatusOverride === 'function') {
-          saveUserFolioStatusOverride(fNumClean, newStatus);
+          saveUserFolioStatusOverride(fNumClean, newStatus, supplySerie, rowIndex);
         }
-        showToast(`⚡ Estado "${newStatus}" guardado para Folio #${folioNumber}.`);
+        showToast(`⚡ Estado "${newStatus}" guardado para Folio #${folioNumber}${supplySerie ? ' (' + supplySerie + ')' : ''}.`);
       } else {
-        quickUpdateFolioSupplyStatus(idx, newStatus);
+        quickUpdateFolioSupplyStatus(idx, newStatus, supplySerie);
       }
 
       // Si el modal de historial de equipo está abierto, refrescarlo
@@ -14426,10 +14492,11 @@
       try {
         const safeNum = String(cleanNum).replace(/[.#$\[\]\/]/g, '_');
         const updates = {};
-        updates[safeNum] = entry;
         if (normSer) {
           const safeCombo = `${safeNum}__${String(normSer).replace(/[.#$\[\]\/]/g, '_')}`;
           updates[safeCombo] = entry;
+        } else {
+          updates[safeNum] = entry;
         }
         window.firebaseDb.ref('folios_overrides').update(updates)
           .then(() => {
@@ -14555,10 +14622,16 @@
               if (v && v.status) {
                 const cleanK = String(k).replace(/__.*$/, '').replace(/\D/g, '');
                 const normS = v.serie ? formatSupplySerie(v.serie).toUpperCase() : '';
-                const localEntry = localOverrides[cleanK] || (normS ? localOverrides[`${cleanK}|${normS}`] : null);
+                const localEntry = (normS ? localOverrides[`${cleanK}|${normS}`] : null) || localOverrides[cleanK];
                 if (!localEntry || (v.ts && (!localEntry.ts || v.ts > localEntry.ts))) {
-                  localOverrides[cleanK] = v;
-                  if (normS) localOverrides[`${cleanK}|${normS}`] = v;
+                  if (normS) {
+                    localOverrides[`${cleanK}|${normS}`] = v;
+                    if (localOverrides[cleanK] && localOverrides[cleanK].serie && localOverrides[cleanK].serie !== normS) {
+                      delete localOverrides[cleanK];
+                    }
+                  } else {
+                    localOverrides[cleanK] = v;
+                  }
                   hasNew = true;
                 }
               }

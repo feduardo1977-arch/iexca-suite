@@ -183,25 +183,30 @@ function isIpAddress(str) {
 }
 
 // FALLBACK PARA LEER ANULACIONES DE USUARIO DE FOLIOS DIRECTAMENTE DE LOCALSTORAGE
-function getEngineUserFolioOverride(fNum, sSer) {
+function getEngineUserFolioOverride(fNum, sSer, rowIdx) {
   if (typeof window !== 'undefined' && typeof window.getUserFolioStatusOverride === 'function') {
-    return window.getUserFolioStatusOverride(fNum, sSer);
+    return window.getUserFolioStatusOverride(fNum, sSer, rowIdx);
   }
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem('iexca_folio_user_status_overrides');
       if (raw) {
         const overrides = JSON.parse(raw);
-        const cleanNum = String(fNum).replace(/\D/g, '');
-        if (sSer) {
-          const normSer = typeof formatSupplySerie === 'function' ? formatSupplySerie(sSer) : String(sSer).trim().toUpperCase();
-          if (normSer && overrides[`${cleanNum}|${normSer}`]) {
-            const v = overrides[`${cleanNum}|${normSer}`];
-            return typeof v === 'object' && v.status ? v.status : String(v);
-          }
+        if (rowIdx !== undefined && rowIdx !== null && rowIdx >= 0 && overrides[`row_${rowIdx}`]) {
+          const v = overrides[`row_${rowIdx}`];
+          return typeof v === 'object' && v.status ? v.status : String(v);
+        }
+        const cleanNum = fNum ? String(fNum).replace(/\D/g, '') : '';
+        const normSer = sSer ? (typeof formatSupplySerie === 'function' ? formatSupplySerie(sSer) : String(sSer).trim().toUpperCase()) : '';
+        if (cleanNum && normSer && overrides[`${cleanNum}|${normSer}`]) {
+          const v = overrides[`${cleanNum}|${normSer}`];
+          return typeof v === 'object' && v.status ? v.status : String(v);
         }
         if (cleanNum && overrides[cleanNum]) {
           const v = overrides[cleanNum];
+          if (typeof v === 'object' && v.serie && normSer && v.serie !== normSer) {
+            return null;
+          }
           return typeof v === 'object' && v.status ? v.status : String(v);
         }
       }
@@ -217,8 +222,8 @@ function getRowRealStatus(row) {
   // 0. Revisar si hay un override persistente de usuario en localStorage
   const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
   const sSer = row['SERIE SUM'] || (row['SERIE'] !== row['IMPRESOR'] ? row['SERIE'] : '') || '';
-  if (fNum) {
-    const ovr = getEngineUserFolioOverride(fNum, sSer);
+  if (fNum || (row._origIdx !== undefined && row._origIdx >= 0)) {
+    const ovr = getEngineUserFolioOverride(fNum, sSer, row._origIdx);
     if (ovr) return ovr;
   }
   
@@ -344,7 +349,8 @@ function checkSupplyVerifiedInMonitoring(row) {
 
   const rawSum = String(row['SERIE SUM'] || row['SERIE_SUM'] || (row['SERIE2'] ? row['SERIE'] : '') || (row['IMPRESOR'] && row['IMPRESOR'] !== row['SERIE'] ? row['SERIE'] : '') || '').trim().toUpperCase();
   const fNum = row._folioNum !== undefined ? row._folioNum : parseInt(String((typeof getRowFolio === 'function' ? getRowFolio(row) : (row['FOLIO'] || row['FOLIO '])) || '').replace(/\D/g, ''), 10);
-  const userOvr = (fNum && typeof getUserFolioStatusOverride === 'function') ? getUserFolioStatusOverride(fNum, rawSum) : (typeof getEngineUserFolioOverride === 'function' ? getEngineUserFolioOverride(fNum, rawSum) : null);
+  const rowIdx = row._origIdx !== undefined ? row._origIdx : null;
+  const userOvr = (typeof getUserFolioStatusOverride === 'function') ? getUserFolioStatusOverride(fNum, rawSum, rowIdx) : (typeof getEngineUserFolioOverride === 'function' ? getEngineUserFolioOverride(fNum, rawSum, rowIdx) : null);
   const rowEst = String(row['STATUS BACKUP'] || row['ESTADO SUM'] || row._realStatus || '').toUpperCase();
   if ((userOvr && userOvr.includes('USO')) || (row._userModified && (rowEst.includes('USO') || rowEst.includes('INSTALAD')))) {
     return true;
@@ -710,13 +716,90 @@ function toggleMonitoringCardDetails(id, btn) {
 }
 window.toggleMonitoringCardDetails = toggleMonitoringCardDetails;
 
-// Formateador seguro de fecha corta
+// Formateador robusto y unificado de fecha corta (DÍA/MES/AÑO: DD/MM/YYYY)
 function formatDateShort(val) {
-  if (!val) return 'N/D';
-  if (val instanceof Date) return val.toLocaleDateString();
-  const d = new Date(val);
-  if (!isNaN(d.getTime())) return d.toLocaleDateString();
+  if (!val && val !== 0) return 'N/D';
+  if (typeof window !== 'undefined' && typeof window.formatDateShort === 'function' && window.formatDateShort !== formatDateShort) {
+    const res = window.formatDateShort(val);
+    if (res && res !== '-') return res;
+  }
+  let d = null;
+  if (typeof parseFlexibleDate === 'function') {
+    d = parseFlexibleDate(val);
+  }
+  if (!d || isNaN(d.getTime())) {
+    if (val instanceof Date) d = val;
+    else if (typeof val === 'number' && val > 20000 && val < 75000) {
+      d = new Date((val - 25569) * 86400 * 1000);
+    } else if (typeof val === 'string' && val.trim()) {
+      const s = val.trim();
+      const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+      if (m) {
+        const day = parseInt(m[1], 10);
+        const mon = parseInt(m[2], 10) - 1;
+        let yr = parseInt(m[3], 10);
+        if (yr < 100) yr += 2000;
+        d = new Date(yr, mon, day, 12, 0, 0);
+      }
+    }
+  }
+  if (d && !isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
   return String(val);
+}
+
+// Extractor y formateador de alta fidelidad para tickets de AppSheet/ODS
+function formatTicketDate(r) {
+  if (!r) return 'N/D';
+  const rawDate = r['FECHA SOLICITUD'] || r['FECHA_SOLICITUD'] || r['FECHA DE SOLICITUD'] ||
+    r['FECHA CREACION'] || r['FECHA DE CREACION'] || r['FECHA_CREACION'] ||
+    r['FECHA CREACIÓN'] || r['FECHA DE CREACIÓN'] || r['FECHA_CREACIÓN'] ||
+    r['FECHA TICKET'] || r['FECHA_HORA'] || r['FECHA'] || r['Fecha'] ||
+    r['TIMESTAMP'] || r['CREATED'] || '';
+
+  let d = null;
+  if (rawDate) {
+    if (typeof window !== 'undefined' && typeof window.parseFlexibleDate === 'function') {
+      d = window.parseFlexibleDate(rawDate);
+    } else if (typeof parseFlexibleDate === 'function') {
+      d = parseFlexibleDate(rawDate);
+    }
+  }
+
+  if ((!d || isNaN(d.getTime())) && r._ts && !isNaN(r._ts) && r._ts > 100000000000) {
+    d = new Date(r._ts);
+  }
+
+  if (!d || isNaN(d.getTime())) {
+    if (rawDate instanceof Date && !isNaN(rawDate.getTime())) {
+      d = rawDate;
+    } else if (typeof rawDate === 'number' && rawDate > 20000 && rawDate < 75000) {
+      d = new Date((rawDate - 25569) * 86400 * 1000);
+    } else if (typeof rawDate === 'string' && rawDate.trim()) {
+      const s = rawDate.trim();
+      const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+      if (m) {
+        const day = parseInt(m[1], 10);
+        const mon = parseInt(m[2], 10) - 1;
+        let yr = parseInt(m[3], 10);
+        if (yr < 100) yr += 2000;
+        d = new Date(yr, mon, day, 12, 0, 0);
+      }
+    }
+  }
+
+  if (d && !isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  return String(rawDate || 'N/D');
 }
 
 // Formateador con día de la semana en español (ej: "Mié 23/09/2026 11:27")
@@ -3671,30 +3754,52 @@ function getPrinterActivePendingRequest(serie) {
   // 2. Verificar en ODS (Incidentes de AppSheet) si hay un ticket no cerrado
   if (typeof sheetStore !== 'undefined' && Array.isArray(sheetStore['ODS'])) {
     const ods = sheetStore['ODS'];
-    for (let i = ods.length - 1; i >= 0; i--) {
+    let latestTicket = null;
+    let latestScore = -1;
+
+    for (let i = 0; i < ods.length; i++) {
       const r = ods[i];
       const rSer = String(r['SERIE'] || r['IMPRESOR'] || '').trim().toUpperCase();
       if (rSer === serieUpper) {
         const rEst = String(r['ESTADO'] || r['STATUS'] || 'ABIERTO').trim().toUpperCase();
         const isClosed = rEst === 'FINALIZADO' || rEst === 'CERRADO' || rEst === 'CANCELADO' || rEst === 'ANULADO';
         if (!isClosed) {
-          const tId = r['ID TICKET'] || r['ID'] || 'Ticket ODS';
-          const prob = String(r['PROBLEMA REPORTADO'] || r['PROBLEMA'] || r['FALLA'] || 'Atención técnica').trim();
-          const fDate = (typeof formatDateShort === 'function') ? formatDateShort(r['FECHA'] || r['Fecha']) : String(r['FECHA'] || '');
-          return {
-            hasActive: true,
-            type: 'ODS_ACTIVE',
-            title: 'Ticket ODS Activo en AppSheet',
-            detail: `${tId}: ${prob}`,
-            dateStr: fDate,
-            status: rEst,
-            badgeText: `🎫 TICKET ${tId}`,
-            badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800',
-            dotClass: 'bg-rose-500',
-            raw: r
-          };
+          const tNum = r._ticketNum || parseInt(String(r['ID TICKET'] || r['ID_TICKET'] || r['ID'] || '').replace(/\D/g, ''), 10) || 0;
+          let tTs = r._ts || 0;
+          if (!tTs) {
+            const rawD = r['FECHA SOLICITUD'] || r['FECHA_SOLICITUD'] || r['FECHA CREACION'] || r['FECHA'] || r['Fecha'];
+            if (typeof parseFlexibleDate === 'function') {
+              const p = parseFlexibleDate(rawD);
+              if (p && !isNaN(p.getTime())) tTs = p.getTime();
+            }
+          }
+          const score = tTs > 0 ? tTs : tNum;
+          if (!latestTicket || score >= latestScore) {
+            latestTicket = r;
+            latestScore = score;
+          }
         }
       }
+    }
+
+    if (latestTicket) {
+      const r = latestTicket;
+      const tId = r['ID TICKET'] || r['ID_TICKET'] || r['ID'] || 'Ticket ODS';
+      const prob = String(r['PROBLEMA REPORTADO'] || r['PROBLEMA'] || r['SOLICITUD'] || r['FALLA'] || 'Atención técnica').trim();
+      const rEst = String(r['ESTADO'] || r['STATUS'] || 'ABIERTO').trim().toUpperCase();
+      const fDate = (typeof formatTicketDate === 'function') ? formatTicketDate(r) : formatDateShort(r['FECHA'] || r['Fecha']);
+      return {
+        hasActive: true,
+        type: 'ODS_ACTIVE',
+        title: 'Ticket ODS Activo en AppSheet',
+        detail: `${tId}: ${prob}`,
+        dateStr: fDate,
+        status: rEst,
+        badgeText: `🎫 TICKET ${tId}`,
+        badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800',
+        dotClass: 'bg-rose-500',
+        raw: r
+      };
     }
   }
 
@@ -4120,7 +4225,7 @@ function renderMonitoringTable() {
           <span class="text-[10px] text-slate-500">(${fFecha})</span>
           <p class="text-[10px] text-slate-600 dark:text-slate-300 font-mono font-medium">${fTipo}: ${fSerieSum || 'Sin serie'}</p>
           <div class="mt-1 flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
-            ${renderFolioStatusSelect(fNum, fEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', this.value, '${r.serie}')`)}
+            ${renderFolioStatusSelect(fNum, fEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${fNum}', this.value, '${r.serie}', '${fSerieSum.replace(/'/g, "\\'")}', ${r.lastFolio._origIdx !== undefined ? r.lastFolio._origIdx : -1})`)}
             <button type="button" onclick="goToFolioDetail('${fNum}', '${r.serie}')" class="text-[9px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
               ✏️ Modificar
             </button>
@@ -4642,7 +4747,7 @@ function renderMonitoringTable() {
                     </div>
                     <p class="text-[10px] text-slate-500 mt-0.5">${cardFecha ? '(' + cardFecha + ') ' : ''}${cardTipo}: <span class="font-mono text-slate-700 dark:text-slate-300">${cardSerieSum || 'Sin serie'}</span></p>
                     <div class="mt-1 flex items-center gap-1.5 flex-wrap" onclick="event.stopPropagation()">
-                      ${renderFolioStatusSelect(cardFolNum, cardEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', this.value, '${r.serie}')`)}
+                      ${renderFolioStatusSelect(cardFolNum, cardEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${cardFolNum}', this.value, '${r.serie}', '${cardSerieSum.replace(/'/g, "\\'")}', ${r.lastFolio._origIdx !== undefined ? r.lastFolio._origIdx : -1})`)}
                       <button type="button" onclick="goToFolioDetail('${cardFolNum}', '${r.serie}')" class="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">✏️ Modificar</button>
                     </div>
                   </div>`;
@@ -5773,8 +5878,11 @@ function openEquipmentHistoryModal(serie) {
         const fFecha = f['FECHA'] ? formatDateShort(f['FECHA']) : 'N/D';
         const fTipo = f['TIPO SUM'] || 'SUM';
         const fDesc = f['DESCRIPCION'] || f['DESCRIPCIÓN'] || '';
-        const fSerie = formatSupplySerie(f['SERIE SUM'] || (f['IMPRESOR'] && f['IMPRESOR'] !== f['SERIE'] ? f['SERIE'] : '')) || 'Sin serie';
+        const rawFSer = (f['SERIE SUM'] || (f['IMPRESOR'] && f['IMPRESOR'] !== f['SERIE'] ? f['SERIE'] : '') || '');
+        const fSerie = formatSupplySerie(rawFSer) || 'Sin serie';
         const fCant = f['CANT'] || 1;
+        const fRowIdx = f._origIdx !== undefined ? f._origIdx : -1;
+        const safeSerieParam = rawFSer.replace(/'/g, "\\'");
         const fEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(f).toUpperCase() : (f['ESTADO SUM'] || f['STATUS BACKUP'] || 'ENTREGADO').toString().trim().toUpperCase();
 
         let badgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
@@ -5820,7 +5928,7 @@ function openEquipmentHistoryModal(serie) {
           <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-100">${fSerie}</td>
           <td class="py-2 px-3 text-center font-bold text-slate-800 dark:text-slate-200">${fCant}</td>
           <td class="py-2 px-3 whitespace-nowrap text-center" onclick="event.stopPropagation()">
-            ${renderFolioStatusSelect(folNum, fEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', this.value, '${serieUpper}')`)}
+            ${renderFolioStatusSelect(folNum, fEst, `if(typeof updateFolioSupplyStatusDirect==='function') updateFolioSupplyStatusDirect('${folNum}', this.value, '${serieUpper}', '${safeSerieParam}', ${fRowIdx})`)}
           </td>
           <td class="py-2 px-3 text-center">
             <div class="inline-flex items-center gap-1">
