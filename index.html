@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
+  <!-- Conexiones tempranas a los dominios externos (ahorra 100-300 ms cada una) -->
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://iexca-suite-default-rtdb.firebaseio.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <title>Dashboard Inteligente de Excel - Comparativa y Filtros Pro</title>
   
   <!-- Tailwind CSS CDN -->
@@ -35,21 +40,14 @@
   </script>
 
   <!-- SheetJS para lectura universal (.xlsx, .xlsm con macros, .xlsb, .xls, .csv) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Chart.js para gráficos interactivos -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- html2pdf.bundle.min.js para Exportación Directa a PDF Carta Oficial (1 Página sin Distorsión en Móvil/PC) -->
-  <script src="html2pdf.bundle.min.js"></script>
-  <script>
-    if (typeof html2pdf === 'undefined') {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-      document.head.appendChild(s);
-    }
-  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- html2pdf (~900 KB) ya NO se carga al inicio: se descarga bajo demanda al exportar PDF -->
   <!-- Firebase App & Realtime Database SDKs (v10.8.0) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script>
     // Configuración de Google Firebase para Sincronización en la Nube en Tiempo Real
     const firebaseConfig = {
@@ -67,7 +65,27 @@
       if (typeof firebase !== 'undefined') {
         firebase.initializeApp(firebaseConfig);
         window.firebaseApp = firebase;
-        window.firebaseDb = firebase.database();
+        window.firebaseDb = null; window.iexcaUser = null; // La base solo se habilita al iniciar sesión
+        const $i = id => document.getElementById(id);
+        const whenDom = fn => document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', fn) : fn();
+        const runInits = () => ['initFirebaseOdsSync','initFirebaseFoliosSync','initFirebaseMonitoringSync'].forEach(n => { try { if (typeof window[n] === 'function') window[n](); } catch (e) { console.warn(e); } });
+        const msg = t => whenDom(() => { const e = $i('iexcaLoginMsg'); if (e) e.textContent = t || ''; });
+        const ERR = { 'auth/invalid-credential': 'Correo o contraseña incorrectos.', 'auth/wrong-password': 'Correo o contraseña incorrectos.', 'auth/user-not-found': 'Correo o contraseña incorrectos.', 'auth/invalid-email': 'Correo no válido.', 'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.', 'auth/network-request-failed': 'Sin conexión a internet.', 'auth/user-disabled': 'Usuario deshabilitado.', 'auth/operation-not-supported-in-this-environment': 'El inicio de sesión no funciona abriendo el archivo con doble clic. Abre el sitio publicado o usa localhost.', 'auth/unauthorized-domain': 'Dominio no autorizado en Firebase Authentication.' };
+        window.iexcaLogin = async () => { msg(''); try { await firebase.auth().signInWithEmailAndPassword($i('iexcaEmail').value.trim(), $i('iexcaPass').value); } catch (e) { msg(ERR[e.code] || ('Error: ' + (e.code || e.message))); } };
+        window.iexcaReset = async () => { const m = $i('iexcaEmail').value.trim(); if (!m) return msg('Escribe tu correo y pulsa de nuevo.'); try { await firebase.auth().sendPasswordResetEmail(m); msg('Te enviamos un correo para restablecer la contraseña.'); } catch (e) { msg(ERR[e.code] || ('Error: ' + e.code)); } };
+        window.iexcaLogout = async () => { try { await firebase.auth().signOut(); } finally { location.reload(); } };
+        window.iexcaSkip = () => whenDom(() => $i('iexcaLoginOverlay').classList.add('hidden'));
+        firebase.auth().onAuthStateChanged(user => {
+          window.iexcaUser = user || null;
+          whenDom(() => {
+            $i('iexcaLoginOverlay').classList.toggle('hidden', !!user);
+            $i('iexcaLoginForm').classList.remove('hidden'); $i('iexcaLoginWait').classList.add('hidden');
+            $i('iexcaUserChip').classList.toggle('hidden', !user);
+            if (user) $i('iexcaUserEmail').textContent = user.email;
+            if (!user && location.protocol === 'file:') msg(ERR['auth/operation-not-supported-in-this-environment']);
+          });
+          if (user) { window.firebaseDb = firebase.database(); whenDom(() => setTimeout(runInits, 300)); }
+        });
         console.log("🔥 [Firebase Realtime] Conectado a la nube iexca-suite.");
       }
     } catch (fbErr) {
@@ -82,7 +100,6 @@
   <script src="monitoring_engine.js?v=20261001_1"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
     .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -472,6 +489,26 @@
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
+<div id="iexcaLoginOverlay" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/95 p-4">
+  <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-2xl">
+    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">IEXCA Suite</h2>
+    <p id="iexcaLoginWait" class="mt-3 text-sm text-slate-500">Verificando sesión...</p>
+    <div id="iexcaLoginForm" class="hidden mt-3 space-y-3">
+      <p class="text-sm text-slate-500">Inicia sesión para sincronizar con la nube.</p>
+      <input id="iexcaEmail" type="email" autocomplete="username" placeholder="Correo" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm">
+      <input id="iexcaPass" type="password" autocomplete="current-password" placeholder="Contraseña" onkeydown="if(event.key==='Enter')iexcaLogin()" class="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm">
+      <button type="button" onclick="iexcaLogin()" class="w-full rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 text-sm">Entrar</button>
+      <p id="iexcaLoginMsg" class="text-xs text-rose-500 min-h-[1rem]"></p>
+      <div class="flex justify-between text-xs">
+        <button type="button" onclick="iexcaReset()" class="text-brand-600 underline">Olvidé mi contraseña</button>
+        <button type="button" onclick="iexcaSkip()" class="text-slate-500 underline">Usar sin nube (solo local)</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="iexcaUserChip" class="hidden fixed bottom-3 left-3 z-40 rounded-full bg-white/90 dark:bg-slate-800/90 shadow px-3 py-1 text-[11px] text-slate-600 dark:text-slate-300 no-print">
+  👤 <span id="iexcaUserEmail"></span> · <button type="button" onclick="iexcaLogout()" class="text-rose-500 underline">Salir</button>
+</div>
 
   <!-- BARRA DE NAVEGACIÓN SUPERIOR (RESPONSIVA MÓVIL Y DESKTOP) -->
   <header class="bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 sticky top-0 z-30 shadow-xs w-full max-w-full overflow-hidden transition-all duration-300">
@@ -4853,11 +4890,14 @@
 
     // OPTIMIZACIÓN DE RENDIMIENTO GRÁFICO (Chart.js):
     // Desactiva animaciones pesadas de 1000ms al alternar pestañas para que el cambio de vista sea inmediato a 60fps
-    if (typeof Chart !== 'undefined' && Chart.defaults) {
-      Chart.defaults.animation = false;
-      Chart.defaults.responsive = true;
-      Chart.defaults.maintainAspectRatio = false;
+    function applyChartDefaults() {
+      if (typeof Chart !== 'undefined' && Chart.defaults) {
+        Chart.defaults.animation = false;
+        Chart.defaults.responsive = true;
+        Chart.defaults.maintainAspectRatio = false;
+      }
     }
+    applyChartDefaults();
 
     // ALMACÉN DE ESTADO POR HOJA (MEMORIA INDEPENDIENTE ENTRE PESTAÑAS)
     let sheetStateMap = {};
@@ -4865,6 +4905,7 @@
     // INICIALIZACIÓN
     async function initApplication() {
       console.log("[INIT] initApplication started. readyState:", document.readyState);
+      applyChartDefaults(); // Chart.js llega con defer: se aplica aqui
       setupExitProtection();
       setupDragAndDrop();
       setupFileInputs();
@@ -4924,7 +4965,7 @@
       try {
         console.log("[INIT] Step 2: Fetching SUITE.xlsm...");
         showToast("📥 Descargando e inicializando base completa SUITE.xlsm (10,778 folios)...");
-        const resp = await fetch('./SUITE.xlsm?v=' + Date.now());
+        const resp = await fetch('./SUITE.xlsm', { cache: 'no-cache' });
         if (resp.ok) {
           console.log("[INIT] SUITE.xlsm fetched successfully, parsing...");
           const ab = await resp.arrayBuffer();
@@ -9342,7 +9383,7 @@
 
       // Intentar cargar SUITE.xlsm desde el archivo físico o servidor
       try {
-        const resp = await fetch('./SUITE.xlsm?v=' + Date.now());
+        const resp = await fetch('./SUITE.xlsm', { cache: 'no-cache' });
         if (resp.ok) {
           const ab = await resp.arrayBuffer();
           const wb = XLSX.read(ab, { type: 'array', cellDates: true, raw: false, dateNF: 'yyyy-mm-dd' });
@@ -14402,7 +14443,34 @@
       }
     }
 
+    // ===== PROTECCIÓN CONTRA SOBRESCRITURA DE LA NUBE (agregado) =====
+    // Antes de reemplazar folios_data / ods_data en Firebase, compara con el 'count' guardado en la nube.
+    // Si este navegador tiene MUCHOS menos registros (p. ej. SUITE.xlsm no cargó), bloquea el guardado automático.
+    function _guardedFirebaseSync(path, localCount, force, run) {
+      if (typeof firebase === 'undefined' || !window.firebaseDb || !localCount) return run();
+      return window.firebaseDb.ref(path + '/count').once('value').then(snap => {
+        const cloudCount = Number(snap.val()) || 0;
+        if (cloudCount > 0 && localCount < cloudCount * 0.5) {
+          if (!force) {
+            console.warn(`🛡️ [Firebase] Guardado automático BLOQUEADO en '${path}': aquí hay ${localCount} registros y la nube tiene ${cloudCount}. No se sobrescribió.`);
+            return false;
+          }
+          if (!confirm(`⚠️ La nube tiene ${cloudCount.toLocaleString()} registros en '${path}' y este equipo solo tiene ${localCount.toLocaleString()}.\n\nSi continúas, la nube quedará con solo ${localCount.toLocaleString()}.\n\n¿Seguro que deseas SOBRESCRIBIR la nube?`)) return false;
+        }
+        return run();
+      }).catch(err => {
+        console.warn('🛡️ [Firebase] No se pudo verificar el conteo de la nube:', err);
+        return force ? run() : false;
+      });
+    }
     function syncOdsToFirebase(force = false) {
+      return _guardedFirebaseSync('ods_data', (sheetStore['ODS'] || []).length, force, () => _syncOdsToFirebaseRaw(force));
+    }
+    function syncFoliosToFirebase(force = false) {
+      return _guardedFirebaseSync('folios_data', (sheetStore['FOLIOS'] || []).length, force, () => _syncFoliosToFirebaseRaw(force));
+    }
+
+    function _syncOdsToFirebaseRaw(force = false) {
       if (typeof firebase === 'undefined' || !window.firebaseDb) {
         console.warn("⚠️ Firebase DB no inicializada.");
         if (force && typeof showToast === 'function') {
@@ -14534,7 +14602,7 @@
     }
     window.debouncedSyncFoliosToFirebase = debouncedSyncFoliosToFirebase;
 
-    function syncFoliosToFirebase(force = false) {
+    function _syncFoliosToFirebaseRaw(force = false) {
       if (typeof firebase === 'undefined' || !window.firebaseDb) {
         console.warn("⚠️ Firebase DB no inicializada.");
         if (force && typeof showToast === 'function') {
