@@ -358,8 +358,7 @@
         min-width: 202mm !important;
         max-width: 202mm !important;
         height: auto !important;
-        max-height: 268mm !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
@@ -382,8 +381,11 @@
         min-width: 202mm !important;
         max-width: 202mm !important;
         height: auto !important;
-        max-height: 268mm !important;
-        overflow: hidden !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        overflow: visible !important;
       }
 
       #printDocumentContainer,
@@ -402,12 +404,11 @@
         min-width: 202mm !important;
         max-width: 202mm !important;
         height: auto !important;
-        max-height: 268mm !important;
         margin: 0 auto !important;
         padding: 0 !important;
         background: #ffffff !important;
         color: #000000 !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         page-break-before: avoid !important;
@@ -420,13 +421,12 @@
         min-width: 202mm !important;
         max-width: 202mm !important;
         height: auto !important;
-        max-height: 268mm !important;
         box-shadow: none !important;
         border: none !important;
         margin: 0 auto !important;
         padding: 1.5mm 2.5mm !important;
         box-sizing: border-box !important;
-        overflow: hidden !important;
+        overflow: visible !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
         page-break-before: avoid !important;
@@ -3290,16 +3290,32 @@
               <div id="salidaFechaHelper" class="mt-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 min-h-[16px]"></div>
             </div>
             <div>
-              <label class="block text-xs font-bold text-blue-700 dark:text-blue-400 mb-1 flex items-center justify-between">
-                <span class="flex items-center gap-1">
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <label for="salidaIdTicket" class="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer">
                   <span>📲 Solicitud AppSheet (ID_TICKET)</span>
                   <span class="text-[9px] font-normal text-slate-400 dark:text-slate-500">(Opcional)</span>
+                </label>
+                <!-- Badge Estado Conexión AppSheet -->
+                <span id="salidaAppSheetStatusBadge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800" title="Estado de la conexión y solicitudes disponibles">
+                  <span id="salidaAppSheetStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span id="salidaAppSheetStatusText">En línea</span>
                 </span>
-                <span class="text-[9px] font-semibold text-blue-600 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/50 px-1.5 py-0.5 rounded" title="Si la entrega es por emergencia o anticipada, déjalo vacío y vincúlalo después">Proactivo / Emergencia</span>
-              </label>
-              <input type="text" id="salidaIdTicket" list="datalistTicketsAppSheet" oninput="onSalidaTicketInput(this.value)" onchange="onSalidaTicketInput(this.value)" placeholder="Opcional: ej. INC004235 (o dejar en blanco)" class="w-full text-xs font-mono font-semibold bg-blue-50/70 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-xl px-3 py-2 text-blue-900 dark:text-blue-200 placeholder:text-blue-400/60 focus:ring-2 focus:ring-blue-500">
-              <div id="salidaTicketHelper" class="mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                <span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>
+              </div>
+              
+              <!-- Input con botón de sincronización directa -->
+              <div class="flex items-center gap-1.5">
+                <div class="relative flex-1">
+                  <input type="text" id="salidaIdTicket" list="datalistTicketsAppSheet" oninput="onSalidaTicketInput(this.value)" onchange="onSalidaTicketInput(this.value)" placeholder="Buscar o seleccionar ticket (ej. INC004235)..." class="w-full text-xs font-mono font-semibold bg-blue-50/70 dark:bg-blue-950/30 border border-blue-300 dark:border-blue-700 rounded-xl px-3 py-2 text-blue-900 dark:text-blue-200 placeholder:text-blue-400/60 focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="button" id="btnSyncAppsheetSalida" onclick="refreshAppSheetTicketsInModal(true)" class="inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-xs transition shrink-0 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed" title="Actualizar solicitudes de AppSheet desde Google Sheets en tiempo real">
+                  <svg id="syncAppsheetModalIcon" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  <span id="btnSyncAppsheetModalText" class="hidden sm:inline">Actualizar</span>
+                </button>
+              </div>
+
+              <div id="salidaTicketHelper" class="mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight flex items-center justify-between flex-wrap gap-1">
+                <span id="salidaTicketHelperMessage">Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>
+                <span id="salidaTicketLastSyncInfo" class="text-[9px] font-mono text-blue-600 dark:text-blue-400 font-semibold"></span>
               </div>
             </div>
           </div>
@@ -4494,7 +4510,7 @@
     function printOrdenEntrega() {
       const paper = document.getElementById('ordenEntregaPaper');
       const container = document.getElementById('printDocumentContainer');
-      if (!paper) return;
+      if (!paper || !container) return;
 
       const folioText = (document.getElementById('prtFolio')?.textContent || '').trim();
       const cleanFolio = folioText.replace(/[^\w-]/g, '') || 'DESPACHO';
@@ -4526,106 +4542,11 @@
       const originalTitle = document.title;
       document.title = docTitle;
 
-      // 3. Método Preferido para Móvil y Desktop: Impresión mediante Iframe Aislado
-      // En móviles, imprimir desde un iframe con viewport de 760px garantiza 1 página exacta sin colapso a 360px
-      let printFrame = document.getElementById('folioHiddenPrintFrame');
-      if (printFrame) {
-        try { printFrame.remove(); } catch(e){}
-      }
-      printFrame = document.createElement('iframe');
-      printFrame.id = 'folioHiddenPrintFrame';
-      printFrame.style.position = 'fixed';
-      printFrame.style.top = '-10000px';
-      printFrame.style.left = '-10000px';
-      printFrame.style.width = '760px';
-      printFrame.style.height = '1000px';
-      printFrame.style.border = '0';
-      printFrame.style.visibility = 'hidden';
-      document.body.appendChild(printFrame);
-
-      // Copiar todos los tags <style> y <link> existentes para conservar tipografías y Tailwind
-      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-        .map(el => el.outerHTML)
-        .join('\n');
-
-      const frameDoc = printFrame.contentWindow.document;
-      frameDoc.open();
-      frameDoc.write(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=760, initial-scale=1.0">
-  <title>${docTitle}</title>
-  ${styles}
-  <style>
-    @page {
-      size: letter portrait;
-      margin: 3mm 4mm 3mm 4mm !important;
-    }
-    * {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      box-sizing: border-box !important;
-    }
-    html, body {
-      margin: 0 !important;
-      padding: 0 !important;
-      background: #ffffff !important;
-      color: #000000 !important;
-      width: 202mm !important;
-      max-width: 202mm !important;
-      min-width: 202mm !important;
-      height: auto !important;
-      max-height: 268mm !important;
-      overflow: hidden !important;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    }
-    .print-frame-container {
-      width: 202mm !important;
-      max-width: 202mm !important;
-      min-width: 202mm !important;
-      height: auto !important;
-      max-height: 268mm !important;
-      margin: 0 auto !important;
-      padding: 1.5mm 2.5mm !important;
-      box-sizing: border-box !important;
-      overflow: hidden !important;
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-      page-break-after: avoid !important;
-      break-after: avoid !important;
-    }
-    #ordenEntregaPaper {
-      width: 100% !important;
-      max-width: 100% !important;
-      min-width: 100% !important;
-      box-shadow: none !important;
-      border: none !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      zoom: 1 !important;
-      transform: none !important;
-    }
-    table {
-      border-collapse: collapse !important;
-    }
-  </style>
-</head>
-<body>
-  <div class="print-frame-container">
-    ${clone.outerHTML}
-  </div>
-</body>
-</html>`);
-      frameDoc.close();
-
-      // También poblar el contenedor del documento principal como respaldo
-      if (container) {
-        container.innerHTML = '';
-        container.appendChild(clone.cloneNode(true));
-        container.classList.remove('hidden');
-        document.body.classList.add('is-printing-folio');
-      }
+      // 3. Poblar el contenedor exclusivo de impresión y activar clase de impresión en body
+      container.innerHTML = '';
+      container.appendChild(clone);
+      container.classList.remove('hidden');
+      document.body.classList.add('is-printing-folio');
 
       const restoreOriginalState = () => {
         document.title = originalTitle;
@@ -4634,22 +4555,44 @@
           container.classList.add('hidden');
           container.innerHTML = '';
         }
+        window.removeEventListener('afterprint', restoreOriginalState);
       };
 
       window.addEventListener('afterprint', restoreOriginalState, { once: true });
       setTimeout(restoreOriginalState, 30000);
 
-      // Disparar diálogo de impresión
+      // 4. Disparar diálogo de impresión nativo del navegador
       setTimeout(() => {
-        try {
-          printFrame.contentWindow.focus();
-          printFrame.contentWindow.print();
-        } catch (e) {
-          console.warn("Iframe print falló o bloqueado, ejecutando impresión en ventana principal:", e);
-          window.print();
-        }
-      }, 350);
+        window.print();
+      }, 150);
     }
+
+    // Soporte global para Ctrl + P mientras la vista previa de folios está abierta
+    window.addEventListener('beforeprint', () => {
+      const modal = document.getElementById('modalPrintOrdenEntrega');
+      if (modal && !modal.classList.contains('hidden') && !document.body.classList.contains('is-printing-folio')) {
+        const paper = document.getElementById('ordenEntregaPaper');
+        const container = document.getElementById('printDocumentContainer');
+        if (paper && container) {
+          const clone = paper.cloneNode(true);
+          const imgLogo = clone.querySelector('#prtImgLogo');
+          if (imgLogo) imgLogo.src = IEXCA_LOGO_BASE64;
+          const imgQr = clone.querySelector('#prtImgQr');
+          if (imgQr) imgQr.src = IEXCA_QR_BASE64;
+          clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+          clone.style.zoom = '1';
+          clone.style.transform = 'none';
+          clone.style.margin = '0 auto';
+          clone.style.width = '202mm';
+          clone.style.minWidth = '202mm';
+          clone.style.maxWidth = '202mm';
+          container.innerHTML = '';
+          container.appendChild(clone);
+          container.classList.remove('hidden');
+          document.body.classList.add('is-printing-folio');
+        }
+      }
+    });
 
     // IMPRIMIR O GUARDAR COMO PDF BOLETA ODS
     function printODSBoletaCustom() {
@@ -10281,24 +10224,6 @@
           }
         }
 
-        if (rawTicket) {
-          const upTicket = rawTicket.toUpperCase();
-          if (!foliosTicketCatalogMap.has(upTicket)) {
-            foliosTicketCatalogMap.set(upTicket, {
-              idTicket: rawTicket,
-              det: rawDet,
-              destino: rawDest,
-              cliente: rawCli,
-              formato: rawFmt,
-              tipo: rawTipo,
-              impresor: rawImp,
-              modelo: rawMod,
-              numPart: rawNp,
-              descripcion: rawDesc
-            });
-          }
-        }
-
         if (rawNp) {
           const upNp = rawNp.toUpperCase();
           if (!uniqueNumParts.has(upNp) || (!uniqueNumParts.get(upNp).descripcion && rawDesc)) {
@@ -10392,9 +10317,10 @@
         }
       });
 
-      // 3. Prioridad 3: Tickets y Solicitudes de AppSheet / ODS (sheetStore['ODS'] y sheetStore['TICKETS'])
+      // 3. Prioridad 1 para Tickets: Solicitudes de AppSheet / ODS (los registros más recientes primero)
       const odsSource = (sheetStore['ODS'] && sheetStore['ODS'].length > 0) ? sheetStore['ODS'] : (sheetStore['TICKETS'] || []);
-      odsSource.forEach(r => {
+      const odsReversed = [...odsSource].reverse();
+      odsReversed.forEach(r => {
         const rawTicket = String(r['ID TICKET'] || r['ID_TICKET'] || r['ID'] || r['TICKET'] || '').trim();
         if (!rawTicket) return;
         const upTicket = rawTicket.toUpperCase();
@@ -10550,6 +10476,49 @@
         }
       });
 
+      // Complementar o incorporar tickets históricos desde FOLIOS (más recientes primero)
+      const foliosReversed = [...folios].reverse();
+      foliosReversed.forEach(r => {
+        const rawTicket = String(r['ID_TICKET'] || r['ID TICKET'] || r['SOLICITUD APPSHEET'] || '').trim();
+        if (!rawTicket) return;
+        const upTicket = rawTicket.toUpperCase();
+        const rawDet = String(r['DET'] || r['CECO/DET'] || r['CECO'] || r['Det'] || '').trim();
+        const rawDest = String(r['DESTINO'] || r['Destino'] || r['TIENDA'] || r['Tienda'] || r['SUCURSAL'] || r['Sucursal'] || '').trim();
+        const rawFmt = String(r['FORMATO'] || r['Formato'] || '').trim();
+        const rawTipo = String(r['TIPO'] || r['Tipo'] || '').trim();
+        const rawCli = String(r['CLIENTE'] || r['Cliente'] || '').trim();
+        const rawNp = String(r['NUMPART'] || r['NumPart'] || '').trim();
+        const rawDesc = String(r['DESCRIPCION'] || r['DESCRIPCIÓN'] || r['Descripcion'] || '').trim();
+        const rawImp = String(r['IMPRESOR'] || r['SERIE2'] || (r['IMPRESOR'] ? r['IMPRESOR'] : (r['SERIE SUM'] ? r['SERIE'] : '')) || '').trim();
+        const rawMod = String(r['MODELO'] || r['Modelo'] || r['MOD'] || '').trim();
+
+        if (!foliosTicketCatalogMap.has(upTicket)) {
+          foliosTicketCatalogMap.set(upTicket, {
+            idTicket: rawTicket,
+            det: rawDet,
+            destino: rawDest,
+            cliente: rawCli,
+            formato: rawFmt,
+            tipo: rawTipo,
+            impresor: rawImp,
+            modelo: rawMod,
+            numPart: rawNp,
+            descripcion: rawDesc,
+            source: 'FOLIO'
+          });
+        } else {
+          const existing = foliosTicketCatalogMap.get(upTicket);
+          if (!existing.numPart && rawNp) existing.numPart = rawNp;
+          if (!existing.descripcion && rawDesc) existing.descripcion = rawDesc;
+          if (!existing.impresor && rawImp) existing.impresor = rawImp;
+          if (!existing.modelo && rawMod) existing.modelo = rawMod;
+          if (!existing.det && rawDet) existing.det = rawDet;
+          if (!existing.destino && rawDest) existing.destino = rawDest;
+          if (!existing.cliente && rawCli) existing.cliente = rawCli;
+          if (!existing.formato && rawFmt) existing.formato = rawFmt;
+        }
+      });
+
       // Transferir a maps de catálogo
       uniqueNumParts.forEach((v, k) => foliosNumPartCatalogMap.set(k, v));
       uniqueImpresores.forEach((v, k) => foliosImpresorCatalogMap.set(k, v));
@@ -10586,12 +10555,23 @@
         text: `${item.impresor} - ${item.modelo || 'Equipo'} (${item.destino || item.ubicacion || 'En Tienda'})`
       }));
 
-      populateDatalistOptions('datalistTicketsAppSheet', Array.from(foliosTicketCatalogMap.values()).slice(0, 300), (item) => ({
-        value: item.idTicket,
-        text: `${item.idTicket} • ${item.destino || item.det || 'Tienda'} (${item.cliente || 'IEXCA'})${item.impresor ? ` [${item.impresor}]` : ''}`
-      }));
+      // Se muestran hasta 800 solicitudes con los registros más recientes de AppSheet al principio
+      populateDatalistOptions('datalistTicketsAppSheet', Array.from(foliosTicketCatalogMap.values()).slice(0, 800), (item) => {
+        const estadoTag = item.estado ? ` [${item.estado}]` : (item.source === 'ODS' ? ' [APPSHEET]' : '');
+        const targetStore = item.destino || item.det || 'Tienda';
+        const clientTag = item.cliente ? ` (${item.cliente})` : '';
+        const eqTag = item.impresor ? ` · Eq: ${item.impresor}` : '';
+        return {
+          value: item.idTicket,
+          text: `${item.idTicket} • ${targetStore}${clientTag}${estadoTag}${eqTag}`
+        };
+      });
 
       isSalidasCatalogBuilt = true;
+
+      if (typeof updateSalidaAppSheetSyncUI === 'function') {
+        updateSalidaAppSheetSyncUI();
+      }
     }
 
     function populateDatalistOptions(elementId, items, mappingFn) {
@@ -10754,12 +10734,20 @@
       buildSalidasActualizadasCatalog();
       const raw = (val || '').trim().toUpperCase();
       const helper = document.getElementById('salidaTicketHelper');
+      const helperMsg = document.getElementById('salidaTicketHelperMessage');
+
+      const setTicketHelper = (html, colorClass) => {
+        if (helperMsg) {
+          helperMsg.innerHTML = html;
+          helperMsg.className = `text-[10px] leading-tight ${colorClass}`;
+        } else if (helper) {
+          helper.innerHTML = html;
+          helper.className = `mt-1 text-[10px] leading-tight ${colorClass}`;
+        }
+      };
       
       if (!raw) {
-        if (helper) {
-          helper.innerHTML = '<span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>';
-          helper.className = 'mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight';
-        }
+        setTicketHelper('<span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>', 'text-slate-500 dark:text-slate-400');
         return;
       }
 
@@ -10777,10 +10765,9 @@
       }
 
       if (match) {
-        if (helper) {
-          helper.innerHTML = `✅ <b>Solicitud detectada:</b> ${escapeHtml(match.destino || match.det || 'Tienda')} ${match.impresor ? `(Equipo: <b>${escapeHtml(match.impresor)}</b>)` : ''}`;
-          helper.className = 'mt-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold leading-tight';
-        }
+        const sourceLabel = match.source === 'ODS' ? '<span class="text-blue-700 dark:text-blue-300 font-bold">[AppSheet]</span> ' : '';
+        const estadoLabel = match.estado ? ` · Estado: <span class="text-amber-700 dark:text-amber-300 font-bold">${escapeHtml(match.estado)}</span>` : '';
+        setTicketHelper(`✅ <b>Solicitud detectada:</b> ${sourceLabel}${escapeHtml(match.destino || match.det || 'Tienda')}${match.impresor ? ` (Equipo: <b>${escapeHtml(match.impresor)}</b>)` : ''}${estadoLabel}`, 'text-emerald-700 dark:text-emerald-400 font-semibold');
 
         // 2. Autocompletar DET / Tienda / Cliente / Formato con cascada blindada
         let detVal = (match.det || '').trim().toUpperCase();
@@ -10893,10 +10880,7 @@
           formato: match.formato || document.getElementById('salidaFormato')?.value
         }, 'TICKET');
       } else {
-        if (helper) {
-          helper.innerHTML = 'ℹ️ <b>Solicitud no encontrada en historial previo:</b> Se registrará y quedará vinculada al guardar el folio.';
-          helper.className = 'mt-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium leading-tight';
-        }
+        setTicketHelper('ℹ️ <b>Solicitud no encontrada en historial previo:</b> Se registrará y quedará vinculada al guardar el folio.', 'text-blue-600 dark:text-blue-400 font-medium');
       }
     }
 
@@ -11815,6 +11799,95 @@
       await syncTicketsFromGoogleSheet(isManual);
     }
     window.syncAllGoogleSheets = syncAllGoogleSheets;
+
+    // SINCRONIZACIÓN Y ESTADO DE CONEXIÓN DE APPSHEET PARA SALIDAS FOLIOS
+    let lastAppSheetSyncTimestamp = null;
+    let isRefreshingAppSheetInModal = false;
+
+    function updateSalidaAppSheetSyncUI(state = 'idle', errorMsg = '') {
+      const badge = document.getElementById('salidaAppSheetStatusBadge');
+      const dot = document.getElementById('salidaAppSheetStatusDot');
+      const text = document.getElementById('salidaAppSheetStatusText');
+      const btn = document.getElementById('btnSyncAppsheetSalida');
+      const btnIcon = document.getElementById('syncAppsheetModalIcon');
+      const btnText = document.getElementById('btnSyncAppsheetModalText');
+      const syncInfo = document.getElementById('salidaTicketLastSyncInfo');
+
+      const odsSource = sheetStore['ODS'] || sheetStore['TICKETS'] || [];
+      const odsCount = odsSource.length;
+      let lastTicketId = '';
+      if (odsSource.length > 0) {
+        const lastRow = odsSource[odsSource.length - 1];
+        lastTicketId = String(lastRow['ID TICKET'] || lastRow['ID_TICKET'] || lastRow['ID'] || lastRow['TICKET'] || '').trim();
+      }
+
+      if (state === 'syncing') {
+        if (badge) {
+          badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
+        }
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping';
+        if (text) text.textContent = 'Sincronizando...';
+        if (btn) btn.disabled = true;
+        if (btnIcon) btnIcon.classList.add('animate-spin');
+        if (btnText) btnText.textContent = 'Cargando...';
+        if (syncInfo) syncInfo.textContent = 'Conectando con AppSheet...';
+      } else if (state === 'error') {
+        if (badge) {
+          badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800';
+        }
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500';
+        if (text) text.textContent = 'Sin conexión';
+        if (btn) btn.disabled = false;
+        if (btnIcon) btnIcon.classList.remove('animate-spin');
+        if (btnText) btnText.textContent = 'Reintentar';
+        if (syncInfo) syncInfo.textContent = errorMsg ? `Error: ${errorMsg}` : 'Error al conectar';
+      } else {
+        // idle / ready
+        if (badge) {
+          badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800';
+        }
+        if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+        if (text) text.textContent = `En línea (${odsCount.toLocaleString()} sol)`;
+        if (btn) btn.disabled = false;
+        if (btnIcon) btnIcon.classList.remove('animate-spin');
+        if (btnText) btnText.textContent = 'Actualizar';
+        if (syncInfo) {
+          const timeStr = lastAppSheetSyncTimestamp ? new Date(lastAppSheetSyncTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'reciente';
+          syncInfo.textContent = lastTicketId ? `Última: ${timeStr} • Reciente: ${lastTicketId}` : `Sincronizado: ${timeStr}`;
+        }
+      }
+    }
+    window.updateSalidaAppSheetSyncUI = updateSalidaAppSheetSyncUI;
+
+    async function refreshAppSheetTicketsInModal(isManual = false) {
+      if (isRefreshingAppSheetInModal) return;
+      isRefreshingAppSheetInModal = true;
+      updateSalidaAppSheetSyncUI('syncing');
+
+      try {
+        await syncTicketsFromGoogleSheet(false);
+        lastAppSheetSyncTimestamp = Date.now();
+        buildSalidasActualizadasCatalog(true);
+        updateSalidaAppSheetSyncUI('idle');
+
+        const odsSource = sheetStore['ODS'] || sheetStore['TICKETS'] || [];
+        const lastRow = odsSource.length > 0 ? odsSource[odsSource.length - 1] : null;
+        const lastTicket = lastRow ? String(lastRow['ID TICKET'] || lastRow['ID_TICKET'] || lastRow['ID'] || '').trim() : '';
+
+        if (isManual) {
+          showToast(`🟢 Solicitudes de AppSheet actualizadas con éxito. ${lastTicket ? `Último registro disponible: ${lastTicket}` : ''}`);
+        }
+      } catch (err) {
+        console.error('[APPSHEET SYNC MODAL] Error:', err);
+        updateSalidaAppSheetSyncUI('error', err.message);
+        if (isManual) {
+          showToast(`⚠️ No se pudo actualizar AppSheet: ${err.message}`, 'error');
+        }
+      } finally {
+        isRefreshingAppSheetInModal = false;
+      }
+    }
+    window.refreshAppSheetTicketsInModal = refreshAppSheetTicketsInModal;
 
     // CONTROL DE SALIDAS (FOLIOS)
     function updateSalidasKPIs() {
@@ -13267,8 +13340,16 @@
       isSalidaFormDirty = false;
 
       // Asegurar catálogos y datalists 100% actualizados con FOLIOS y RDI
-      buildSalidasActualizadasCatalog();
+      buildSalidasActualizadasCatalog(true);
       updateSalidaAutofillFeedback(null);
+      if (typeof updateSalidaAppSheetSyncUI === 'function') {
+        updateSalidaAppSheetSyncUI();
+      }
+
+      // Auto-actualizar solicitudes de AppSheet en segundo plano si pasaron más de 2 minutos o es la primera vez
+      if (!lastAppSheetSyncTimestamp || (Date.now() - lastAppSheetSyncTimestamp > 120000)) {
+        refreshAppSheetTicketsInModal(false);
+      }
 
       const nextFolio = getNextFolioNumber();
       const folioInput = document.getElementById('salidaFolioInput');
@@ -13280,8 +13361,12 @@
       const container = document.getElementById('salidaItemsContainer');
       if (container) container.innerHTML = '';
 
+      const helperTicketMsg = document.getElementById('salidaTicketHelperMessage');
       const helperTicket = document.getElementById('salidaTicketHelper');
-      if (helperTicket) {
+      if (helperTicketMsg) {
+        helperTicketMsg.innerHTML = '<span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>';
+        helperTicketMsg.className = 'text-[10px] text-slate-500 dark:text-slate-400 leading-tight';
+      } else if (helperTicket) {
         helperTicket.innerHTML = '<span>Si el despacho es urgente, déjalo vacío. Puedes vincularlo al generar la solicitud.</span>';
         helperTicket.className = 'mt-1 text-[10px] text-slate-500 dark:text-slate-400 leading-tight';
       }
@@ -13338,6 +13423,9 @@
       if (!row) return;
 
       buildSalidasActualizadasCatalog();
+      if (typeof updateSalidaAppSheetSyncUI === 'function') {
+        updateSalidaAppSheetSyncUI();
+      }
 
       const folVal = getRowFolio(row);
       document.getElementById('modalSalidaTitle').textContent = `Editar Salida (Folio #${folVal})`;
@@ -13379,12 +13467,21 @@
       updateSalidaFechaHelper();
       const currentTicket = firstRow['ID_TICKET'] || firstRow['SOLICITUD APPSHEET'] || firstRow['ID TICKET'] || '';
       document.getElementById('salidaIdTicket').value = currentTicket;
+      const helperTicketMsg = document.getElementById('salidaTicketHelperMessage');
       const helperTicket = document.getElementById('salidaTicketHelper');
-      if (helperTicket) {
-        if (currentTicket) {
+      if (currentTicket) {
+        if (helperTicketMsg) {
+          helperTicketMsg.innerHTML = `🔗 <b>Vinculado a Solicitud:</b> ${escapeHtml(currentTicket)}`;
+          helperTicketMsg.className = 'text-[10px] text-blue-700 dark:text-blue-300 font-semibold leading-tight';
+        } else if (helperTicket) {
           helperTicket.innerHTML = `🔗 <b>Vinculado a Solicitud:</b> ${escapeHtml(currentTicket)}`;
           helperTicket.className = 'mt-1 text-[10px] text-blue-700 dark:text-blue-300 font-semibold leading-tight';
-        } else {
+        }
+      } else {
+        if (helperTicketMsg) {
+          helperTicketMsg.innerHTML = '<span>💡 Folio sin solicitud vinculada (despacho proactivo/urgencia). Puedes ingresar el ticket ahora para vincularlo.</span>';
+          helperTicketMsg.className = 'text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-tight';
+        } else if (helperTicket) {
           helperTicket.innerHTML = '<span>💡 Folio sin solicitud vinculada (despacho proactivo/urgencia). Puedes ingresar el ticket ahora para vincularlo.</span>';
           helperTicket.className = 'mt-1 text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-tight';
         }
