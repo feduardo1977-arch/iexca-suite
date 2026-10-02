@@ -4801,6 +4801,47 @@
       '05 - Mayo', '06 - Junio', '07 - Julio', '08 - Agosto',
       '09 - Septiembre', '10 - Octubre', '11 - Noviembre', '12 - Diciembre'
     ];
+
+    // PARSEADOR UNIVERSAL DE ÍNDICE DE MES (0 = ENERO, ..., 11 = DICIEMBRE)
+    function parseMonthIndex(val) {
+      if (val === null || val === undefined || val === '') return null;
+      if (typeof val === 'number') {
+        if (val >= 0 && val <= 11 && Number.isInteger(val)) return val;
+        if (val >= 1 && val <= 12 && Number.isInteger(val)) return val - 1;
+      }
+      const s = String(val).trim().toUpperCase();
+      if (!s) return null;
+
+      // Formato numérico directo ("1" a "12" o "01" a "12")
+      if (/^\d{1,2}$/.test(s)) {
+        const n = parseInt(s, 10);
+        if (n >= 1 && n <= 12) return n - 1;
+        if (n === 0) return 0;
+      }
+
+      // Prefijo numérico tipo "01 - Enero", "02 - Febrero"
+      const numPrefix = s.match(/^0?([1-9]|1[0-2])\s*[-_]/);
+      if (numPrefix) {
+        return parseInt(numPrefix[1], 10) - 1;
+      }
+
+      // Abreviaturas y nombres en español / inglés (ENE, FEB, MAR, ABR, MAY, JUN, JUL, AGO, AUG, SEP, OCT, NOV, DIC)
+      if (/^ENE|^JAN/i.test(s)) return 0;
+      if (/^FEB/i.test(s)) return 1;
+      if (/^MAR/i.test(s)) return 2;
+      if (/^ABR|^APR/i.test(s)) return 3;
+      if (/^MAY/i.test(s)) return 4;
+      if (/^JUN/i.test(s)) return 5;
+      if (/^JUL/i.test(s)) return 6;
+      if (/^AGO|^AUG/i.test(s)) return 7;
+      if (/^SEP|^SET/i.test(s)) return 8;
+      if (/^OCT/i.test(s)) return 9;
+      if (/^NOV/i.test(s)) return 10;
+      if (/^DIC|^DEC/i.test(s)) return 11;
+
+      return null;
+    }
+
     let activeDateCol = null;
     let availableYears = [];
     let selectedYears = new Set();
@@ -4922,7 +4963,7 @@
         if (resp.ok) {
           console.log("[INIT] SUITE.xlsm fetched successfully, parsing...");
           const ab = await resp.arrayBuffer();
-          const wb = XLSX.read(ab, { type: 'array', cellDates: true, raw: false });
+          const wb = XLSX.read(ab, { type: 'array', cellDates: true, raw: false, dateNF: 'yyyy-mm-dd' });
           rawWorkbook = wb;
           sheetStateMap = {};
           sheetStore = {};
@@ -5068,24 +5109,43 @@
     }
 
     // PARSEADOR FLEXIBLE Y ROBUSTO DE FECHAS (OPTIMIZADO PARA CENTROAMÉRICA UTC-6 Y DÍA/MES/AÑO)
-    function parseFlexibleDate(val) {
-      if (!val && val !== 0) return null;
+    function parseFlexibleDate(val, rowContext = null) {
+      if (!val && val !== 0) {
+        if (rowContext) {
+          const rawYear = Number(rowContext['AÑO'] || rowContext['ANO'] || rowContext['Año'] || rowContext['YEAR'] || rowContext['Year']);
+          const mIdx = parseMonthIndex(rowContext['MES'] || rowContext['Mes']);
+          if (!isNaN(rawYear) && rawYear >= 2000 && rawYear <= 2099 && mIdx !== null) {
+            return new Date(rawYear, mIdx, 15, 12, 0, 0);
+          }
+        }
+        return null;
+      }
 
       // 1. Si ya es objeto Date
       if (val instanceof Date) {
         if (isNaN(val.getTime())) return null;
+        let dRes;
         // Si fue creado en UTC medianoche (00:00:00), anclarlo al mediodía local para evitar desfase de día
         if (val.getUTCHours() === 0 && val.getUTCMinutes() === 0) {
-          return new Date(val.getUTCFullYear(), val.getUTCMonth(), val.getUTCDate(), 12, 0, 0);
+          dRes = new Date(val.getUTCFullYear(), val.getUTCMonth(), val.getUTCDate(), 12, 0, 0);
+        } else {
+          dRes = new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12, 0, 0);
         }
-        return new Date(val.getFullYear(), val.getMonth(), val.getDate(), 12, 0, 0);
+        if (rowContext) {
+          const hintM = parseMonthIndex(rowContext['MES'] || rowContext['Mes']);
+          const hintY = Number(rowContext['AÑO'] || rowContext['ANO'] || rowContext['Año'] || rowContext['YEAR'] || rowContext['Year']);
+          if (hintM !== null && dRes.getMonth() !== hintM) {
+            dRes = new Date(hintY && hintY >= 2000 ? hintY : dRes.getFullYear(), hintM, dRes.getDate(), 12, 0, 0);
+          }
+        }
+        return dRes;
       }
 
       // 2. Si es número o cadena numérica (Número serial de Excel, ej. 46287 = 23/09/2026)
       let num = null;
       if (typeof val === 'number') {
         num = val;
-      } else if (typeof val === 'string' && /^\d{5}(\.\d+)?$/.test(val.trim())) {
+      } else if (typeof val === 'string' && /^\d{4,6}(\.\d+)?$/.test(val.trim())) {
         num = parseFloat(val.trim());
       }
 
@@ -5095,9 +5155,16 @@
         const utcMs = utcDays * 86400 * 1000;
         const dUtc = new Date(utcMs);
         if (!isNaN(dUtc.getTime())) {
-          // Extraer año, mes y día UTC puros y construir la fecha al mediodía local (12:00:00)
-          // Esto garantiza que en Centroamérica (UTC-6) o cualquier zona el día/mes nunca salte hacia atrás ni adelante
-          return new Date(dUtc.getUTCFullYear(), dUtc.getUTCMonth(), dUtc.getUTCDate(), 12, 0, 0);
+          let y = dUtc.getUTCFullYear();
+          let m = dUtc.getUTCMonth();
+          let d = dUtc.getUTCDate();
+          if (rowContext) {
+            const hintM = parseMonthIndex(rowContext['MES'] || rowContext['Mes']);
+            if (hintM !== null) m = hintM;
+            const hintY = Number(rowContext['AÑO'] || rowContext['ANO'] || rowContext['Año'] || rowContext['YEAR'] || rowContext['Year']);
+            if (!isNaN(hintY) && hintY >= 2000 && hintY <= 2099) y = hintY;
+          }
+          return new Date(y, m, d, 12, 0, 0);
         }
       }
 
@@ -5109,41 +5176,75 @@
         // Formato ISO: YYYY-MM-DD o YYYY/MM/DD
         if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(s)) {
           const parts = s.split(/[-/]/);
-          const y = parseInt(parts[0], 10);
-          const m = parseInt(parts[1], 10) - 1;
+          let y = parseInt(parts[0], 10);
+          let m = parseInt(parts[1], 10) - 1;
           const d = parseInt(parts[2], 10);
+          if (rowContext) {
+            const hintM = parseMonthIndex(rowContext['MES'] || rowContext['Mes']);
+            if (hintM !== null) m = hintM;
+          }
           if (y >= 1990 && y <= 2100 && m >= 0 && m <= 11 && d >= 1 && d <= 31) {
             return new Date(y, m, d, 12, 0, 0);
           }
         }
 
-        // Formatos de 3 partes separadas por barra, guión o punto (DD/MM/YYYY o MM/DD/YYYY)
-        const parts = s.split(/[\/\-\.]/).map(x => parseInt(x, 10));
-        if (parts.length === 3 && !parts.some(isNaN)) {
-          // Caso A: Año al final (ej. 23/09/2026 o 9/23/2026)
-          if (parts[2] >= 1990 && parts[2] <= 2100) {
-            const y = parts[2];
-            let d, m;
-            // Si el segundo número es mayor que 12, el primero DEBE ser el mes (formato M/D/YYYY)
-            if (parts[1] > 12 && parts[0] <= 12) {
-              m = parts[0] - 1;
-              d = parts[1];
-            } else {
-              // Estándar Centroamérica: DÍA / MES / AÑO (DD/MM/YYYY)
-              d = parts[0];
-              m = parts[1] - 1;
+        // Formatos de 3 partes separadas por barra, guión o punto (DD/MM/YYYY, MM/DD/YYYY, DD/MM/YY, etc.)
+        const rawParts = s.split(/[\/\-\.]/);
+        if (rawParts.length === 3) {
+          const p0 = parseInt(rawParts[0], 10);
+          const p1 = parseInt(rawParts[1], 10);
+          const p2 = parseInt(rawParts[2], 10);
+
+          if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+            // Caso A: Año al final (p2)
+            let y = p2;
+            if (y >= 0 && y <= 99) {
+              y = y < 50 ? 2000 + y : 1900 + y;
             }
-            if (m >= 0 && m <= 11 && d >= 1 && d <= 31) {
-              return new Date(y, m, d, 12, 0, 0);
+
+            if (y >= 1990 && y <= 2100) {
+              let d, m;
+              const hintM = rowContext ? parseMonthIndex(rowContext['MES'] || rowContext['Mes']) : null;
+              if (hintM !== null) {
+                // Si rowContext nos da el mes, resolver exactamente día y mes
+                if (p1 - 1 === hintM) {
+                  d = p0;
+                  m = p1 - 1;
+                } else if (p0 - 1 === hintM) {
+                  m = p0 - 1;
+                  d = p1;
+                } else {
+                  m = hintM;
+                  d = p0 > 0 && p0 <= 31 ? p0 : (p1 > 0 && p1 <= 31 ? p1 : 15);
+                }
+              } else if (p1 > 12 && p0 <= 12) {
+                // Formato M/D/YYYY
+                m = p0 - 1;
+                d = p1;
+              } else {
+                // Estándar Centroamérica: DÍA / MES / AÑO (DD/MM/YYYY)
+                d = p0;
+                m = p1 - 1;
+              }
+
+              if (m >= 0 && m <= 11 && d >= 1 && d <= 31) {
+                return new Date(y, m, d, 12, 0, 0);
+              }
             }
-          }
-          // Caso B: Año al principio (ej. 2026/09/23)
-          else if (parts[0] >= 1990 && parts[0] <= 2100) {
-            const y = parts[0];
-            const m = parts[1] - 1;
-            const d = parts[2];
-            if (m >= 0 && m <= 11 && d >= 1 && d <= 31) {
-              return new Date(y, m, d, 12, 0, 0);
+
+            // Caso B: Año al principio (p0)
+            let y0 = p0;
+            if (y0 >= 0 && y0 <= 99 && p2 > 31) {
+              y0 = y0 < 50 ? 2000 + y0 : 1900 + y0;
+            }
+            if (y0 >= 1990 && y0 <= 2100) {
+              let m = p1 - 1;
+              let d = p2;
+              const hintM = rowContext ? parseMonthIndex(rowContext['MES'] || rowContext['Mes']) : null;
+              if (hintM !== null) m = hintM;
+              if (m >= 0 && m <= 11 && d >= 1 && d <= 31) {
+                return new Date(y0, m, d, 12, 0, 0);
+              }
             }
           }
         }
@@ -5152,10 +5253,27 @@
         const parsed = Date.parse(s);
         if (!isNaN(parsed)) {
           const dObj = new Date(parsed);
-          const y = dObj.getFullYear();
-          if (y >= 1990 && y <= 2100) {
-            return new Date(y, dObj.getMonth(), dObj.getDate(), 12, 0, 0);
+          let y = dObj.getFullYear();
+          let m = dObj.getMonth();
+          let d = dObj.getDate();
+          if (rowContext) {
+            const hintM = parseMonthIndex(rowContext['MES'] || rowContext['Mes']);
+            if (hintM !== null) m = hintM;
+            const hintY = Number(rowContext['AÑO'] || rowContext['ANO'] || rowContext['Año'] || rowContext['YEAR'] || rowContext['Year']);
+            if (!isNaN(hintY) && hintY >= 2000 && hintY <= 2099) y = hintY;
           }
+          if (y >= 1990 && y <= 2100) {
+            return new Date(y, m, d, 12, 0, 0);
+          }
+        }
+      }
+
+      // Fallback final con rowContext si nada más funcionó
+      if (rowContext) {
+        const rawYear = Number(rowContext['AÑO'] || rowContext['ANO'] || rowContext['Año'] || rowContext['YEAR'] || rowContext['Year']);
+        const mIdx = parseMonthIndex(rowContext['MES'] || rowContext['Mes']);
+        if (!isNaN(rawYear) && rawYear >= 2000 && rawYear <= 2099 && mIdx !== null) {
+          return new Date(rawYear, mIdx, 15, 12, 0, 0);
         }
       }
 
@@ -6415,20 +6533,24 @@
       originalData = firstPass.map(row => {
         const enrichedRow = { ...row };
         detectedDateCols.forEach(col => {
-          let d = parseFlexibleDate(row[col]);
+          let d = parseFlexibleDate(row[col], row);
+
+          const rawYear = Number(row['AÑO'] || row['ANO'] || row['Año'] || row['YEAR'] || row['Year']);
+          const mIdx = parseMonthIndex(row['MES'] || row['Mes']);
 
           // Si d es null pero la fila contiene AÑO numérico válido (2000-2099), sintetizar Date para no perder la fila en filtros
           if (!d) {
-            const rawYear = Number(row['AÑO'] || row['ANO'] || row['Año'] || row['YEAR'] || row['Year']);
             if (!isNaN(rawYear) && rawYear >= 2000 && rawYear <= 2099) {
-              let mIdx = 0;
-              const rawMes = row['MES'] || row['Mes'];
-              if (rawMes) {
-                const mStr = String(rawMes).trim().toUpperCase();
-                const foundIdx = SPANISH_FULL_MONTHS.findIndex(m => m.toUpperCase() === mStr);
-                if (foundIdx >= 0) mIdx = foundIdx;
-              }
-              d = new Date(rawYear, mIdx, 15, 12, 0, 0);
+              const safeM = mIdx !== null ? mIdx : 0;
+              d = new Date(rawYear, safeM, 15, 12, 0, 0);
+            }
+          } else {
+            // Sincronizar el mes y año si la fila tiene columnas explícitas AÑO o MES
+            if (mIdx !== null && d.getMonth() !== mIdx) {
+              const safeY = (!isNaN(rawYear) && rawYear >= 2000 && rawYear <= 2099) ? rawYear : d.getFullYear();
+              d = new Date(safeY, mIdx, d.getDate() || 15, 12, 0, 0);
+            } else if (!isNaN(rawYear) && rawYear >= 2000 && rawYear <= 2099 && d.getFullYear() !== rawYear) {
+              d = new Date(rawYear, d.getMonth(), d.getDate() || 15, 12, 0, 0);
             }
           }
 
@@ -6447,6 +6569,11 @@
         const directYear = Number(enrichedRow['AÑO'] || enrichedRow['ANO'] || enrichedRow['Año'] || enrichedRow['YEAR'] || enrichedRow['Year']);
         if (!isNaN(directYear) && directYear >= 2000 && directYear <= 2099) {
           if (!enrichedRow['AÑO']) enrichedRow['AÑO'] = directYear;
+        }
+
+        const directMIdx = parseMonthIndex(enrichedRow['MES'] || enrichedRow['Mes']);
+        if (directMIdx !== null && !enrichedRow['MES']) {
+          enrichedRow['MES'] = SPANISH_FULL_MONTHS[directMIdx];
         }
 
         return enrichedRow;
@@ -6716,7 +6843,7 @@
             const yr = d.getFullYear();
             if (yr >= 2000 && yr <= 2099) yearsSet.add(yr);
           } else if (d !== null && d !== undefined && d !== "") {
-            const pd = parseFlexibleDate(d);
+            const pd = parseFlexibleDate(d, r);
             if (pd && !isNaN(pd.getFullYear())) {
               const yr = pd.getFullYear();
               if (yr >= 2000 && yr <= 2099) yearsSet.add(yr);
@@ -6787,7 +6914,7 @@
       originalData.forEach(r => {
         let d = activeDateCol ? r[activeDateCol] : null;
         if (!(d instanceof Date) && d !== null && d !== undefined && d !== "") {
-          d = parseFlexibleDate(d);
+          d = parseFlexibleDate(d, r);
         }
 
         let yr = (d instanceof Date && !isNaN(d.getTime())) ? d.getFullYear() : null;
@@ -6798,11 +6925,8 @@
           if (!isNaN(dy) && dy >= 2000 && dy <= 2099) yr = dy;
         }
 
-        if (m === null && (r['MES'] || r['Mes'])) {
-          const mStr = String(r['MES'] || r['Mes']).trim().toUpperCase();
-          const mIdx = SPANISH_FULL_MONTHS.findIndex(mon => mon.toUpperCase() === mStr);
-          if (mIdx >= 0) m = mIdx;
-        }
+        const mIdx = parseMonthIndex(r['MES'] || r['Mes']);
+        if (mIdx !== null) m = mIdx;
 
         if (yr !== null && (selectedYears.has(yr) || selectedYears.has(String(yr)))) {
           if (m !== null && m >= 0 && m <= 11) {
@@ -7507,7 +7631,7 @@
         if (activeDateCol || availableYears.length > 0) {
           let d = activeDateCol ? row[activeDateCol] : null;
           if (!(d instanceof Date) && d !== null && d !== undefined && d !== "") {
-            d = parseFlexibleDate(d);
+            d = parseFlexibleDate(d, row);
           }
 
           let rowYear = (d instanceof Date && !isNaN(d.getTime())) ? d.getFullYear() : null;
@@ -7518,11 +7642,8 @@
             if (!isNaN(dy) && dy >= 2000 && dy <= 2099) rowYear = dy;
           }
 
-          if (rowMonth === null && (row['MES'] || row['Mes'])) {
-            const mStr = String(row['MES'] || row['Mes']).trim().toUpperCase();
-            const mIdx = SPANISH_FULL_MONTHS.findIndex(mon => mon.toUpperCase() === mStr);
-            if (mIdx >= 0) rowMonth = mIdx;
-          }
+          const mIdx = parseMonthIndex(row['MES'] || row['Mes']);
+          if (mIdx !== null) rowMonth = mIdx;
 
           if (rowYear !== null) {
             if (selectedYears.size > 0 && !selectedYears.has(rowYear) && !selectedYears.has(String(rowYear))) {
@@ -8000,9 +8121,19 @@
         // Agregación O(N) de alto rendimiento en un solo pase mediante Hash Map
         const groupMap2 = {};
         filteredData.forEach(r => {
-          const d = r[activeDateCol];
-          if (!(d instanceof Date) || isNaN(d.getTime())) return;
-          const key = `${d.getFullYear()}___${d.getMonth()}`;
+          let d = r[activeDateCol];
+          let rowYr = (d instanceof Date && !isNaN(d.getTime())) ? d.getFullYear() : null;
+          let rowMo = (d instanceof Date && !isNaN(d.getTime())) ? d.getMonth() : null;
+
+          if (rowYr === null) {
+            const dy = Number(r['AÑO'] || r['ANO'] || r['Año'] || r['YEAR'] || r['Year'] || r['FECHA (Año)']);
+            if (!isNaN(dy) && dy >= 2000 && dy <= 2099) rowYr = dy;
+          }
+          const mIdx = parseMonthIndex(r['MES'] || r['Mes']);
+          if (mIdx !== null) rowMo = mIdx;
+
+          if (rowYr === null || rowMo === null) return;
+          const key = `${rowYr}___${rowMo}`;
           if (!groupMap2[key]) groupMap2[key] = { count: 0, sum: 0, validNums: 0 };
           groupMap2[key].count++;
           if (!isCount && metric && metric !== '__COUNT__') {
@@ -8401,9 +8532,19 @@
       // Pre-agregación O(N) de alta velocidad mediante Hash Map
       const compTableMap = {};
       filteredData.forEach(r => {
-        const d = r[activeDateCol];
-        if (!(d instanceof Date) || isNaN(d.getTime())) return;
-        const key = `${d.getFullYear()}___${d.getMonth()}`;
+        let d = r[activeDateCol];
+        let rowYr = (d instanceof Date && !isNaN(d.getTime())) ? d.getFullYear() : null;
+        let rowMo = (d instanceof Date && !isNaN(d.getTime())) ? d.getMonth() : null;
+
+        if (rowYr === null) {
+          const dy = Number(r['AÑO'] || r['ANO'] || r['Año'] || r['YEAR'] || r['Year'] || r['FECHA (Año)']);
+          if (!isNaN(dy) && dy >= 2000 && dy <= 2099) rowYr = dy;
+        }
+        const mIdx = parseMonthIndex(r['MES'] || r['Mes']);
+        if (mIdx !== null) rowMo = mIdx;
+
+        if (rowYr === null || rowMo === null) return;
+        const key = `${rowYr}___${rowMo}`;
         if (!compTableMap[key]) compTableMap[key] = { count: 0, sum: 0, validNums: 0 };
         compTableMap[key].count++;
         if (!isCount && metric && metric !== '__COUNT__') {
@@ -8675,7 +8816,7 @@
             if (val instanceof Date) {
               formatted = formatDateShort(val);
             } else if (columnTypes[col] === 'date' || col.toLowerCase().includes('fecha') || col.toLowerCase().includes('date')) {
-              const d = parseFlexibleDate(val);
+              const d = parseFlexibleDate(val, row);
               formatted = d ? formatDateShort(d) : (val !== undefined && val !== null ? val : '-');
             } else if (typeof val === 'number') {
               if (isDuration) {
@@ -9238,7 +9379,7 @@
         const resp = await fetch('./SUITE.xlsm?v=' + Date.now());
         if (resp.ok) {
           const ab = await resp.arrayBuffer();
-          const wb = XLSX.read(ab, { type: 'array', cellDates: true, raw: false });
+          const wb = XLSX.read(ab, { type: 'array', cellDates: true, raw: false, dateNF: 'yyyy-mm-dd' });
           rawWorkbook = wb;
           sheetStateMap = {};
           sheetStore = {};
@@ -13227,7 +13368,7 @@
         folioInput.value = !isNaN(num) && num > 0 ? num : (folVal !== '-' ? folVal : getNextFolioNumber());
       }
 
-      let fDate = parseFlexibleDate(firstRow['FECHA'] || firstRow['Fecha']);
+      let fDate = parseFlexibleDate(firstRow['FECHA'] || firstRow['Fecha'], firstRow);
       const folNumInt = parseInt(String(folVal).replace(/\D/g, ''), 10);
       if (folNumInt === 7425) {
         fDate = new Date(2026, 3, 10, 12, 0, 0); // 10 de Abril de 2026
@@ -13820,7 +13961,7 @@
       document.getElementById('modalTicketTitle').textContent = `Editar Ticket ${row['ID TICKET'] || ''}`;
 
       document.getElementById('ticketIdInput').value = row['ID TICKET'] || row['ID'] || '';
-      const fDate = parseFlexibleDate(row['FECHA'] || row['Fecha']);
+      const fDate = parseFlexibleDate(row['FECHA'] || row['Fecha'], row);
       document.getElementById('ticketFecha').value = fDate ? fDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
       document.getElementById('ticketMedioReporte').value = row['MEDIO DE REPORTE'] || 'SERVICE NOW';
       document.getElementById('ticketSerie').value = row['SERIE'] || '';
