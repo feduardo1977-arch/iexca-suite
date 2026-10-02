@@ -1,33 +1,11 @@
 // MÓDULO DE AUDITORÍA Y MONITOREO DE SUMINISTROS (CSV FLEET) & STOCK EN SITIO
 // Este archivo contiene la lógica completa del motor de diagnóstico y gestión de snapshots.
 
-// --- Utilidades de rendimiento (agregadas) ---
-// Url REST de Firebase con token del usuario autenticado (null si no hay sesión)
-async function iexcaRestUrl(path) {
-  const u = (typeof window !== 'undefined') ? window.iexcaUser : null;
-  if (!u) return null;
-  const t = await u.getIdToken();
-  return 'https://iexca-suite-default-rtdb.firebaseio.com/' + path + '.json?auth=' + encodeURIComponent(t);
-}
-function cloneDeepData(obj) {
-  try { if (typeof structuredClone === 'function') return structuredClone(obj); } catch (_) {}
-  return JSON.parse(JSON.stringify(obj));
-}
-// Agrupa eventos seguidos y procesa solo el ultimo (evita recalcular N veces)
-function debounceLatest(fn, ms) {
-  let t = null, lastArgs = null;
-  return function () {
-    lastArgs = arguments;
-    if (t) clearTimeout(t);
-    t = setTimeout(() => { t = null; fn.apply(null, lastArgs); }, ms);
-  };
-}
-
 let monitoringData = {}; // { 'WALMART': [ snapshot1, snapshot2 ], 'BAC': [ ... ] }
 // Precargar datos síncronamente si DEFAULT_MONITORING_DATA ya está definido en el navegador
 if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
   try {
-    monitoringData = cloneDeepData(window.DEFAULT_MONITORING_DATA);
+    monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
   } catch (e) {}
 }
 
@@ -1375,7 +1353,7 @@ function deleteMonitoringClient(clientName) {
 function resetMonitoringToDefault() {
   if (!confirm("¿Deseas recargar los datos predeterminados de monitoreo (Walmart y BAC)?")) return;
   if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
-    monitoringData = cloneDeepData(window.DEFAULT_MONITORING_DATA);
+    monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
     saveMonitoringToIndexedDB(true);
     refreshMonitoringAnalysis();
     if (typeof showToast === 'function') {
@@ -1508,9 +1486,7 @@ function updateMonitoringCloudBadge(status = 'online', message = null) {
 async function fetchFirebaseMonitoringDirect(showUserToast = false) {
   updateMonitoringCloudBadge('syncing', 'Consultando nube...');
   try {
-    const restUrl = await iexcaRestUrl('monitoring_data');
-    if (!restUrl) { updateMonitoringCloudBadge('offline'); return false; } // sin sesión
-    const res = await fetch(restUrl, {
+    const res = await fetch('https://iexca-suite-default-rtdb.firebaseio.com/monitoring_data.json', {
       cache: 'no-cache',
       headers: { 'Accept': 'application/json' }
     });
@@ -1549,29 +1525,21 @@ async function fetchFirebaseMonitoringDirect(showUserToast = false) {
 /**
  * Inicializa sincronización en tiempo real vía listener de Firebase + consulta REST inicial
  */
-// true = una consulta REST rápida (útil en móviles) además del listener; false = solo listener (1 descarga menos)
-const MONITORING_REST_FASTPATH = true;
-let _monitoringRestDone = false;
-let _monitoringSdkRetries = 0;
 function initFirebaseMonitoringSync() {
-  const sdkReady = typeof firebase !== 'undefined' && !!window.firebaseDb;
-  // La consulta REST se hace UNA sola vez por carga (antes se repetía en cada llamada: 3+ descargas del árbol completo)
-  if (!_monitoringRestDone && window.iexcaUser && (MONITORING_REST_FASTPATH || !sdkReady)) {
-    _monitoringRestDone = true;
-    fetchFirebaseMonitoringDirect(false);
-  }
+  // Disparar siempre la consulta REST rápida para móviles de forma inmediata
+  fetchFirebaseMonitoringDirect(false);
 
   if (isFirebaseSyncInitialized) return;
-  if (!sdkReady) {
-    // Si aún no está listo el SDK de Firebase, reintentar en 600ms (máx. ~24 s)
-    if (++_monitoringSdkRetries <= 40) setTimeout(initFirebaseMonitoringSync, 600);
+  if (typeof firebase === 'undefined' || !window.firebaseDb) {
+    // Si aún no está listo el SDK de Firebase, reintentar en 600ms
+    setTimeout(initFirebaseMonitoringSync, 600);
     return;
   }
   isFirebaseSyncInitialized = true;
 
   try {
     const dbRef = window.firebaseDb.ref('monitoring_data');
-    dbRef.on('value', debounceLatest((snapshot) => {
+    dbRef.on('value', (snapshot) => {
       const cloudData = snapshot.val();
       if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
         const { merged, hasNewLocalSnaps } = mergeMonitoringDatasets(monitoringData, cloudData);
@@ -1591,7 +1559,7 @@ function initFirebaseMonitoringSync() {
           syncMonitoringToFirebase(false);
         }
       }
-    }, 250), (err) => {
+    }, (err) => {
       console.warn("⚠️ [Firebase] Error en listener:", err);
       updateMonitoringCloudBadge('offline');
     });
@@ -1618,12 +1586,12 @@ function syncMonitoringToFirebase(immediate = false) {
   if (typeof firebase === 'undefined' || !window.firebaseDb) {
     // Fallback vía REST PUT si window.firebaseDb no está disponible
     try {
-      iexcaRestUrl('monitoring_data').then(u => u ? fetch(u, {
+      fetch('https://iexca-suite-default-rtdb.firebaseio.com/monitoring_data.json', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(monitoringData)
-      }) : null).then(r => {
-        if (r && r.ok) {
+      }).then(r => {
+        if (r.ok) {
           console.log("🔥 [Firebase REST] Monitoreo respaldado vía PUT.");
           updateMonitoringCloudBadge('online');
         }
@@ -1737,11 +1705,11 @@ function initMonitoringModule(force = false) {
   if (typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
     const def = window.DEFAULT_MONITORING_DATA;
     if (!monitoringData || Object.keys(monitoringData).length === 0) {
-      monitoringData = cloneDeepData(def);
+      monitoringData = JSON.parse(JSON.stringify(def));
     } else {
       Object.keys(def).forEach(clientKey => {
         if (!monitoringData[clientKey] || monitoringData[clientKey].length === 0) {
-          monitoringData[clientKey] = cloneDeepData(def[clientKey]);
+          monitoringData[clientKey] = JSON.parse(JSON.stringify(def[clientKey]));
         } else {
           const curList = monitoringData[clientKey];
           def[clientKey].forEach(ds => {
@@ -1773,7 +1741,7 @@ function initMonitoringModule(force = false) {
     loadMonitoringFromIndexedDB((loaded) => {
       if (!loaded) {
         if ((!monitoringData || Object.keys(monitoringData).length === 0) && typeof window !== 'undefined' && window.DEFAULT_MONITORING_DATA) {
-          monitoringData = cloneDeepData(window.DEFAULT_MONITORING_DATA);
+          monitoringData = JSON.parse(JSON.stringify(window.DEFAULT_MONITORING_DATA));
         }
       } else {
         // Si ya existían datos en IndexedDB, integrar cualquier snapshot nuevo de DEFAULT_MONITORING_DATA sin duplicar
@@ -1782,7 +1750,7 @@ function initMonitoringModule(force = false) {
           let hasNew = false;
           Object.keys(def).forEach(clientKey => {
             if (!monitoringData[clientKey] || monitoringData[clientKey].length === 0) {
-              monitoringData[clientKey] = cloneDeepData(def[clientKey]);
+              monitoringData[clientKey] = JSON.parse(JSON.stringify(def[clientKey]));
               hasNew = true;
             } else {
               const currentSnaps = monitoringData[clientKey];
