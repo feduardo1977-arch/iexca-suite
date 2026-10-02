@@ -482,7 +482,20 @@ function getMonitoringSupplyStatusFlag(row) {
       };
     }
 
-    // Si fue despachado como stock, entregado o en tránsito, pero la impresora aún tiene otra serie:
+    // Si fue despachado como EN TRÁNSITO:
+    if (/TRANSIT|TRÁNSIT|RUTA|ENVIAD|CAMINO/i.test(rowEst)) {
+      return {
+        flag: 'EN_TRANSITO',
+        statusText: `🚚 En Tránsito a Tienda${currTnrDesc}`,
+        activeTnr: currTnr,
+        badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs" title="EN TRÁNSITO: Suministro despachado en camino a la sucursal. El equipo opera actualmente con ${currTnr || 'serie en uso'}.">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>🚚 EN TRÁNSITO${currTnr ? ` (${currTnr})` : ''}</span>
+        </span>`
+      };
+    }
+
+    // Si fue despachado como stock, entregado o en resguardo, pero la impresora aún tiene otra serie:
     // Significa que está en resguardo / reserva en tienda
     return {
       flag: 'EN_STOCK_TIENDA',
@@ -503,6 +516,18 @@ function getMonitoringSupplyStatusFlag(row) {
       isVerified: false,
       badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-300 dark:border-blue-700 shadow-2xs" title="Suministro registrado en uso. La impresora no reporta actualmente en red.">
         <span>⚡ EN USO</span>
+      </span>`
+    };
+  }
+
+  if (/TRANSIT|TRÁNSIT|RUTA|ENVIAD|CAMINO/i.test(rowEst)) {
+    return {
+      flag: 'EN_TRANSITO',
+      statusText: '🚚 En Tránsito a Tienda (Sin telemetría en vivo)',
+      isVerified: false,
+      badge: `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs" title="Suministro despachado en camino a la sucursal.">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+        <span>🚚 EN TRÁNSITO</span>
       </span>`
     };
   }
@@ -3562,24 +3587,301 @@ function goToFolioDetail(folioNum, serie) {
   }
 }
 
-// Despacho directo desde alertas de monitoreo precargando datos
-function dispatchSalidaFromAlert(serie, supplyType = 'TNR', level = 10) {
-  openDispatchAssistantModal(serie, supplyType, level);
+// =========================================================================
+// GESTIÓN DE PEDIDOS Y CONTROL ANTIDUPLICIDAD (APPSHEET / ODS / FOLIOS)
+// =========================================================================
+
+const IEXCA_APPSHEET_ORDERS_KEY = 'iexca_appsheet_recent_orders';
+
+function getStoredAppSheetOrders() {
+  try {
+    return JSON.parse(localStorage.getItem(IEXCA_APPSHEET_ORDERS_KEY) || '{}');
+  } catch(e) {
+    return {};
+  }
 }
 
-// Creación de ticket desde alerta de monitoreo
+function savePrinterRecentOrder(serie, orderInfo = {}) {
+  if (!serie) return;
+  const serieUpper = serie.toString().trim().toUpperCase();
+  try {
+    const orders = getStoredAppSheetOrders();
+    orders[serieUpper] = {
+      serie: serieUpper,
+      ts: Date.now(),
+      fecha: orderInfo.fecha || new Date().toISOString().split('T')[0],
+      tipoSum: (orderInfo.tipoSum || 'TNR').toUpperCase(),
+      idTicket: (orderInfo.idTicket || '').toUpperCase(),
+      solicitud: (orderInfo.solicitud || '').toUpperCase(),
+      status: 'SOLICITADO_APPSHEET'
+    };
+    localStorage.setItem(IEXCA_APPSHEET_ORDERS_KEY, JSON.stringify(orders));
+  } catch(e) {
+    console.warn('Error saving printer recent order:', e);
+  }
+}
+
+function clearPrinterRecentOrder(serie) {
+  if (!serie) return;
+  const serieUpper = serie.toString().trim().toUpperCase();
+  try {
+    const orders = getStoredAppSheetOrders();
+    if (orders[serieUpper]) {
+      delete orders[serieUpper];
+      localStorage.setItem(IEXCA_APPSHEET_ORDERS_KEY, JSON.stringify(orders));
+    }
+  } catch(e) {
+    console.warn('Error clearing printer recent order:', e);
+  }
+}
+
+function isPrinterManualOrderMarked(serie) {
+  if (!serie) return false;
+  const serieUpper = serie.toString().trim().toUpperCase();
+  const orders = getStoredAppSheetOrders();
+  const entry = orders[serieUpper];
+  if (!entry) return false;
+  if (Date.now() - (entry.ts || 0) > 30 * 86400000) return false;
+  return true;
+}
+
+// Búsqueda inteligente de solicitud/despacho activo para un equipo (Previene duplicados)
+function getPrinterActivePendingRequest(serie) {
+  if (!serie) return null;
+  const serieUpper = serie.toString().trim().toUpperCase();
+
+  // 1. Verificar si tiene marca manual o pedido reciente de AppSheet registrado
+  const orders = getStoredAppSheetOrders();
+  const manualEntry = orders[serieUpper];
+  if (manualEntry && (Date.now() - (manualEntry.ts || 0) <= 30 * 86400000)) {
+    return {
+      hasActive: true,
+      type: 'APPSHEET_ORDER',
+      title: 'Pedido Registrado en AppSheet',
+      detail: manualEntry.solicitud ? manualEntry.solicitud : `Pedido de ${manualEntry.tipoSum || 'Suministro'}${manualEntry.idTicket ? ' (' + manualEntry.idTicket + ')' : ''}`,
+      dateStr: manualEntry.fecha || 'Reciente',
+      status: 'PEDIDO REGISTRADO',
+      badgeText: '📝 PEDIDO EN CURSO',
+      badgeClass: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700',
+      dotClass: 'bg-amber-500',
+      raw: manualEntry
+    };
+  }
+
+  // 2. Verificar en ODS (Incidentes de AppSheet) si hay un ticket no cerrado
+  if (typeof sheetStore !== 'undefined' && Array.isArray(sheetStore['ODS'])) {
+    const ods = sheetStore['ODS'];
+    for (let i = ods.length - 1; i >= 0; i--) {
+      const r = ods[i];
+      const rSer = String(r['SERIE'] || r['IMPRESOR'] || '').trim().toUpperCase();
+      if (rSer === serieUpper) {
+        const rEst = String(r['ESTADO'] || r['STATUS'] || 'ABIERTO').trim().toUpperCase();
+        const isClosed = rEst === 'FINALIZADO' || rEst === 'CERRADO' || rEst === 'CANCELADO' || rEst === 'ANULADO';
+        if (!isClosed) {
+          const tId = r['ID TICKET'] || r['ID'] || 'Ticket ODS';
+          const prob = String(r['PROBLEMA REPORTADO'] || r['PROBLEMA'] || r['FALLA'] || 'Atención técnica').trim();
+          const fDate = (typeof formatDateShort === 'function') ? formatDateShort(r['FECHA'] || r['Fecha']) : String(r['FECHA'] || '');
+          return {
+            hasActive: true,
+            type: 'ODS_ACTIVE',
+            title: 'Ticket ODS Activo en AppSheet',
+            detail: `${tId}: ${prob}`,
+            dateStr: fDate,
+            status: rEst,
+            badgeText: `🎫 TICKET ${tId}`,
+            badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800',
+            dotClass: 'bg-rose-500',
+            raw: r
+          };
+        }
+      }
+    }
+  }
+
+  // 3. Verificar en FOLIOS si el último despacho está EN TRÁNSITO o EN STOCK TIENDA
+  if (typeof sheetStore !== 'undefined' && Array.isArray(sheetStore['FOLIOS'])) {
+    const folios = sheetStore['FOLIOS'];
+    for (let i = folios.length - 1; i >= 0; i--) {
+      const f = folios[i];
+      const rImp = String(f['IMPRESOR'] || f['SERIE2'] || (f['SERIE SUM'] ? f['SERIE'] : '') || '').trim().toUpperCase();
+      if (rImp === serieUpper) {
+        const fEst = (typeof getRowRealStatus === 'function') ? getRowRealStatus(f).toUpperCase() : String(f['ESTADO SUM'] || f['STATUS BACKUP'] || '').toUpperCase();
+        const fNum = (typeof getFolioNumber === 'function') ? getFolioNumber(f) : (f['FOLIO'] || f['FOLIO ']);
+        const fDate = (typeof formatDateShort === 'function') ? formatDateShort(f['FECHA'] || f['Fecha']) : String(f['FECHA'] || '');
+        const tipoSum = f['TIPO SUM'] || 'Suministro';
+        const serieSum = formatSupplySerie(f['SERIE SUM'] || '');
+
+        if (/TRANSIT|TRÁNSIT|RUTA|ENVIAD|CAMINO/i.test(fEst)) {
+          return {
+            hasActive: true,
+            type: 'FOLIO_TRANSIT',
+            title: 'Despacho en Tránsito a Tienda',
+            detail: `Folio #${fNum} (${tipoSum} ${serieSum})`,
+            dateStr: fDate,
+            status: 'EN TRÁNSITO',
+            badgeText: `🚚 EN CAMINO (#${fNum})`,
+            badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700',
+            dotClass: 'bg-indigo-500',
+            raw: f
+          };
+        }
+
+        if (fEst.includes('STOCK') || fEst.includes('DISPONIBLE') || fEst === 'ENTREGADO') {
+          const ts = (typeof getRowDateTimestamp === 'function') ? getRowDateTimestamp(f) : 0;
+          if (ts && (Date.now() - ts <= 30 * 86400000)) {
+            return {
+              hasActive: true,
+              type: 'FOLIO_STOCK',
+              title: 'Suministro en Resguardo / Tienda',
+              detail: `Folio #${fNum} (${tipoSum} ${serieSum}) en tienda pendiente de colocar`,
+              dateStr: fDate,
+              status: 'EN STOCK TIENDA',
+              badgeText: `📦 EN RESGUARDO (#${fNum})`,
+              badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700',
+              dotClass: 'bg-emerald-500',
+              raw: f
+            };
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return null;
+}
+window.getPrinterActivePendingRequest = getPrinterActivePendingRequest;
+window.savePrinterRecentOrder = savePrinterRecentOrder;
+window.clearPrinterRecentOrder = clearPrinterRecentOrder;
+window.isPrinterManualOrderMarked = isPrinterManualOrderMarked;
+
+function updateManualOrderToggleButton(serieUpper) {
+  const btn = document.getElementById('btnToggleManualOrderAppSheet');
+  const txt = document.getElementById('btnToggleManualOrderText');
+  if (!btn || !txt) return;
+  const isMarked = isPrinterManualOrderMarked(serieUpper);
+  if (isMarked) {
+    txt.textContent = '✖️ Desmarcar Pedido';
+    btn.className = 'flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800 rounded-xl transition min-h-[40px] touch-manipulation cursor-pointer';
+    btn.title = 'Hacer clic para desmarcar este equipo como pedido realizado';
+  } else {
+    txt.textContent = '📌 Marcar como Pedido';
+    btn.className = 'flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 rounded-xl transition min-h-[40px] touch-manipulation cursor-pointer';
+    btn.title = 'Marcar este equipo como pedido realizado para alertar a otros usuarios en monitoreo';
+  }
+}
+window.updateManualOrderToggleButton = updateManualOrderToggleButton;
+
+function toggleCurrentPrinterManualOrder() {
+  if (!currentAppSheetEquipment || !currentAppSheetEquipment.serie) return;
+  const serie = currentAppSheetEquipment.serie;
+  if (isPrinterManualOrderMarked(serie)) {
+    clearPrinterRecentOrder(serie);
+    if (typeof showToast === 'function') showToast(`Marca de pedido eliminada para equipo ${serie}`);
+  } else {
+    const data = (typeof getAppSheetOrderData === 'function') ? getAppSheetOrderData() : {};
+    savePrinterRecentOrder(serie, {
+      tipoSum: data.TIPO_SUM || currentAppSheetEquipment.tipoSum || 'TNR',
+      idTicket: data.ID_TICKET || '',
+      solicitud: data.SOLICITUD || currentAppSheetEquipment.solicitudTexto || 'PEDIDO DE MONITOREO'
+    });
+    if (typeof showToast === 'function') showToast(`📌 Equipo ${serie} marcado como PEDIDO REALIZADO.`);
+  }
+  updateManualOrderToggleButton(serie);
+  
+  // Refrescar banner del modal si está abierto
+  const pendingReq = getPrinterActivePendingRequest(serie);
+  const warnBanner = document.getElementById('appsheetDuplicateWarningBanner');
+  if (warnBanner) {
+    if (pendingReq) {
+      warnBanner.classList.remove('hidden');
+      const elTitle = document.getElementById('appsheetDuplicateWarningTitle');
+      if (elTitle) elTitle.textContent = `⚠️ ¡ATENCIÓN! YA EXISTE UN PEDIDO / GESTIÓN PREVIA`;
+      const elDetail = document.getElementById('appsheetDuplicateWarningDetail');
+      if (elDetail) elDetail.textContent = `${pendingReq.title}: ${pendingReq.detail}`;
+      const elBadge = document.getElementById('appsheetDuplicateWarningBadge');
+      if (elBadge) elBadge.textContent = pendingReq.status || 'ACTIVO';
+      const elMeta = document.getElementById('appsheetDuplicateWarningMeta');
+      if (elMeta) elMeta.textContent = `Fecha detectada: ${pendingReq.dateStr}`;
+    } else {
+      warnBanner.classList.add('hidden');
+    }
+  }
+
+  // Refrescar tabla y tarjetas de monitoreo en tiempo real
+  if (typeof renderMonitoringTable === 'function') {
+    renderMonitoringTable();
+  }
+}
+window.toggleCurrentPrinterManualOrder = toggleCurrentPrinterManualOrder;
+
+function clearCurrentPrinterManualOrder() {
+  if (!currentAppSheetEquipment || !currentAppSheetEquipment.serie) return;
+  clearPrinterRecentOrder(currentAppSheetEquipment.serie);
+  if (typeof showToast === 'function') showToast(`Marca manual eliminada para ${currentAppSheetEquipment.serie}`);
+  toggleCurrentPrinterManualOrder();
+}
+window.clearCurrentPrinterManualOrder = clearCurrentPrinterManualOrder;
+
+// Despacho directo desde alertas de monitoreo precargando datos (con validación de duplicados)
+function dispatchSalidaFromAlert(serie, supplyType = 'TNR', level = 10) {
+  const serieUpper = (serie || '').toString().trim().toUpperCase();
+  const pendingReq = getPrinterActivePendingRequest(serieUpper);
+  if (pendingReq) {
+    const confirmMsg = `⚠️ ADVERTENCIA DE POSIBLE DUPLICIDAD:\n\n` +
+      `El equipo ${serieUpper} ya cuenta con una solicitud o despacho activo:\n` +
+      `• ${pendingReq.title}: ${pendingReq.detail}\n` +
+      `• Fecha: ${pendingReq.dateStr} | Estado: ${pendingReq.status}\n\n` +
+      `¿Deseas abrir el asistente de despacho de todos modos?`;
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+  }
+  openDispatchAssistantModal(serie, supplyType, level);
+}
+window.dispatchSalidaFromAlert = dispatchSalidaFromAlert;
+
+// Creación de ticket desde alerta de monitoreo (con validación de duplicados y apertura correcta)
 function dispatchTicketFromAlert(serie, modelo, cliente, ubicacion) {
-  if (typeof openNewOdsModal === 'function') {
-    openNewOdsModal({ serie, modelo, cliente, ubicacion });
+  const serieUpper = (serie || '').toString().trim().toUpperCase();
+  const pendingReq = getPrinterActivePendingRequest(serieUpper);
+  if (pendingReq) {
+    const confirmMsg = `⚠️ ADVERTENCIA DE POSIBLE DUPLICIDAD:\n\n` +
+      `El equipo ${serieUpper} ya cuenta con una solicitud o despacho activo:\n` +
+      `• ${pendingReq.title}: ${pendingReq.detail}\n` +
+      `• Fecha: ${pendingReq.dateStr} | Estado: ${pendingReq.status}\n\n` +
+      `¿Deseas abrir la creación de un nuevo Ticket ODS de todos modos?`;
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+  }
+
+  if (typeof openNewTicketModal === 'function') {
+    openNewTicketModal({
+      serie: serieUpper,
+      modelo,
+      cliente,
+      tienda: ubicacion,
+      falla: 'Alerta de monitoreo de suministros / Desgaste crítico'
+    });
+  } else if (typeof openNewOdsModal === 'function') {
+    openNewOdsModal({
+      serie: serieUpper,
+      modelo,
+      cliente,
+      tienda: ubicacion,
+      falla: 'Alerta de monitoreo de suministros / Desgaste crítico'
+    });
   } else if (typeof switchSuiteTab === 'function') {
     switchSuiteTab('tickets');
     if (typeof showToast === 'function') {
-      showToast(`Creando Ticket ODS para equipo ${serie}...`);
+      showToast(`Creando Ticket ODS para equipo ${serieUpper}...`);
     }
   } else {
-    alert(`Ticket ODS solicitado para equipo: ${serie} (${modelo}) - ${ubicacion}`);
+    alert(`Ticket ODS solicitado para equipo: ${serieUpper} (${modelo}) - ${ubicacion}`);
   }
 }
+window.dispatchTicketFromAlert = dispatchTicketFromAlert;
 
 function changeMonitoringPageSize(newSize) {
   monitoringPageSize = newSize;
@@ -3773,6 +4075,9 @@ function renderMonitoringTable() {
         </span>
       `;
     }
+
+    // Detección de solicitud activa o despacho en tránsito (Previene duplicidad)
+    const pendingReq = (typeof getPrinterActivePendingRequest === 'function') ? getPrinterActivePendingRequest(r.serie) : null;
 
     // Última Salida Folios con enlace interactivo
     let lastFolioHtml = '<span class="text-slate-400 italic text-[11px]">Sin salidas en FOLIOS</span>';
@@ -4025,6 +4330,14 @@ function renderMonitoringTable() {
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
             </button>
           </div>
+          ${pendingReq ? `
+            <div class="mt-1 flex items-center justify-center">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black ${pendingReq.badgeClass} shadow-2xs cursor-pointer" onclick="event.stopPropagation(); openDispatchAssistantModal('${r.serie}');" title="${pendingReq.title}: ${pendingReq.detail} (${pendingReq.dateStr}). Haz clic para gestionar o desmarcar.">
+                <span class="w-1.5 h-1.5 rounded-full ${pendingReq.dotClass} animate-pulse"></span>
+                <span>${pendingReq.badgeText}</span>
+              </span>
+            </div>
+          ` : ''}
         </td>
       `;
       fragment.appendChild(tr);
@@ -4337,7 +4650,15 @@ function renderMonitoringTable() {
               : '<span class="text-[11px] text-slate-400 italic">Sin salidas en FOLIOS</span>'
             }
           </div>
-          <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+          ${pendingReq ? `
+            <div class="w-full flex items-center justify-start pt-1 pb-0.5">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${pendingReq.badgeClass} shadow-2xs cursor-pointer" onclick="event.stopPropagation(); openDispatchAssistantModal('${r.serie}');" title="${pendingReq.title}: ${pendingReq.detail} (${pendingReq.dateStr}). Haz clic para gestionar o desmarcar.">
+                <span class="w-1.5 h-1.5 rounded-full ${pendingReq.dotClass} animate-pulse"></span>
+                <span>${pendingReq.badgeText}</span>
+              </span>
+            </div>
+          ` : ''}
+          <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end flex-wrap">
             ${r.lastFolio ? `
               <button type="button" onclick="goToFolioDetail('${getFolioNumber(r.lastFolio)}', '${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition" title="Consultar o modificar estatus del folio">
                 <span>👁️ Ver Folio</span>
@@ -4349,6 +4670,9 @@ function renderMonitoringTable() {
             ` : ''}
             <button type="button" onclick="dispatchSalidaFromAlert('${r.serie}', '${r.alertSupplyType || 'TNR'}', ${r.alertLevel !== null ? r.alertLevel : 10})" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition">
               <span>📦 Despachar</span>
+            </button>
+            <button type="button" onclick="dispatchTicketFromAlert('${r.serie}', '${r.modelo}', '${r.cliente}', '${r.ubicacion}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition" title="Crear Ticket ODS">
+              <span>🎫 Ticket</span>
             </button>
             <button type="button" onclick="openEquipmentHistoryModal('${r.serie}')" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition shrink-0" title="Ver Historial Completo y Folios">
               <span>📋 Ficha</span>
@@ -4730,6 +5054,28 @@ function openDispatchAssistantModal(serie, alertSupplyType = 'TNR', alertLevel =
   setVal('appsheetInputContacto', contacto);
   setVal('appsheetInputTelefono', telefono);
 
+  // Control Antiduplicidad en Modal Asistente
+  const pendingReqModal = (typeof getPrinterActivePendingRequest === 'function') ? getPrinterActivePendingRequest(serieUpper) : null;
+  const warnBanner = document.getElementById('appsheetDuplicateWarningBanner');
+  if (warnBanner) {
+    if (pendingReqModal) {
+      warnBanner.classList.remove('hidden');
+      const elWTitle = document.getElementById('appsheetDuplicateWarningTitle');
+      if (elWTitle) elWTitle.textContent = `⚠️ ¡ATENCIÓN! YA EXISTE UN PEDIDO / GESTIÓN PREVIA`;
+      const elWDetail = document.getElementById('appsheetDuplicateWarningDetail');
+      if (elWDetail) elWDetail.textContent = `${pendingReqModal.title}: ${pendingReqModal.detail}`;
+      const elWBadge = document.getElementById('appsheetDuplicateWarningBadge');
+      if (elWBadge) elWBadge.textContent = pendingReqModal.status || 'ACTIVO';
+      const elWMeta = document.getElementById('appsheetDuplicateWarningMeta');
+      if (elWMeta) elWMeta.textContent = `Fecha detectada: ${pendingReqModal.dateStr}`;
+    } else {
+      warnBanner.classList.add('hidden');
+    }
+  }
+  if (typeof updateManualOrderToggleButton === 'function') {
+    updateManualOrderToggleButton(serieUpper);
+  }
+
   const scrollBody = document.getElementById('modalAppSheetDispatchScrollBody');
   if (scrollBody) scrollBody.scrollTop = 0;
 
@@ -4913,6 +5259,18 @@ function launchAppSheetOrder() {
     navigator.clipboard.writeText(txt).catch(() => {});
   }
 
+  // Registrar automáticamente el pedido para protección antiduplicidad
+  if (data.SERIE && typeof savePrinterRecentOrder === 'function') {
+    savePrinterRecentOrder(data.SERIE, {
+      tipoSum: document.getElementById('appsheetInputTipoSum')?.value || 'TNR',
+      idTicket: data.ID_TICKET || '',
+      solicitud: data.SOLICITUD || ''
+    });
+    if (typeof updateManualOrderToggleButton === 'function') {
+      updateManualOrderToggleButton(data.SERIE);
+    }
+  }
+
   let fechaFmt = String(data.FECHA || '').trim();
   if (fechaFmt && /^\d{4}-\d{2}-\d{2}$/.test(fechaFmt)) {
     const p = fechaFmt.split('-');
@@ -4999,17 +5357,6 @@ function dispatchDirectToFoliosFromModal() {
       descripcion: `DESPACHO DE ${data.SOLICITUD} (${data.PORCENTAJE}) - PEDIDO APPSHEET`.toUpperCase()
     });
   }
-}
-
-// Acción Rápida: Crear Ticket Precargado en ODS
-function dispatchTicketFromAlert(serie, modelo, cliente, ubicacion) {
-  openNewTicketModal({
-    serie,
-    modelo,
-    cliente,
-    tienda: ubicacion,
-    falla: 'Alerta de monitoreo de suministros / Desgaste crítico'
-  });
 }
 
 // MODAL DE HISTORIAL DEL EQUIPO

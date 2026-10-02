@@ -1487,12 +1487,13 @@
               <option value="DESECHADO">🗑️ Desechado (Dañado/Baja)</option>
               <option value="ENTREGADO">✅ Entregado</option>
               <option value="INSTALADO">🔧 Instalado</option>
-              <option value="EN TRANSITO">🚚 En Tránsito / Pendiente</option>
+              <option value="EN TRÁNSITO">🚚 En Tránsito / Pendiente</option>
               <option value="CONSUMIDO">🪫 Consumido</option>
             </select>
             <select id="filterSalidasMonitoreo" onchange="filterSalidasTable()" class="text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2 py-1.5 font-medium">
               <option value="">🔍 Monitoreo</option>
               <option value="EN_USO">🟢 Verificados (En Uso)</option>
+              <option value="EN_TRANSITO">🚚 En Tránsito a Tienda</option>
               <option value="EN_STOCK_TIENDA">🟡 En Resguardo</option>
               <option value="SUSTITUIDO_DESECHO">⚠️ Sustituidos (Desecho)</option>
               <option value="DESECHADO">🗑️ Desechados</option>
@@ -2729,6 +2730,24 @@
 
       <!-- Contenido / Formulario -->
       <div id="modalAppSheetDispatchScrollBody" class="p-3.5 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 flex-1 min-h-0 min-w-0 w-full custom-scrollbar" style="overscroll-behavior: contain;">
+        <!-- Banner de Advertencia de Duplicidad / Pedido Existente -->
+        <div id="appsheetDuplicateWarningBanner" class="hidden p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border-2 border-rose-400 dark:border-rose-600 flex flex-col gap-1.5 shadow-sm">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-xl">⚠️</span>
+              <div class="min-w-0">
+                <p id="appsheetDuplicateWarningTitle" class="text-xs font-black text-rose-900 dark:text-rose-200 uppercase">¡ALERTA DE POSIBLE DUPLICIDAD!</p>
+                <p id="appsheetDuplicateWarningDetail" class="text-[11px] font-semibold text-rose-800 dark:text-rose-300">Ya existe un pedido o ticket activo para este equipo.</p>
+              </div>
+            </div>
+            <span id="appsheetDuplicateWarningBadge" class="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-100 uppercase border border-rose-300 dark:border-rose-700">ACTIVO</span>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-rose-700 dark:text-rose-400 border-t border-rose-200 dark:border-rose-800/60 pt-1 mt-0.5 flex-wrap gap-1">
+            <span id="appsheetDuplicateWarningMeta">Detectado en registros de ODS / FOLIOS</span>
+            <button type="button" onclick="clearCurrentPrinterManualOrder()" class="text-[10px] font-bold text-rose-700 dark:text-rose-300 underline hover:text-rose-900 dark:hover:text-rose-100 cursor-pointer">Limpiar marca manual</button>
+          </div>
+        </div>
+
         <!-- Banner de Resumen Rápido -->
         <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-2 min-w-0">
@@ -2890,8 +2909,11 @@
           <span class="pointer-events-none">🚀 Abrir Pedido en AppSheet</span>
         </button>
 
-        <!-- Botones Secundarios: FOLIOS, Copiar Resumen, Fila Tabulada -->
+        <!-- Botones Secundarios: Marcar Pedido, FOLIOS, Copiar Resumen, Fila Tabulada -->
         <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+          <button type="button" id="btnToggleManualOrderAppSheet" onclick="toggleCurrentPrinterManualOrder()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800 rounded-xl transition min-h-[40px] touch-manipulation cursor-pointer" title="Marcar o desmarcar este equipo como pedido realizado para alertar a otros usuarios en monitoreo">
+            <span id="btnToggleManualOrderText">📌 Marcar Pedido</span>
+          </button>
           <button type="button" onclick="dispatchDirectToFoliosFromModal()" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-2.5 sm:py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl transition min-h-[40px] touch-manipulation" title="Registrar también en hoja interna FOLIOS">
             <span>📦 Registrar en FOLIOS</span>
           </button>
@@ -10948,7 +10970,7 @@
         if (elIp && match.ip) elIp.value = match.ip;
 
         const elStatus = document.getElementById(`itemStatusBackup_${itemIndex}`);
-        if (elStatus && match.statusBackup) elStatus.value = match.statusBackup;
+        if (elStatus && !elStatus.value) elStatus.value = 'EN USO';
 
         // Si los datos generales del encabezado están vacíos, completarlos con este equipo:
         const elDet = document.getElementById('salidaDet');
@@ -11102,7 +11124,7 @@
                 <option value="REUTILIZADO" ${rawStatusBackup.includes('REUTILIZ') ? 'selected' : ''}>♻️ REUTILIZADO</option>
                 <option value="ENTREGADO" ${rawStatusBackup === 'ENTREGADO' ? 'selected' : ''}>✅ ENTREGADO</option>
                 <option value="INSTALADO" ${rawStatusBackup.includes('INSTALAD') ? 'selected' : ''}>🔧 INSTALADO</option>
-                <option value="EN TRANSITO" ${rawStatusBackup.includes('TRANSIT') ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
+                <option value="EN TRÁNSITO" ${/TRANSIT|TRÁNSIT|RUTA|ENVIAD|CAMINO/i.test(rawStatusBackup) ? 'selected' : ''}>🚚 EN TRÁNSITO</option>
                 <option value="CONSUMIDO" ${rawStatusBackup.includes('CONSUMID') ? 'selected' : ''}>🪫 CONSUMIDO</option>
               </select>
             </div>
@@ -12433,7 +12455,7 @@
       const isEnUso = stUpper === 'EN USO' || stUpper.includes('EN USO') || stUpper.includes('INSTALAD');
       const isDesech = stUpper.includes('DESECH') || stUpper.includes('BAJA');
       const isEntreg = stUpper === 'ENTREGADO';
-      const isTransit = stUpper.includes('TRANSIT');
+      const isTransit = /TRANSIT|TRÁNSIT|RUTA|ENVIAD|CAMINO/i.test(stUpper);
       const isConsum = stUpper.includes('CONSUMID') || stUpper.includes('AGOTAD');
       const isVendido = stUpper.includes('VENDID');
 
@@ -12474,6 +12496,8 @@
             if (!rowEst.includes('EN USO') && rowEst !== 'USO') return false;
           } else if (estadoFilter === 'DESECHADO') {
             if (!rowEst.includes('DESECH') && !rowEst.includes('BAJA') && !rowEst.includes('DAÑ') && !rowEst.includes('DAN') && !rowEst.includes('DEFECT')) return false;
+          } else if (estadoFilter === 'EN TRANSITO' || estadoFilter === 'EN TRÁNSITO') {
+            if (!/TRANSIT|TRÁNSIT|RUTA|ENVIAD|CAMINO/i.test(rowEst)) return false;
           } else if (!rowEst.includes(estadoFilter)) {
             return false;
           }
@@ -14025,16 +14049,20 @@
       }
 
       if (prefill) {
-        if (prefill.serie) {
-          document.getElementById('ticketSerieEquipo').value = prefill.serie;
-          onTicketSerieInput(prefill.serie);
+        const serieInput = document.getElementById('ticketSerie') || document.getElementById('ticketSerieEquipo');
+        if (prefill.serie && serieInput) {
+          serieInput.value = prefill.serie;
+          if (typeof onTicketSerieInput === 'function') {
+            onTicketSerieInput(prefill.serie);
+          }
         }
-        if (prefill.falla) document.getElementById('ticketFalla').value = prefill.falla;
-        if (prefill.cliente) document.getElementById('ticketCliente').value = prefill.cliente;
-        if (prefill.tienda) document.getElementById('ticketTienda').value = prefill.tienda;
-        if (prefill.modelo) document.getElementById('ticketModelo').value = prefill.modelo;
-        if (prefill.ip) document.getElementById('ticketIp').value = prefill.ip;
-        if (prefill.det) document.getElementById('ticketDet').value = prefill.det;
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; };
+        setVal('ticketFalla', prefill.falla);
+        setVal('ticketCliente', prefill.cliente);
+        setVal('ticketTienda', prefill.tienda);
+        setVal('ticketModelo', prefill.modelo);
+        setVal('ticketIp', prefill.ip);
+        setVal('ticketDet', prefill.det);
         if (badge && prefill.serie) {
           badge.textContent = `⚡ Ticket iniciado desde Monitoreo (${prefill.falla || 'Alerta'})`;
           badge.className = 'text-[10px] text-indigo-700 dark:text-indigo-300 font-bold';
@@ -14044,6 +14072,8 @@
       isTicketFormDirty = false;
       pushModalToHistory('modalTicketODS');
     }
+    window.openNewTicketModal = openNewTicketModal;
+    window.openNewOdsModal = openNewTicketModal;
 
     function closeTicketModal(force = false) {
       triggerModalClose('modalTicketODS', force);
